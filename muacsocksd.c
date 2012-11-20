@@ -27,15 +27,10 @@ typedef struct {
 } s5_rr_t;
 
 
-void do_run( int fd, struct sockaddr_storage *sa, socklen_t salen)
+void do_run( int fd, struct sockaddr *sa, socklen_t salen)
 {
-    char hbuf[NI_MAXHOST];
-    char abuf[INET6_ADDRSTRLEN];
-    
-    getnameinfo( (struct sockaddr*) sa, salen, hbuf, sizeof(hbuf)-1, NULL, 0, NI_NOFQDN);
-    getnameinfo( (struct sockaddr*) sa, salen, abuf, sizeof(abuf)-1, NULL, 0, NI_NUMERICHOST);
-    fprintf(stderr, "accepted connection from %s (%s) port %d: ", abuf, hbuf, ntohs( ((struct sockaddr_in6*) sin).sin_port));
-    close(fd);
+	fprintf(stderr, "%6d: waiting for socks request\n", (int) getpid());
+	close(fd);
 }
 
 int do_accept(int listener)
@@ -46,15 +41,23 @@ int do_accept(int listener)
     
     if ( (fd = accept(listener, (struct sockaddr*)&sa, &salen)) < 0 ) {
         perror("accept error");
+		return(-1);
     } else if ( (pid = fork()) < 0 ) {
 	    perror("fork error");
+		return(-1);
     } else if (pid == 0) {
         close(listener);
-        do_run(fd, sa, salen);
+        do_run(fd, (struct sockaddr*) &sa, salen);
         exit(0);
     } else {
+	    char abuf[INET6_ADDRSTRLEN];
+		char pbuf[NI_MAXSERV];	
+	    getnameinfo( (struct sockaddr*) &sa, salen, abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, NI_NUMERICHOST|NI_NUMERICSERV);
+	    fprintf(stderr, "master: forked %d to handle connection from %s port %s\n", pid, abuf, pbuf);
         close(fd);
     }
+	
+	return(0);
 }
 
 
@@ -62,10 +65,10 @@ int
 main(int c, char **v)
 {
     struct sockaddr_in6	sin;
-    struct event_base *base;
     int listener;
     int one  = 1;
     int zero = 0;
+	int ret = 0;
 
     char hbuf[NI_MAXHOST];
     char abuf[INET6_ADDRSTRLEN];
@@ -73,37 +76,37 @@ main(int c, char **v)
     setvbuf(stdout, NULL, _IONBF, 0);
     
 	/* set up v6 socket */
-    sin.sin_family = AF_INET6;
-    sin.sin_addr.s_addr = htonl(in6addr_any);
-    sin.sin_port = htons(10800);
+    sin.sin6_family = AF_INET6;
+    sin.sin6_addr = in6addr_any;
+    sin.sin6_port = htons(10800);
     listener = socket(AF_INET6, SOCK_STREAM, 0);
     
     setsockopt(listener, IPPROTO_IPV6, IPV6_V6ONLY, &zero, sizeof(zero));
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 	
     /* try to bind */
-    getnameinfo(&sin, sizeof(sin), hbuf, sizeof(hbuf)-1, NULL, 0, NI_NOFQDN);
-    getnameinfo(&sin, sizeof(sin), abuf, sizeof(abuf)-1,  NULL, 0, NI_NUMERICHOST);
-    fprintf(stderr, "trying to bind to %s (%s) port %d: ", abuf, hbuf, ntohs(sin.sin_port));
-    if( bind(listener, sin, sizeof(sin) == 0 ) {
+    getnameinfo( (struct sockaddr*) &sin, sizeof(sin), hbuf, sizeof(hbuf)-1, NULL, 0, NI_NOFQDN);
+    getnameinfo( (struct sockaddr*) &sin, sizeof(sin), abuf, sizeof(abuf)-1,  NULL, 0, NI_NUMERICHOST);
+    fprintf(stderr, "master: trying to bind to %s (%s) port %d: ", abuf, hbuf, ntohs(sin.sin6_port));
+    if( bind(listener, (struct sockaddr*) &sin, sizeof(sin)) == 0 ) {
         fprintf(stderr, "ok\n");
     } else {
-        perror();
+        perror("errs");
         exit(1);
     }
     
     /* try to listen */
-    fprintf(stderr, "trying to listen: ");
+    fprintf(stderr, "master: trying to listen: ");
 	if( listen(listener, 16) == 0 ) {
         fprintf(stderr, "ok\n");
     } else {
-        perror();
+        perror("err");
         exit(1);
     }
     
-    fprintf(stderr, "start accepting clients...\n");
-    while( do_accept(listener) == 0 )
+    fprintf(stderr, "master: start accepting clients...\n");
+    while( (ret = do_accept(listener)) == 0 )
        ;;
     
- 
+	return(ret);
 }
