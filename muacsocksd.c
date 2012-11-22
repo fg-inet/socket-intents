@@ -33,20 +33,23 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
     int i = 0;
     struct sockaddr_storage local_out = {}, remote_out = {};
 	char muacc_ctx[255] = {}; 
+    char abuf[INET6_ADDRSTRLEN];
+	char pbuf[NI_MAXSERV];
+    char nbuf[NI_MAXHOST];
     
-	union socks5_inputbuffer 
+	union s5_inputbuffer 
 	{
 		struct
 		{
 			u_int8_t version;
 			u_int8_t nmethods;
 			u_int8_t method[255];
-		} socks5_auth_req;
+		} auth_req;
 		struct
 		{
 			u_int8_t version;
 			u_int8_t method;
-		} socks5_auth_resp;
+		} auth_resp;
 		struct 
 		{
 			u_int8_t version;
@@ -64,99 +67,135 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
                 } ipv6;
 				struct {
                     u_int8_t len;
-                    u_int8_t fqdn[257];
-					/* fqdn+len is port */
+                    u_int8_t fqdn[255];
+					u_int16_t port_pad; /* fqdn+len is real port */
                 } domain_name;
             } addr;
-        } socks5_command;
+        } cmd;
         u_int8_t raw[1500];
-    } socks5_iobuffer __attribute__((__packed__));
+    } s5_iobuffer __attribute__((__packed__));
+	memset(&s5_iobuffer, 0x0, sizeof(s5_iobuffer));
 	
 	/* handle authentication */
-	fprintf(stderr, "%6d: waiting for socks5 authentication\n", (int) getpid());
+	fprintf(stderr, "%6d: waiting for authentication\n", (int) getpid());
 	while( (flags & SOCKS5_AUTHDONE) == 0 )
 	{
         /* read request */
-		rlen = read(fd, &socks5_iobuffer, sizeof(socks5_iobuffer));
+		memset(&s5_iobuffer, 0x0, sizeof(s5_iobuffer));
+		rlen = read(fd, &s5_iobuffer, sizeof(s5_iobuffer));
 		if (rlen == 0) 
 			goto do_socks_closed;
 		else if ( rlen < 0 )
 			goto do_socks_error;
         else if ( rlen < 3 )
         {
-            fprintf(stderr, "%6d: error while handling socks5 authentication: request too small\n", (int) getpid());
+            fprintf(stderr, "%6d: error while handling authentication: request too small\n", (int) getpid());
             goto do_socks_closed;
         }
-        else if ( socks5_iobuffer.socks5_auth_req.version != 0x05 )
+        else if ( s5_iobuffer.auth_req.version != 0x05 )
         {
-            fprintf(stderr, "%6d: error while handling socks5 authentication: wrong protocol version\n", (int) getpid());
+            fprintf(stderr, "%6d: error while handling authentication: wrong protocol version\n", (int) getpid());
             goto do_socks_closed;
         }
-        else if ( rlen < socks5_iobuffer.socks5_auth_req.nmethods+2 )
+        else if ( rlen < s5_iobuffer.auth_req.nmethods+2 )
         {
-            fprintf(stderr, "%6d: error while handling socks5 authentication: packet too small\n", (int) getpid());
+            fprintf(stderr, "%6d: error while handling authentication: packet too small\n", (int) getpid());
             goto do_socks_closed;
         }
         
-        for (i = 0; i < socks5_iobuffer.socks5_auth_req.nmethods; i++)
+        for (i = 0; i < s5_iobuffer.auth_req.nmethods; i++)
         {
-            if (socks5_iobuffer.socks5_auth_req.method[i] == SOCKS5_NOAUTH)
+            if (s5_iobuffer.auth_req.method[i] == SOCKS5_NOAUTH)
             {
                 flags |= SOCKS5_AUTHDONE;
-                socks5_iobuffer.socks5_auth_resp.method = SOCKS5_NOAUTH;
-                send(fd, &socks5_iobuffer, 2, 0);
+                s5_iobuffer.auth_resp.method = SOCKS5_NOAUTH;
+                send(fd, &s5_iobuffer, 2, 0);
                 break;
             }
         }
 	}
-    fprintf(stderr, "%6d: socks5 authentication done\n", (int) getpid());
+    fprintf(stderr, "%6d: authentication done\n", (int) getpid());
 
     /* parse request */
-    rlen = read(fd, &socks5_iobuffer, sizeof(socks5_iobuffer));
+	memset(&s5_iobuffer, 0x0, sizeof(s5_iobuffer));
+    rlen = read(fd, &s5_iobuffer, sizeof(s5_iobuffer));
     if (rlen == 0)
         goto do_socks_closed;
     else if ( rlen < 0 )
         goto do_socks_error;
     else if ( rlen < 10 )
     {
-        fprintf(stderr, "%6d: error while handling socks5 request: request too small\n", (int) getpid());
+        fprintf(stderr, "%6d: error while handling request: request too small\n", (int) getpid());
         goto do_socks_closed;
     }
-    else if ( socks5_iobuffer.socks5_command.version != 0x05 )
+    else if ( s5_iobuffer.cmd.version != 0x05 )
     {
-        fprintf(stderr, "%6d: error while handling socks5 request: wrong protocol version\n", (int) getpid());
+        fprintf(stderr, "%6d: error while handling request: wrong protocol version\n", (int) getpid());
         goto do_socks_closed;
     }
     
     /* handle commands */
-    if (socks5_iobuffer.socks5_command.command == SOCKS5_CONNECT)
+    if (s5_iobuffer.cmd.command == SOCKS5_CONNECT)
     {
         /* TCP connect request - check address and resolve if needed */
-        if (socks5_iobuffer.socks5_command.atyp == SOCKS5_IPV4 &&
+        if (s5_iobuffer.cmd.atyp == SOCKS5_IPV4 &&
 			rlen >= 10 )
         {
             /* ipv4 */
             struct sockaddr_in *sin = (struct sockaddr_in *) &remote_out;
-            sin->sin_family = AF_INET;
-            memcpy(&(sin->sin_addr), &socks5_iobuffer.socks5_command.addr.ipv4.sin_addr, sizeof(struct in_addr));
-            sin->sin_port = socks5_iobuffer.socks5_command.addr.ipv4.port;
+			sin->sin_family = AF_INET;
+			
+            memcpy(&(sin->sin_addr), &s5_iobuffer.cmd.addr.ipv4.sin_addr, sizeof(struct in_addr));
+            
+			sin->sin_port = s5_iobuffer.cmd.addr.ipv4.port;
+			
+			getnameinfo( (struct sockaddr*) sin, sizeof(struct sockaddr_in),
+					 	 abuf, sizeof(abuf)-1, NULL, 0,
+					     NI_NUMERICHOST|NI_NUMERICSERV);
+	        fprintf(stderr, "%6d: got connect request (v4) to %s port %d\n", (int) getpid(), abuf, ntohs(sin->sin_port));
+			
         }
-        else if (socks5_iobuffer.socks5_command.atyp == SOCKS5_IPV6 &&
+        else if (s5_iobuffer.cmd.atyp == SOCKS5_IPV6 &&
 				 rlen >= 22)
         {
+			/* ipv6 */
             struct sockaddr_in6 *sin = (struct sockaddr_in6 *) &remote_out;
             sin->sin6_family = AF_INET6;
-            memcpy(&(sin->sin6_addr), &socks5_iobuffer.socks5_command.addr.ipv6.sin6_addr, sizeof(struct in6_addr));
-            sin->sin6_port = socks5_iobuffer.socks5_command.addr.ipv6.port;
+			
+            memcpy(&(sin->sin6_addr), &s5_iobuffer.cmd.addr.ipv6.sin6_addr, sizeof(struct in6_addr));
+            
+			sin->sin6_port = s5_iobuffer.cmd.addr.ipv6.port;
+			
+			getnameinfo( (struct sockaddr*) sin, sizeof(struct sockaddr_in6),
+					     abuf, sizeof(abuf)-1, NULL, 0,
+						 NI_NUMERICHOST|NI_NUMERICSERV);
+	        fprintf(stderr, "%6d: got connect request (v6) to %s port %d\n", (int) getpid(), abuf, ntohs(sin->sin6_port));
         }
-        else if (socks5_iobuffer.socks5_command.atyp == SOCKS5_DOMAIN &&
-				 rlen >= (4+1+socks5_iobuffer.socks5_command.addr.domain_name.len+2))
+        else if (s5_iobuffer.cmd.atyp == SOCKS5_DOMAIN &&
+				 rlen >= (4+1+s5_iobuffer.cmd.addr.domain_name.len+2))
 		{
+			/* fqdn */
+            struct sockaddr_in6 *sin = (struct sockaddr_in6 *) &remote_out;
+			memset(&nbuf, 0x0, sizeof(nbuf));
+			
+			/* safely copy over fqdn from request packet */
+			assert(NI_MAXHOST > sizeof(s5_iobuffer.cmd.addr.domain_name.fqdn) &&
+				   sizeof(s5_iobuffer.cmd.addr.domain_name.fqdn) == 255);
+			memcpy(nbuf, 
+				   s5_iobuffer.cmd.addr.domain_name.fqdn,
+				   s5_iobuffer.cmd.addr.domain_name.len);
+			assert(nbuf[s5_iobuffer.cmd.addr.domain_name.len] == 0x00);			
+            
+			/* peel out port */
+            memcpy( &(sin->sin6_port), 
+				    s5_iobuffer.cmd.addr.domain_name.fqdn+s5_iobuffer.cmd.addr.domain_name.len,
+				    sizeof(sin->sin6_port));
 
+	        fprintf(stderr, "%6d: got connect request (name) to %s port %d\n", (int) getpid(), nbuf, ntohs(sin->sin6_port));
 		}
 		else
 		{
-	        fprintf(stderr, "%6d: error while handling socks5 request: request too small for given address type\n", (int) getpid());
+	        fprintf(stderr, "%6d: error while handling request: request too small for given address type\n", (int) getpid());
 	        goto do_socks_closed;	
 		}
         
@@ -164,10 +203,10 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
     else
     {
         /* unsupported command */
-        fprintf(stderr, "%6d: error while handling socks5 request: insupported command %x\n", (int) getpid(), socks5_iobuffer.socks5_command.command);
-        socks5_iobuffer.socks5_command.command = SOCKS5_CUNSUPPORTED;
-        socks5_iobuffer.socks5_command.reserved = 0x00;
-        send(fd, &socks5_iobuffer, rlen, 0);
+        fprintf(stderr, "%6d: error while handling s5 request: unsupported command %x\n", (int) getpid(), s5_iobuffer.cmd.command);
+        s5_iobuffer.cmd.command = SOCKS5_CUNSUPPORTED;
+        s5_iobuffer.cmd.reserved = 0x00;
+        send(fd, &s5_iobuffer, rlen, 0);
         goto do_socks_closed;
     }
 
@@ -175,7 +214,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
     goto do_socks_closed;
     
 do_socks_error:
-	fprintf(stderr, "%6d: i/o error while handling socks5 request:\n", (int) getpid());
+	fprintf(stderr, "%6d: i/o error while handling s5 request:\n", (int) getpid());
 	perror(NULL);
 	
 do_socks_closed:		
