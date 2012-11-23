@@ -19,24 +19,31 @@
 #define SOCKS5_IPV6		0x04
 #define SOCKS5_CONNECT	0x01
 #define SOCKS5_SUCCESS	0x00
+#define SOCKS5_GFAIL	0x01
+#define SOCKS5_HOSTUNREACH	0x04
 #define SOCKS5_CUNSUPPORTED	0x07
 #define SOCKS5_AUNSUPPORTED	0x08
-#define SOCKS5_GFAIL	0x01
 
 
 
 void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, struct sockaddr *local_in, socklen_t local_in_len)
 {
-	
+	int fd2;
     int flags = 0;
 	int rlen = 0;
+	int ret = -1;
     int i = 0;
     struct sockaddr_storage local_out = {}, remote_out = {};
-	char muacc_ctx[255] = {}; 
     char abuf[INET6_ADDRSTRLEN];
 	char pbuf[NI_MAXSERV];
     char nbuf[NI_MAXHOST];
-    
+	struct addrinfo ai_hints = {};
+	struct addrinfo *ai_res = NULL;
+	
+	struct muacc_context ctx; 
+	muacc_init_context(&ctx);
+	fprintf(stderr, "%6d: initalizing mucc context: done", (int) getpid());
+	
 	union s5_inputbuffer 
 	{
 		struct
@@ -175,8 +182,9 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 				 rlen >= (4+1+s5_iobuffer.cmd.addr.domain_name.len+2))
 		{
 			/* fqdn */
-            struct sockaddr_in6 *sin = (struct sockaddr_in6 *) &remote_out;
+			struct sockaddr_in6 *sin;
 			memset(&nbuf, 0x0, sizeof(nbuf));
+			uint16_t port;
 			
 			/* safely copy over fqdn from request packet */
 			assert(NI_MAXHOST > sizeof(s5_iobuffer.cmd.addr.domain_name.fqdn) &&
@@ -187,17 +195,46 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 			assert(nbuf[s5_iobuffer.cmd.addr.domain_name.len] == 0x00);			
             
 			/* peel out port */
-            memcpy( &(sin->sin6_port), 
+            memcpy( &(port), 
 				    s5_iobuffer.cmd.addr.domain_name.fqdn+s5_iobuffer.cmd.addr.domain_name.len,
-				    sizeof(sin->sin6_port));
-
-	        fprintf(stderr, "%6d: got connect request (name) to %s port %d\n", (int) getpid(), nbuf, ntohs(sin->sin6_port));
+				    sizeof(uint16_t));
+			
+	        fprintf(stderr, "%6d: got connect request (name) to %s port %d\n", (int) getpid(), nbuf, ntohs(port));
+			
+			/* resolve */
+			ai_hints.ai_family = PF_UNSPEC;
+			ai_hints.ai_socktype = SOCK_STREAM;
+			ret = muacc_getaddrinfo(&ctx, nbuf, NULL, &ai_hints, &ai_res);
+		    if (ret) {
+		        fprintf(stderr, "%6d: resolve error: %s\n", (int) getpid(), gai_strerror(ret));
+		        s5_iobuffer.cmd.command = SOCKS5_HOSTUNREACH;
+		        s5_iobuffer.cmd.reserved = 0x00;
+		        send(fd, &s5_iobuffer, rlen, 0);
+		        goto do_socks_closed;
+		    }
+			
+			/* debug output */
+			getnameinfo( (struct sockaddr*) ai_res->ai_addr, ai_res->ai_addrlen,
+					     abuf, sizeof(abuf)-1, NULL, 0,
+						 NI_NUMERICHOST|NI_NUMERICSERV);
+			fprintf(stderr, "%6d: resolved %s to %s\n",(int) getpid(), nbuf, abuf);
+			
+			/* put result together */
+			memcpy(&remote_out, ai_res->ai_addr, ai_res->ai_addrlen);
+			sin = (struct sockaddr_in6 *) ai_res->ai_addr;
+			sin->sin6_port = port;
+			
 		}
 		else
 		{
 	        fprintf(stderr, "%6d: error while handling request: request too small for given address type\n", (int) getpid());
 	        goto do_socks_closed;	
 		}
+		
+		/* go ahead an connect */
+		fd2 = socket(remote_out.ss_family, SOCK_STREAM, 0)
+		connect(fd2, &remote_out, sizeof(remote_out));
+		
         
     }
     else
@@ -220,6 +257,7 @@ do_socks_error:
 do_socks_closed:		
 	fprintf(stderr, "%6d: connection closed\n", (int) getpid());
 	close(fd);
+	muacc_release_context(&ctx);
 }
 
 int do_accept(int listener)
