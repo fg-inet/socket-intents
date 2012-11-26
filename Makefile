@@ -1,4 +1,7 @@
-muacsocksd: muacsocksd.c
-	gcc -g -Wall -o muacsocksd muacsocksd.c
+muacsocksd: muacsocksd.c muacc.c
+	gcc -g -Wall -o muacsocksd muacsocksd.c muacc.c
 
-.PHONY: muacsocksd
+addrinfo: addrinfo.c muacc.c
+	gcc -g -Wall -o addrinfo addrinfo.c muacc.c
+
+.PHONY: muacsocksd addrinfo

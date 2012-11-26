@@ -24,7 +24,89 @@
 #define SOCKS5_CUNSUPPORTED	0x07
 #define SOCKS5_AUNSUPPORTED	0x08
 
+union s5_inputbuffer 
+{
+	struct
+	{
+		u_int8_t version;
+		u_int8_t nmethods;
+		u_int8_t method[255];
+	} auth_req;
+	struct
+	{
+		u_int8_t version;
+		u_int8_t method;
+	} auth_resp;
+	struct 
+	{
+		u_int8_t version;
+		u_int8_t command;
+		u_int8_t reserved;
+		u_int8_t atyp;
+        union {
+			struct {
+                struct in_addr sin_addr;
+				u_int16_t port;
+			} ipv4;
+			struct {
+            	struct in6_addr sin6_addr;
+				u_int16_t port;
+            } ipv6;
+			struct {
+                u_int8_t len;
+                u_int8_t fqdn[255];
+				u_int16_t port_pad; /* fqdn+len is real port */
+            } domain_name;
+        } addr;
+    } cmd;
+    u_int8_t raw[1500];
+} __attribute__((__packed__));
 
+
+int s5_replay(int fd, u_int8_t response, const struct sockaddr *addr)
+{
+	union s5_inputbuffer s5_iobuffer = {};
+	int rlen = sizeof(s5_iobuffer);
+	
+	s5_iobuffer.cmd.version = 0x05;
+	s5_iobuffer.cmd.command = response;
+	s5_iobuffer.cmd.reserved = 0x00;
+	
+	if(addr == NULL)
+	{
+		rlen = 4;
+	}
+	else if (addr->sa_family == AF_INET)
+	{
+        struct sockaddr_in *sin = (struct sockaddr_in *) addr;
+		sin->sin_family = AF_INET;
+		s5_iobuffer.cmd.atyp = SOCKS5_IPV4;
+        memcpy(&s5_iobuffer.cmd.addr.ipv4.sin_addr, &(sin->sin_addr), sizeof(struct in_addr));
+        s5_iobuffer.cmd.addr.ipv4.port = sin->sin_port;
+		rlen = 10;
+	} 
+	else if (addr->sa_family == AF_INET6)
+	{
+        struct sockaddr_in6 *sin = (struct sockaddr_in6 *) addr;
+        sin->sin6_family = AF_INET6;
+		s5_iobuffer.cmd.atyp = SOCKS5_IPV4;
+        memcpy(&s5_iobuffer.cmd.addr.ipv6.sin6_addr, &(sin->sin6_addr), sizeof(struct in6_addr));
+        s5_iobuffer.cmd.addr.ipv6.port = sin->sin6_port;
+		rlen = 22;	
+	}
+	else
+	{
+		rlen = 4;
+	}
+	
+    return send(fd, &s5_iobuffer, rlen, 0);
+}
+
+s2s_forward(int fd1, int fd2)
+{
+	
+	
+}
 
 void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, struct sockaddr *local_in, socklen_t local_in_len)
 {
@@ -34,53 +116,20 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 	int ret = -1;
     int i = 0;
     struct sockaddr_storage local_out = {}, remote_out = {};
+    socklen_t local_out_len, remote_out_len = sizeof(struct sockaddr_storage);
+	
     char abuf[INET6_ADDRSTRLEN];
 	char pbuf[NI_MAXSERV];
     char nbuf[NI_MAXHOST];
 	struct addrinfo ai_hints = {};
 	struct addrinfo *ai_res = NULL;
+	union s5_inputbuffer s5_iobuffer;
 	
 	struct muacc_context ctx; 
 	muacc_init_context(&ctx);
 	fprintf(stderr, "%6d: initalizing mucc context: done", (int) getpid());
 	
-	union s5_inputbuffer 
-	{
-		struct
-		{
-			u_int8_t version;
-			u_int8_t nmethods;
-			u_int8_t method[255];
-		} auth_req;
-		struct
-		{
-			u_int8_t version;
-			u_int8_t method;
-		} auth_resp;
-		struct 
-		{
-			u_int8_t version;
-			u_int8_t command;
-			u_int8_t reserved;
-			u_int8_t atyp;
-            union {
-				struct {
-	                struct in_addr sin_addr;
-					u_int16_t port;
-				} ipv4;
-				struct {
-                	struct in6_addr sin6_addr;
-					u_int16_t port;
-                } ipv6;
-				struct {
-                    u_int8_t len;
-                    u_int8_t fqdn[255];
-					u_int16_t port_pad; /* fqdn+len is real port */
-                } domain_name;
-            } addr;
-        } cmd;
-        u_int8_t raw[1500];
-    } s5_iobuffer __attribute__((__packed__));
+
 	memset(&s5_iobuffer, 0x0, sizeof(s5_iobuffer));
 	
 	/* handle authentication */
@@ -151,6 +200,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
             /* ipv4 */
             struct sockaddr_in *sin = (struct sockaddr_in *) &remote_out;
 			sin->sin_family = AF_INET;
+			remote_out_len = sizeof(struct sockaddr_in);
 			
             memcpy(&(sin->sin_addr), &s5_iobuffer.cmd.addr.ipv4.sin_addr, sizeof(struct in_addr));
             
@@ -168,6 +218,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 			/* ipv6 */
             struct sockaddr_in6 *sin = (struct sockaddr_in6 *) &remote_out;
             sin->sin6_family = AF_INET6;
+			remote_out_len = sizeof(struct sockaddr_in6);
 			
             memcpy(&(sin->sin6_addr), &s5_iobuffer.cmd.addr.ipv6.sin6_addr, sizeof(struct in6_addr));
             
@@ -184,7 +235,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 			/* fqdn */
 			struct sockaddr_in6 *sin;
 			memset(&nbuf, 0x0, sizeof(nbuf));
-			uint16_t port;
+			in_port_t port;
 			
 			/* safely copy over fqdn from request packet */
 			assert(NI_MAXHOST > sizeof(s5_iobuffer.cmd.addr.domain_name.fqdn) &&
@@ -213,16 +264,17 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 		        goto do_socks_closed;
 		    }
 			
-			/* debug output */
-			getnameinfo( (struct sockaddr*) ai_res->ai_addr, ai_res->ai_addrlen,
-					     abuf, sizeof(abuf)-1, NULL, 0,
-						 NI_NUMERICHOST|NI_NUMERICSERV);
-			fprintf(stderr, "%6d: resolved %s to %s\n",(int) getpid(), nbuf, abuf);
-			
 			/* put result together */
 			memcpy(&remote_out, ai_res->ai_addr, ai_res->ai_addrlen);
-			sin = (struct sockaddr_in6 *) ai_res->ai_addr;
-			sin->sin6_port = port;
+			remote_out_len = ai_res->ai_addrlen;
+			sin = (struct sockaddr_in6 *) &remote_out;			
+			memcpy(&(sin->sin6_port), &port, sizeof(in_port_t));
+			
+			/* debug output */
+			getnameinfo( (struct sockaddr*) &remote_out, remote_out_len,
+					     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf),
+						 NI_NUMERICHOST|NI_NUMERICSERV);
+			fprintf(stderr, "%6d: resolved %s to %s port %s\n",(int) getpid(), nbuf, abuf, pbuf);
 			
 		}
 		else
@@ -232,9 +284,47 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 		}
 		
 		/* go ahead an connect */
-		fd2 = socket(remote_out.ss_family, SOCK_STREAM, 0)
-		connect(fd2, &remote_out, sizeof(remote_out));
+		fd2 = socket(remote_out.ss_family, SOCK_STREAM, 0);
+		if (fd2 == 0)
+		{
+			fprintf(stderr, "%6d: error creating socket: ", (int) getpid());
+			perror(NULL);
+			s5_replay(fd, SOCKS5_GFAIL, NULL);
+	        goto do_socks_closed;
+		}
+		ret = muacc_connect(&ctx, fd2, (struct sockaddr *) &remote_out, remote_out_len);
+	    if (ret) {
+			getnameinfo( (struct sockaddr*) &remote_out, sizeof(remote_out),
+					     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, 
+						 NI_NUMERICHOST|NI_NUMERICSERV);
+			fprintf(stderr, "%6d: error while connecting to remote host af %d host %s port %s: ", (int) getpid(), remote_out.ss_family, abuf, pbuf); 
+			perror(NULL);
+			s5_replay(fd, SOCKS5_HOSTUNREACH, NULL);
+	        goto do_socks_closed;
+		}
 		
+		/* get local end */
+		ret = getsockname(fd2, (struct sockaddr *) &local_out, &local_out_len);
+	    if (ret) {
+			fprintf(stderr, "%6d: error getting local address while connecting to remote host: ", (int) getpid()); 
+			perror(NULL);
+			s5_replay(fd, SOCKS5_GFAIL, NULL);
+	        goto do_socks_closed;
+		}
+		
+		/* print debug info */
+		getnameinfo( (struct sockaddr*) &local_out, sizeof(local_out),
+				     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, 
+					 NI_NUMERICHOST|NI_NUMERICSERV);
+        fprintf(stderr, "%6d: connect sucsessful - local end is %s port %s\n", (int) getpid(), abuf, pbuf);
+		
+		/* send ok */
+		s5_replay(fd, SOCKS5_SUCCESS, (struct sockaddr *) &local_out);
+
+		/* forward stuff */
+		s2s_forward(fd, fd2);
+
+        goto do_socks_closed;
         
     }
     else

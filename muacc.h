@@ -26,8 +26,8 @@ int muacc_release_context(struct muacc_context *ctx);
 int muacc_getaddrinfo(struct muacc_context *ctx,
 		const char *hostname, const char *servname,
 		const struct addrinfo *hints, struct addrinfo **res);
-int muacc_bind(struct muacc_context *ctx,
-	    struct sockaddr *address, socklen_t address_len);
 int muacc_setsockopt(struct muacc_context *ctx, 
         int socket, int level, int option_name,
         const void *option_value, socklen_t option_len);
+int muacc_connect(struct muacc_context *ctx,
+	    int socket, struct sockaddr *address, socklen_t address_len);
