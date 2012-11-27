@@ -67,6 +67,7 @@ int s5_replay(int fd, u_int8_t response, const struct sockaddr *addr)
 {
 	union s5_inputbuffer s5_iobuffer = {};
 	int rlen = sizeof(s5_iobuffer);
+	int resp = 0;
 	
 	s5_iobuffer.cmd.version = 0x05;
 	s5_iobuffer.cmd.command = response;
@@ -99,7 +100,14 @@ int s5_replay(int fd, u_int8_t response, const struct sockaddr *addr)
 		rlen = 4;
 	}
 	
-    return send(fd, &s5_iobuffer, rlen, 0);
+	resp = send(fd, &s5_iobuffer, rlen, 0);
+	
+	if(rlen != resp) 
+	{
+		fprintf(stderr, "%6d: sending reply failed: ", (int) getpid());
+		perror(NULL);
+	}
+  return resp;
 }
 
 int s2s_forward(int fda, int fdb)
@@ -176,8 +184,10 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 	int rlen = 0;
 	int ret = -1;
     int i = 0;
-    struct sockaddr_storage local_out = {}, remote_out = {};
-    socklen_t local_out_len, remote_out_len = sizeof(struct sockaddr_storage);
+    struct sockaddr_storage local_out;
+	struct sockaddr_storage remote_out;
+    socklen_t local_out_len = sizeof(struct sockaddr_storage); 
+	socklen_t remote_out_len = sizeof(struct sockaddr_storage);
 	
     char abuf[INET6_ADDRSTRLEN];
 	char pbuf[NI_MAXSERV];
@@ -344,17 +354,27 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 	        goto do_socks_closed;	
 		}
 		
-		/* go ahead an connect */
+		/* create socket */
 		fd2 = socket(remote_out.ss_family, SOCK_STREAM, 0);
-		if (fd2 == 0)
+		if (fd2 <= 0)
 		{
 			fprintf(stderr, "%6d: error creating socket: ", (int) getpid());
 			perror(NULL);
 			s5_replay(fd, SOCKS5_GFAIL, NULL);
 	        goto do_socks_closed;
 		}
+		
+		/* go ahead an connect */
 		ret = muacc_connect(&ctx, fd2, (struct sockaddr *) &remote_out, remote_out_len);
-	    if (ret) {
+	 	if (ret == 0) 
+		{
+			getnameinfo( (struct sockaddr*) &remote_out, sizeof(remote_out),
+					     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, 
+						 NI_NUMERICHOST|NI_NUMERICSERV);
+			fprintf(stderr, "%6d: connect successful - remote host af %d host %s port %s\n", (int) getpid(), remote_out.ss_family, abuf, pbuf);	
+		}
+		else
+		{
 			getnameinfo( (struct sockaddr*) &remote_out, sizeof(remote_out),
 					     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, 
 						 NI_NUMERICHOST|NI_NUMERICSERV);
@@ -365,8 +385,10 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 		}
 		
 		/* get local end */
+		memset(&local_out, 0x00, sizeof(local_out));
 		ret = getsockname(fd2, (struct sockaddr *) &local_out, &local_out_len);
-	    if (ret) {
+	  	if ( ret != 0 ) 
+		{
 			fprintf(stderr, "%6d: error getting local address while connecting to remote host: ", (int) getpid()); 
 			perror(NULL);
 			s5_replay(fd, SOCKS5_GFAIL, NULL);
@@ -374,11 +396,18 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 		}
 		
 		/* print debug info */
-		getnameinfo( (struct sockaddr*) &local_out, sizeof(local_out),
+		ret = getnameinfo( (struct sockaddr*) &local_out, sizeof(local_out),
 				     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, 
 					 NI_NUMERICHOST|NI_NUMERICSERV);
-        fprintf(stderr, "%6d: connect sucsessful - local end is %s port %s\n", (int) getpid(), abuf, pbuf);
-		
+		if (ret == 0) 
+		{
+    		fprintf(stderr, "%6d: connect successful - local end is %s port %s\n", (int) getpid(), abuf, pbuf);
+		} 
+		else
+		{
+			fprintf(stderr, "%6d: connect ambiguous - failed to get local address: %s af %d\n", (int) getpid(), gai_strerror(ret), local_out.ss_family);
+			exit(1);
+		}
 		/* send ok */
 		s5_replay(fd, SOCKS5_SUCCESS, (struct sockaddr *) &local_out);
 
@@ -478,7 +507,7 @@ main(int c, char **v)
 	/* set up v6 socket */
     sin.sin6_family = AF_INET6;
     sin.sin6_addr = in6addr_any;
-    sin.sin6_port = htons(10800);
+    sin.sin6_port = htons(9050);
     listener = socket(AF_INET6, SOCK_STREAM, 0);
     
     setsockopt(listener, IPPROTO_IPV6, IPV6_V6ONLY, &zero, sizeof(zero));
