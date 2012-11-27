@@ -102,9 +102,70 @@ int s5_replay(int fd, u_int8_t response, const struct sockaddr *addr)
     return send(fd, &s5_iobuffer, rlen, 0);
 }
 
-s2s_forward(int fd1, int fd2)
+int s2s_forward(int fda, int fdb)
 {
+	int ret;
+	fd_set read_fds;
+	char ab_buf[1500];
+	char ba_buf[1500];
+	size_t ab_size;
+	size_t ba_size;
+	struct timeval tv;
 	
+    tv.tv_sec = 5;       /* timeout (secs.) */
+    tv.tv_usec = 0;      /* 0 microseconds */
+	
+	fprintf(stderr, "%6d: enterint io loop: ", (int) getpid());
+	
+	for(;;)
+	{
+		FD_ZERO(&read_fds);
+		FD_SET(fda, &read_fds);
+		FD_SET(fdb, &read_fds);
+		
+		ret = select((fda>fdb?fda:fdb)+1, &read_fds, NULL, NULL, &tv);
+				
+		if ( ret < 0 ) 
+		{
+			fprintf(stderr, "%6d: error in select: ", (int) getpid());
+			perror(NULL);
+			return(-1);
+		}
+		else if (ret == 0)
+		{
+			fprintf(stderr, ".");
+		}
+		else
+		{			
+			if(FD_ISSET(fda, &read_fds))
+			{
+				ab_size = read(fda, ab_buf, sizeof(ab_buf));
+				if (ab_size == 0)
+				{
+					/* socket closed */
+					fprintf(stderr, "%6d: connection closed by local\n", (int) getpid());
+					return(fda);
+				}
+				fprintf(stderr, ">");
+				write(fdb, ab_buf, ab_size);
+			}
+			if(FD_ISSET(fdb, &read_fds))
+			{
+				ba_size = read(fdb, ba_buf, sizeof(ba_buf));
+				if (ba_size == 0)
+				{
+					/* socket closed */
+					fprintf(stderr, "%6d: connection closed by remote\n", (int) getpid());
+					return(fdb);
+				}
+				fprintf(stderr, "<");
+				write(fda, ba_buf, ba_size);
+			}
+		}
+				
+	}
+	
+	return(-1);
 	
 }
 
@@ -412,7 +473,7 @@ main(int c, char **v)
     char hbuf[NI_MAXHOST];
     char abuf[INET6_ADDRSTRLEN];
     
-    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
     
 	/* set up v6 socket */
     sin.sin6_family = AF_INET6;
