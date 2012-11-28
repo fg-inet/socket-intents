@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-#include "muacc.h"
+#include "../clib/muacc.h"
 
 /* socks 5 protocol stuff */
 #define SOCKS5_AUTHDONE	0x1000
