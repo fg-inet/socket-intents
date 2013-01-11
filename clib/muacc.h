@@ -2,7 +2,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#define MUACC_CTX_
+#define _MUACC_CTX_
 
 typedef struct muacc_context {
 	struct _muacc_ctx *ctx;
@@ -11,6 +11,7 @@ typedef struct muacc_context {
 struct _muacc_ctx {
 	int flags;
 	int usage;
+	int msock;
 	struct sockaddr *bind_sa;
 	socklen_t bind_sa_len;
 	struct sockaddr *remote_sa;

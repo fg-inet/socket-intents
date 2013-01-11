@@ -123,7 +123,9 @@ int s2s_forward(int fda, int fdb)
     tv.tv_sec = 5;       /* timeout (secs.) */
     tv.tv_usec = 0;      /* 0 microseconds */
 	
-	fprintf(stderr, "%6d: enterint io loop: ", (int) getpid());
+	#ifdef NOISY_DEBUG
+	fprintf(stderr, "%6d: entering io loop: ", (int) getpid());
+	#endif
 	
 	for(;;)
 	{
@@ -141,7 +143,9 @@ int s2s_forward(int fda, int fdb)
 		}
 		else if (ret == 0)
 		{
+			#ifdef NOISY_DEBUG
 			fprintf(stderr, ".");
+			#endif
 		}
 		else
 		{			
@@ -150,11 +154,15 @@ int s2s_forward(int fda, int fdb)
 				ab_size = read(fda, ab_buf, sizeof(ab_buf));
 				if (ab_size == 0)
 				{
-					/* socket closed */
+					/* socket closed by local */
+					#ifdef NOISY_DEBUG
 					fprintf(stderr, "%6d: connection closed by local\n", (int) getpid());
+					#endif
 					return(fda);
 				}
+				#ifdef NOISY_DEBUG				
 				fprintf(stderr, ">");
+				#endif
 				write(fdb, ab_buf, ab_size);
 			}
 			if(FD_ISSET(fdb, &read_fds))
@@ -162,11 +170,15 @@ int s2s_forward(int fda, int fdb)
 				ba_size = read(fdb, ba_buf, sizeof(ba_buf));
 				if (ba_size == 0)
 				{
-					/* socket closed */
+					/* socket closed by remote */
+					#ifdef NOISY_DEBUG
 					fprintf(stderr, "%6d: connection closed by remote\n", (int) getpid());
+					#endif
 					return(fdb);
 				}
+				#ifdef NOISY_DEBUG
 				fprintf(stderr, "<");
+				#endif
 				write(fda, ba_buf, ba_size);
 			}
 		}
@@ -198,13 +210,16 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 	
 	struct muacc_context ctx; 
 	muacc_init_context(&ctx);
+	#ifdef NOISY_DEBUG
 	fprintf(stderr, "%6d: initalizing mucc context: done", (int) getpid());
-	
+	#endif
 
 	memset(&s5_iobuffer, 0x0, sizeof(s5_iobuffer));
 	
 	/* handle authentication */
+	#ifdef NOISY_DEBUG	
 	fprintf(stderr, "%6d: waiting for authentication\n", (int) getpid());
+	#endif
 	while( (flags & SOCKS5_AUTHDONE) == 0 )
 	{
         /* read request */
@@ -241,8 +256,10 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
             }
         }
 	}
+	#ifdef NOISY_DEBUG	
     fprintf(stderr, "%6d: authentication done\n", (int) getpid());
-
+	#endif
+	
     /* parse request */
 	memset(&s5_iobuffer, 0x0, sizeof(s5_iobuffer));
     rlen = read(fd, &s5_iobuffer, sizeof(s5_iobuffer));
@@ -277,10 +294,12 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
             
 			sin->sin_port = s5_iobuffer.cmd.addr.ipv4.port;
 			
+			#ifdef NOISY_DEBUG
 			getnameinfo( (struct sockaddr*) sin, sizeof(struct sockaddr_in),
 					 	 abuf, sizeof(abuf)-1, NULL, 0,
 					     NI_NUMERICHOST|NI_NUMERICSERV);
 	        fprintf(stderr, "%6d: got connect request (v4) to %s port %d\n", (int) getpid(), abuf, ntohs(sin->sin_port));
+			#endif
 			
         }
         else if (s5_iobuffer.cmd.atyp == SOCKS5_IPV6 &&
@@ -295,10 +314,12 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
             
 			sin->sin6_port = s5_iobuffer.cmd.addr.ipv6.port;
 			
+			#ifdef NOISY_DEBUG
 			getnameinfo( (struct sockaddr*) sin, sizeof(struct sockaddr_in6),
 					     abuf, sizeof(abuf)-1, NULL, 0,
 						 NI_NUMERICHOST|NI_NUMERICSERV);
 	        fprintf(stderr, "%6d: got connect request (v6) to %s port %d\n", (int) getpid(), abuf, ntohs(sin->sin6_port));
+			#endif
         }
         else if (s5_iobuffer.cmd.atyp == SOCKS5_DOMAIN &&
 				 rlen >= (4+1+s5_iobuffer.cmd.addr.domain_name.len+2))
@@ -321,7 +342,9 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 				    s5_iobuffer.cmd.addr.domain_name.fqdn+s5_iobuffer.cmd.addr.domain_name.len,
 				    sizeof(uint16_t));
 			
-	        fprintf(stderr, "%6d: got connect request (name) to %s port %d\n", (int) getpid(), nbuf, ntohs(port));
+			#ifdef NOISY_DEBUG
+	     	fprintf(stderr, "%6d: got connect request (name) to %s port %d\n", (int) getpid(), nbuf, ntohs(port));
+			#endif
 			
 			/* resolve */
 			ai_hints.ai_family = PF_UNSPEC;
@@ -341,11 +364,12 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 			sin = (struct sockaddr_in6 *) &remote_out;			
 			memcpy(&(sin->sin6_port), &port, sizeof(in_port_t));
 			
-			/* debug output */
+			#ifdef NOISY_DEBUG
 			getnameinfo( (struct sockaddr*) &remote_out, remote_out_len,
 					     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf),
 						 NI_NUMERICHOST|NI_NUMERICSERV);
 			fprintf(stderr, "%6d: resolved %s to %s port %s\n",(int) getpid(), nbuf, abuf, pbuf);
+			#endif
 			
 		}
 		else
@@ -368,10 +392,12 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 		ret = muacc_connect(&ctx, fd2, (struct sockaddr *) &remote_out, remote_out_len);
 	 	if (ret == 0) 
 		{
+			#ifdef NOISY_DEBUG
 			getnameinfo( (struct sockaddr*) &remote_out, sizeof(remote_out),
 					     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, 
 						 NI_NUMERICHOST|NI_NUMERICSERV);
 			fprintf(stderr, "%6d: connect successful - remote host af %d host %s port %s\n", (int) getpid(), remote_out.ss_family, abuf, pbuf);	
+			#endif
 		}
 		else
 		{
@@ -396,6 +422,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 		}
 		
 		/* print debug info */
+		#ifdef NOISY_DEBUG
 		ret = getnameinfo( (struct sockaddr*) &local_out, sizeof(local_out),
 				     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, 
 					 NI_NUMERICHOST|NI_NUMERICSERV);
@@ -408,6 +435,8 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 			fprintf(stderr, "%6d: connect ambiguous - failed to get local address: %s af %d\n", (int) getpid(), gai_strerror(ret), local_out.ss_family);
 			exit(1);
 		}
+		#endif
+		
 		/* send ok */
 		s5_replay(fd, SOCKS5_SUCCESS, (struct sockaddr *) &local_out);
 
@@ -434,8 +463,10 @@ do_socks_error:
 	fprintf(stderr, "%6d: i/o error while handling s5 request:\n", (int) getpid());
 	perror(NULL);
 	
-do_socks_closed:		
+do_socks_closed:
+	#ifdef NOISY_DEBUG		
 	fprintf(stderr, "%6d: connection closed\n", (int) getpid());
+	#endif
 	close(fd);
 	muacc_release_context(&ctx);
 }
@@ -479,8 +510,11 @@ int do_accept(int listener)
 		/* some debug output in master */
 	    char abuf[INET6_ADDRSTRLEN];
 		char pbuf[NI_MAXSERV];	
+		
+		#ifdef NOISY_DEBUG
 	    getnameinfo( (struct sockaddr*) &sa, salen, abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, NI_NUMERICHOST|NI_NUMERICSERV);
 	    fprintf(stderr, "master: forked %d to handle connection from %s port %s\n", pid, abuf, pbuf);
+		#endif
 		
 		/* close client fd */
         close(fd);
@@ -513,11 +547,14 @@ main(int c, char **v)
     setsockopt(listener, IPPROTO_IPV6, IPV6_V6ONLY, &zero, sizeof(zero));
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 	
-    /* try to bind */
+	#ifdef NOISY_DEBUG
     getnameinfo( (struct sockaddr*) &sin, sizeof(sin), hbuf, sizeof(hbuf)-1, NULL, 0, NI_NOFQDN);
     getnameinfo( (struct sockaddr*) &sin, sizeof(sin), abuf, sizeof(abuf)-1,  NULL, 0, NI_NUMERICHOST);
     fprintf(stderr, "master: trying to bind to %s (%s) port %d: ", abuf, hbuf, ntohs(sin.sin6_port));
-    if( bind(listener, (struct sockaddr*) &sin, sizeof(sin)) == 0 ) {
+    #endif
+    
+	/* try to bind */
+	if( bind(listener, (struct sockaddr*) &sin, sizeof(sin)) == 0 ) {
         fprintf(stderr, "ok\n");
     } else {
         perror("errs");
@@ -525,15 +562,22 @@ main(int c, char **v)
     }
     
     /* try to listen */
-    fprintf(stderr, "master: trying to listen: ");
+
+	#ifdef NOISY_DEBUG
+	fprintf(stderr, "master: trying to listen: ");
+	#endif
 	if( listen(listener, 16) == 0 ) {
+		#ifdef NOISY_DEBUG
         fprintf(stderr, "ok\n");
+		#endif
     } else {
-        perror("err");
+        perror("failed to listen");
         exit(1);
     }
     
+	#ifdef NOISY_DEBUG
     fprintf(stderr, "master: start accepting clients...\n");
+	#endif
     while( (ret = do_accept(listener)) == 0 )
        ;;
     
