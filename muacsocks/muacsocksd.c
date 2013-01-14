@@ -123,7 +123,7 @@ int s2s_forward(int fda, int fdb)
     tv.tv_sec = 5;       /* timeout (secs.) */
     tv.tv_usec = 0;      /* 0 microseconds */
 	
-	#ifdef NOISY_DEBUG
+	#ifdef SOCKSD_NOISY_DEBUG
 	fprintf(stderr, "%6d: entering io loop: ", (int) getpid());
 	#endif
 	
@@ -143,7 +143,7 @@ int s2s_forward(int fda, int fdb)
 		}
 		else if (ret == 0)
 		{
-			#ifdef NOISY_DEBUG
+			#ifdef SOCKSD_NOISY_DEBUG
 			fprintf(stderr, ".");
 			#endif
 		}
@@ -155,12 +155,12 @@ int s2s_forward(int fda, int fdb)
 				if (ab_size == 0)
 				{
 					/* socket closed by local */
-					#ifdef NOISY_DEBUG
+					#ifdef SOCKSD_NOISY_DEBUG
 					fprintf(stderr, "%6d: connection closed by local\n", (int) getpid());
 					#endif
 					return(fda);
 				}
-				#ifdef NOISY_DEBUG				
+				#ifdef SOCKSD_NOISY_DEBUG				
 				fprintf(stderr, ">");
 				#endif
 				write(fdb, ab_buf, ab_size);
@@ -171,12 +171,12 @@ int s2s_forward(int fda, int fdb)
 				if (ba_size == 0)
 				{
 					/* socket closed by remote */
-					#ifdef NOISY_DEBUG
+					#ifdef SOCKSD_NOISY_DEBUG
 					fprintf(stderr, "%6d: connection closed by remote\n", (int) getpid());
 					#endif
 					return(fdb);
 				}
-				#ifdef NOISY_DEBUG
+				#ifdef SOCKSD_NOISY_DEBUG
 				fprintf(stderr, "<");
 				#endif
 				write(fda, ba_buf, ba_size);
@@ -210,14 +210,14 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 	
 	struct muacc_context ctx; 
 	muacc_init_context(&ctx);
-	#ifdef NOISY_DEBUG
+	#ifdef SOCKSD_NOISY_DEBUG
 	fprintf(stderr, "%6d: initalizing mucc context: done", (int) getpid());
 	#endif
 
 	memset(&s5_iobuffer, 0x0, sizeof(s5_iobuffer));
 	
 	/* handle authentication */
-	#ifdef NOISY_DEBUG	
+	#ifdef SOCKSD_NOISY_DEBUG	
 	fprintf(stderr, "%6d: waiting for authentication\n", (int) getpid());
 	#endif
 	while( (flags & SOCKS5_AUTHDONE) == 0 )
@@ -256,7 +256,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
             }
         }
 	}
-	#ifdef NOISY_DEBUG	
+	#ifdef SOCKSD_NOISY_DEBUG	
     fprintf(stderr, "%6d: authentication done\n", (int) getpid());
 	#endif
 	
@@ -294,7 +294,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
             
 			sin->sin_port = s5_iobuffer.cmd.addr.ipv4.port;
 			
-			#ifdef NOISY_DEBUG
+			#ifdef SOCKSD_NOISY_DEBUG
 			getnameinfo( (struct sockaddr*) sin, sizeof(struct sockaddr_in),
 					 	 abuf, sizeof(abuf)-1, NULL, 0,
 					     NI_NUMERICHOST|NI_NUMERICSERV);
@@ -314,7 +314,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
             
 			sin->sin6_port = s5_iobuffer.cmd.addr.ipv6.port;
 			
-			#ifdef NOISY_DEBUG
+			#ifdef SOCKSD_NOISY_DEBUG
 			getnameinfo( (struct sockaddr*) sin, sizeof(struct sockaddr_in6),
 					     abuf, sizeof(abuf)-1, NULL, 0,
 						 NI_NUMERICHOST|NI_NUMERICSERV);
@@ -342,7 +342,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 				    s5_iobuffer.cmd.addr.domain_name.fqdn+s5_iobuffer.cmd.addr.domain_name.len,
 				    sizeof(uint16_t));
 			
-			#ifdef NOISY_DEBUG
+			#ifdef SOCKSD_NOISY_DEBUG
 	     	fprintf(stderr, "%6d: got connect request (name) to %s port %d\n", (int) getpid(), nbuf, ntohs(port));
 			#endif
 			
@@ -364,7 +364,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 			sin = (struct sockaddr_in6 *) &remote_out;			
 			memcpy(&(sin->sin6_port), &port, sizeof(in_port_t));
 			
-			#ifdef NOISY_DEBUG
+			#ifdef SOCKSD_NOISY_DEBUG
 			getnameinfo( (struct sockaddr*) &remote_out, remote_out_len,
 					     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf),
 						 NI_NUMERICHOST|NI_NUMERICSERV);
@@ -392,7 +392,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 		ret = muacc_connect(&ctx, fd2, (struct sockaddr *) &remote_out, remote_out_len);
 	 	if (ret == 0) 
 		{
-			#ifdef NOISY_DEBUG
+			#ifdef SOCKSD_NOISY_DEBUG
 			getnameinfo( (struct sockaddr*) &remote_out, sizeof(remote_out),
 					     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, 
 						 NI_NUMERICHOST|NI_NUMERICSERV);
@@ -422,7 +422,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 		}
 		
 		/* print debug info */
-		#ifdef NOISY_DEBUG
+		#ifdef SOCKSD_NOISY_DEBUG
 		ret = getnameinfo( (struct sockaddr*) &local_out, sizeof(local_out),
 				     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, 
 					 NI_NUMERICHOST|NI_NUMERICSERV);
@@ -464,7 +464,7 @@ do_socks_error:
 	perror(NULL);
 	
 do_socks_closed:
-	#ifdef NOISY_DEBUG		
+	#ifdef SOCKSD_NOISY_DEBUG		
 	fprintf(stderr, "%6d: connection closed\n", (int) getpid());
 	#endif
 	close(fd);
@@ -511,7 +511,7 @@ int do_accept(int listener)
 	    char abuf[INET6_ADDRSTRLEN];
 		char pbuf[NI_MAXSERV];	
 		
-		#ifdef NOISY_DEBUG
+		#ifdef SOCKSD_NOISY_DEBUG
 	    getnameinfo( (struct sockaddr*) &sa, salen, abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, NI_NUMERICHOST|NI_NUMERICSERV);
 	    fprintf(stderr, "master: forked %d to handle connection from %s port %s\n", pid, abuf, pbuf);
 		#endif
@@ -547,7 +547,7 @@ main(int c, char **v)
     setsockopt(listener, IPPROTO_IPV6, IPV6_V6ONLY, &zero, sizeof(zero));
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 	
-	#ifdef NOISY_DEBUG
+	#ifdef SOCKSD_NOISY_DEBUG
     getnameinfo( (struct sockaddr*) &sin, sizeof(sin), hbuf, sizeof(hbuf)-1, NULL, 0, NI_NOFQDN);
     getnameinfo( (struct sockaddr*) &sin, sizeof(sin), abuf, sizeof(abuf)-1,  NULL, 0, NI_NUMERICHOST);
     fprintf(stderr, "master: trying to bind to %s (%s) port %d: ", abuf, hbuf, ntohs(sin.sin6_port));
@@ -563,11 +563,11 @@ main(int c, char **v)
     
     /* try to listen */
 
-	#ifdef NOISY_DEBUG
+	#ifdef SOCKSD_NOISY_DEBUG
 	fprintf(stderr, "master: trying to listen: ");
 	#endif
 	if( listen(listener, 16) == 0 ) {
-		#ifdef NOISY_DEBUG
+		#ifdef SOCKSD_NOISY_DEBUG
         fprintf(stderr, "ok\n");
 		#endif
     } else {
@@ -575,7 +575,7 @@ main(int c, char **v)
         exit(1);
     }
     
-	#ifdef NOISY_DEBUG
+	#ifdef SOCKSD_NOISY_DEBUG
     fprintf(stderr, "master: start accepting clients...\n");
 	#endif
     while( (ret = do_accept(listener)) == 0 )
