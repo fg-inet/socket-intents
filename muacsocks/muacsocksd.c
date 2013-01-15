@@ -289,6 +289,10 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
             struct sockaddr_in *sin = (struct sockaddr_in *) &remote_out;
 			sin->sin_family = AF_INET;
 			remote_out_len = sizeof(struct sockaddr_in);
+			#ifdef HAVE_SOCKADDR_LEN
+			sin->sin_len = remote_out_len 
+			#endif
+			
 			
             memcpy(&(sin->sin_addr), &s5_iobuffer.cmd.addr.ipv4.sin_addr, sizeof(struct in_addr));
             
@@ -309,6 +313,9 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
             struct sockaddr_in6 *sin = (struct sockaddr_in6 *) &remote_out;
             sin->sin6_family = AF_INET6;
 			remote_out_len = sizeof(struct sockaddr_in6);
+			#ifdef HAVE_SOCKADDR_LEN
+			sin->sin6_len = remote_out_len 
+			#endif
 			
             memcpy(&(sin->sin6_addr), &s5_iobuffer.cmd.addr.ipv6.sin6_addr, sizeof(struct in6_addr));
             
@@ -540,8 +547,12 @@ main(int c, char **v)
     
 	/* set up v6 socket */
     sin.sin6_family = AF_INET6;
+	#ifdef HAVE_SOCKADDR_LEN
+	sin.sin6_len = sizeof(sin)
+	#endif
     sin.sin6_addr = in6addr_any;
     sin.sin6_port = htons(9050);
+
     listener = socket(AF_INET6, SOCK_STREAM, 0);
     
     setsockopt(listener, IPPROTO_IPV6, IPV6_V6ONLY, &zero, sizeof(zero));

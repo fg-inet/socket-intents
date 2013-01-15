@@ -4,11 +4,18 @@
 
 #define _MUACC_CTX_
 
-typedef struct muacc_context {
+typedef struct muacc_context 
+{
 	struct _muacc_ctx *ctx;
 } muacc_context_t;
-
-
+	
+typedef enum 
+{
+	eof,		/* end of TLV data – always 0 bytes */
+	hostname,   /* remote host name */
+	srvname,	/* remote service name */
+				
+} muacc_tlv_t;
 
 int muacc_init_context(struct muacc_context *ctx);
 int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src);

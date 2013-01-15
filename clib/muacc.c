@@ -66,8 +66,10 @@ int _connect_ctx_to_mam(struct _muacc_ctx *_ctx)
 {
 	
 	struct sockaddr_un mams;
-	mams.sun_len = sizeof(struct sockaddr_un);
 	mams.sun_family = AF_UNIX;
+	#ifdef HAVE_SOCKADDR_LEN
+	mams.sun_len = sizeof(struct sockaddr_un);
+	#endif
 	strncpy( mams.sun_path, MUACC_SOCKET, sizeof(mams.sun_path));
 	
 	if(_ctx->mamsock = socket(PF_UNIX, SOCK_STREAM, 0) < 1)
