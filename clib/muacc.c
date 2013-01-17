@@ -7,16 +7,21 @@
 #include "../config.h"
 
 struct _muacc_ctx {
-	int flags;							/* flags of the context */
-	int usage;                          /* referance counter */
-	uint8_t locks;                      /* lock to avoid multiple concurrent requests to mam */
-	int mamsock;                        /* socket to talk tu mam */
-	struct sockaddr *bind_sa;           /* local address */
-	socklen_t bind_sa_len;              /* */
-	struct sockaddr *remote_sa;         /* remote address */
-	socklen_t remote_sa_len;            /* */
-	char *remote_hostname;              /* hostname resolved */
-	struct addrinfo	*remote_addrinfo;	/* candidate remote addresses (sorted by mam preference) */
+	int usage;                          	/* referance counter */
+	uint8_t locks;                      	/* lock to avoid multiple concurrent requests to mam */
+	int mamsock;                        	/* socket to talk tu mam */
+	int flags;								/* flags of the context */
+	struct sockaddr *bind_sa_req;       	/* local address requested */
+	socklen_t 		 bind_sa_req_len;      	/* */
+	struct sockaddr *bind_sa_res;       	/* local address choosen by mam */
+	socklen_t 		 bind_sa_res_len;      	/* */
+	struct sockaddr *remote_sa_req;     	/* remote address requested */
+	socklen_t 		 remote_sa_req_len;    	/* */
+	char 			*remote_hostname;      	/* hostname resolved */
+	struct addrinfo	*remote_addrinfo_hint;	/* candidate remote addresses (sorted by mam preference) */
+	struct addrinfo	*remote_addrinfo_res;	/* candidate remote addresses (sorted by mam preference) */
+	struct sockaddr *remote_sa_res;     	/* remote address choosen in the end */
+	socklen_t 		 remote_sa_res_len;    	/* */
 };
 
 /* locking simulation - just to make sure that we have no 
@@ -162,6 +167,52 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	return(0);	
 }
 
+size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, struct _muacc_ctx *ctx) 
+{
+
+	size_t pos0 = *pos;
+	
+    if( 0 > muacc_push_tlv(buf, pos, len, bind_sa_req,		ctx->bind_sa_req, 		ctx->bind_sa_req_len        ) ) goto _muacc_pack_ctx_err;
+    if( 0 > muacc_push_tlv(buf, pos, len, bind_sa_res,		ctx->bind_sa_res,		ctx->bind_sa_res_len        ) ) goto _muacc_pack_ctx_err;
+    if( 0 > muacc_push_tlv(buf, pos, len, remote_sa_req,  	ctx->remote_sa_req, 	ctx->remote_sa_req_len      ) ) goto _muacc_pack_ctx_err;
+    if( 0 > muacc_push_tlv(buf, pos, len, remote_sa_res,  	ctx->remote_sa_res, 	ctx->remote_sa_res_len      ) ) goto _muacc_pack_ctx_err;
+    if( 0 > muacc_push_tlv(buf, pos, len, remote_hostname,	ctx->remote_hostname, 	strlen(ctx->remote_hostname)) ) goto _muacc_pack_ctx_err;
+
+    if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_hint, ctx->remote_addrinfo_hint) ) goto _muacc_pack_ctx_err;
+    if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_res,  ctx->remote_addrinfo_res ) ) goto _muacc_pack_ctx_err;
+	
+	return (*pos-pos0);
+	
+_muacc_pack_ctx_err:
+
+	return(-1);
+	
+}
+
+size_t _muacc_unpack_ctx(char *buf, size_t *pos, size_t len, struct _muacc_ctx **ctx)
+{
+	#warning unimplemented
+	
+	return -1;
+} 
+
+
+int _muacc_contact_mam (muacc_mam_action_t action, struct _muacc_ctx *ctx) 
+{
+	
+	char buf[MUACC_TLV_LEN];
+	size_t pos = 0;
+	
+	if( 0 > muacc_push_tlv(buf, &pos, sizeof(buf), sizeof(muacc_mam_action_t), &action) ) goto  _muacc_contact_mam_err;
+	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), ctx) ) goto  _muacc_contact_mam_err;
+	/* send requst */
+	if( 0 > _muacc_unpack_ctx(buf, 0, sizeof(buf), ctx) ) goto  _muacc_contact_mam_err;
+	return(0);
+
+_muacc_contact_mam_err:
+	return(-1);
+	
+}
 
 int muacc_getaddrinfo(struct muacc_context *ctx,
 		const char *hostname, const char *servname,
@@ -243,6 +294,16 @@ int muacc_connect(struct muacc_context *ctx,
 		_unlock_ctx(ctx->ctx);
 		goto muacc_connect_fallback;
 	}
+	
+	ctx->ctx->remote_sa_req     = address;
+	ctx->ctx->remote_sa_req_len = address_len;
+	
+	if( _muacc_contact_mam(muacc_action_connect, ctx->ctx) <0 ){
+		_unlock_ctx(ctx->ctx);
+		goto muacc_connect_fallback;
+	}
+	
+	return connect(socket, ctx->ctx->remote_sa_res, ctx->ctx->remote_sa_res_len);
 	
 	_unlock_ctx(ctx->ctx);
 	
