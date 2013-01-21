@@ -1,27 +1,26 @@
-#include "muacc.h"
 #include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+
 #include "../config.h"
 
-/** push data in an TLV buffer
- *
- * @param buf		pointer to buffer to pu data
- * @param buf_pos	pointer to current offset to which the buffer is already used (in/out)
- * @param buf_len	length of the buffer
- * @param tag		tag of the data
- * @param data 		data to be pushed into the buffer          - will result in a no-op if NULL
- * @param data_len 	lengh of data to be pushed into the buffer - will result in a no-op if 0
- *
- * @return length of the added tlv, -1 if there was an error.
- */
+#include "tlv.h"
+#include "muacc.h"
+
+
 size_t muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag, 
 	const void *data, size_t data_len)
 {
-	int tlv_len = sizeof(muacc_tlv_t)+sizeof(size_t)+data_len;
+	size_t tlv_len = sizeof(muacc_tlv_t)+sizeof(size_t)+data_len;
 	
 	/* check size */
 	if ( *buf_pos + tlv_len >= buf_len)
 	{
+		#ifdef CLIB_NOISY_DEBUG
+		fprintf(stderr, "%6d: muacc_push_tlv: buffer too small: buf_len=%li, pos=%li needed=%li\n", getpid(), (long) buf_len, (long) *buf_pos, (long) tlv_len);
+		#endif
 		return(-1);
 	}
 	
@@ -42,18 +41,31 @@ size_t muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	return(tlv_len);
 }
 
-size_t muacc_pop_tlv( const char *buf, size_t *buf_pos, size_t buf_len,
+size_t muacc_read_tlv( int fd, 
+	char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t *tag, 
-	const void **data, size_t *data_len)
+	void **data, size_t *data_len)
 {
 	int tlv_len;
+	size_t rlen, rrem; 
 	
 	/* check size */
 	if ( *buf_pos + sizeof(muacc_tlv_t) + sizeof(size_t) >= buf_len ) 
 	{
-		*data = NULL;
-		*data_len = -1;
-		return(-1);
+		goto muacc_read_tlv_err;
+	}
+	
+	/* read header */
+	rlen = read(fd, buf + *buf_pos , sizeof(muacc_tlv_t) + sizeof(size_t));
+	if(rlen <= 0)
+	{
+		perror("muacc_read_tlv header read failed:");
+		goto muacc_read_tlv_err;
+	} 
+	else if(rlen < sizeof(muacc_tlv_t) + sizeof(size_t))
+	{
+		fprintf(stderr, "muacc_read_tlv header read failed: short read");
+		goto muacc_read_tlv_err;
 	}
 	
 	/* parse tag and length */ 
@@ -68,9 +80,8 @@ size_t muacc_pop_tlv( const char *buf, size_t *buf_pos, size_t buf_len,
 	/* check size again */
 	if (*buf_pos + tlv_len >= buf_len)
 	{	
-		*data = NULL;
-		*data_len = -1;
-		return(-1);
+		fprintf(stderr, "muacc_read_tlv read failed: buffer too small");
+		goto muacc_read_tlv_err;
 	}
 	
 	/* check EOF TLV */
@@ -81,15 +92,34 @@ size_t muacc_pop_tlv( const char *buf, size_t *buf_pos, size_t buf_len,
 		return(0);
 	}
 	
-	*data = ( (void *) (buf + *buf_pos), data,  data_len);
-	*buf_pos += *data_len;
+	/* update data pointer */
+	*data = ( (void *) (buf + *buf_pos));
+	
+	/* read data */
+	rrem = *data_len;
+	while(rrem > 0)
+	{
+		rlen = read(fd, buf + *buf_pos , rrem);
+		if(rlen <= 0)
+		{
+			perror("muacc_read_tlv data read failed:");
+			goto muacc_read_tlv_err;
+		}
+		rrem     -= rlen;
+		*buf_pos += rlen;
+	}
 
 	return(tlv_len);
+
+muacc_read_tlv_err:
+
+	*data = NULL;
+	*data_len = -1;
+	return(-1);
+	
 }
 
-/** deep copy addrinfo into TLV
- *
- */
+
 size_t muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag, struct addrinfo *ai0)
 {

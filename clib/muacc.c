@@ -1,10 +1,15 @@
-#include "muacc.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/un.h>
+
 #include "../config.h"
+
+#include "muacc.h"
+#include "tlv.h"
+
 
 struct _muacc_ctx {
 	int usage;                          	/* referance counter */
@@ -77,10 +82,11 @@ int _connect_ctx_to_mam(struct _muacc_ctx *_ctx)
 	#endif
 	strncpy( mams.sun_path, MUACC_SOCKET, sizeof(mams.sun_path));
 	
-	if(_ctx->mamsock = socket(PF_UNIX, SOCK_STREAM, 0) < 1)
+	_ctx->mamsock = socket(PF_UNIX, SOCK_STREAM, 0);
+	if(_ctx->mamsock == -1)
 	{
 		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "_connect_ctx_to_mam socket creation failed", (int) getpid(), strerror(errno));
+		fprintf(stderr, "%6d: _connect_ctx_to_mam socket creation failed: %s\n", (int) getpid(), strerror(errno));
 		#endif
 		return(-errno);	
 	}
@@ -111,7 +117,7 @@ int muacc_init_context(struct muacc_context *ctx)
 	_ctx->usage = 1;
 	
 	/* connect to mam */
-	if(_connect_ctx_to_mam)
+	if(_connect_ctx_to_mam(_ctx))
 	{
 		/* free context backing struct */
 		free(_ctx);
@@ -181,7 +187,7 @@ size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, struct _muacc_ctx *ct
     if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_hint, ctx->remote_addrinfo_hint) ) goto _muacc_pack_ctx_err;
     if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_res,  ctx->remote_addrinfo_res ) ) goto _muacc_pack_ctx_err;
 	
-	return (*pos-pos0);
+	return ( *pos - pos0 );
 	
 _muacc_pack_ctx_err:
 
@@ -189,25 +195,64 @@ _muacc_pack_ctx_err:
 	
 }
 
-size_t _muacc_unpack_ctx(char *buf, size_t *pos, size_t len, struct _muacc_ctx **ctx)
+int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct _muacc_ctx *ctx)
 {
-	#warning unimplemented
-	
-	return -1;
+	switch(tag) 
+	{
+		case bind_sa_req:	 
+		case bind_sa_res:	
+		case remote_sa_req:  
+		case remote_sa_res:  
+		case remote_hostname:
+		case remote_addrinfo_hint:
+		case remote_addrinfo_res:
+		default:
+			fprintf(stderr, "_muacc_unpack_ctx: ignoring unknown tag %x\n", tag);
+			return(-1);
+	}
+
 } 
 
 
-int _muacc_contact_mam (muacc_mam_action_t action, struct _muacc_ctx *ctx) 
+int _muacc_contact_mam (muacc_mam_action_t action, struct _muacc_ctx *_ctx) 
 {
 	
 	char buf[MUACC_TLV_LEN];
 	size_t pos = 0;
+	size_t ret = 0;
+	muacc_tlv_t tag;
+	void *data;
+	size_t data_len;
 	
-	if( 0 > muacc_push_tlv(buf, &pos, sizeof(buf), sizeof(muacc_mam_action_t), &action) ) goto  _muacc_contact_mam_err;
-	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), ctx) ) goto  _muacc_contact_mam_err;
+	
+	/* pack request */
+	if( 0 > muacc_push_tlv(buf, &pos, sizeof(buf), action, &action, sizeof(muacc_mam_action_t)) ) goto  _muacc_contact_mam_pack_err;
+	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), _ctx) ) goto  _muacc_contact_mam_pack_err;
+	if( 0 > muacc_push_tlv(buf, &pos, sizeof(buf), eof, NULL, 0) ) goto  _muacc_contact_mam_pack_err;
+	
 	/* send requst */
-	if( 0 > _muacc_unpack_ctx(buf, 0, sizeof(buf), ctx) ) goto  _muacc_contact_mam_err;
+	if( 0 > (ret = send(_ctx->mamsock, buf, pos, 0)) )
+	{
+		fprintf(stderr, "%6d: _muacc_contact_mam: error sending request: %s\n", (int) getpid(), strerror(errno));
+		goto  _muacc_contact_mam_err;
+	}
+	else
+ 	{
+		#ifdef CLIB_NOISY_DEBUG
+		fprintf(stderr, "%6d: _muacc_contact_mam sent request - %ld bytes\n", (int) getpid(), ret);
+		#endif
+ 	}
+	
+	/* read & unpack response */
+	pos = 0;
+	while( (ret = muacc_read_tlv(_ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0) 
+	{
+		if( 0 > _muacc_unpack_ctx(tag, data, data_len, _ctx) ) goto  _muacc_contact_mam_err;
+	}
 	return(0);
+
+
+_muacc_contact_mam_pack_err:
 
 _muacc_contact_mam_err:
 	return(-1);
@@ -298,14 +343,25 @@ int muacc_connect(struct muacc_context *ctx,
 	ctx->ctx->remote_sa_req     = address;
 	ctx->ctx->remote_sa_req_len = address_len;
 	
+	if(ctx->ctx->remote_sa_res == NULL)
+	{
+		/* set default request as default */
+		ctx->ctx->remote_sa_res 	= address;
+		ctx->ctx->remote_sa_res_len	= address_len;
+	}
+	
 	if( _muacc_contact_mam(muacc_action_connect, ctx->ctx) <0 ){
 		_unlock_ctx(ctx->ctx);
+		#ifdef CLIB_NOISY_DEBUG
+		fprintf(stderr, "%6d: muacc_connect got no response from mam - fallback to regual connect\n", (int) getpid());
+		#endif
 		goto muacc_connect_fallback;
 	}
 	
+	_unlock_ctx(ctx->ctx);
+	
 	return connect(socket, ctx->ctx->remote_sa_res, ctx->ctx->remote_sa_res_len);
 	
-	_unlock_ctx(ctx->ctx);
 	
 muacc_connect_fallback:
 	
