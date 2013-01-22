@@ -26,19 +26,43 @@ typedef enum
 
 /** push data in an TLV buffer
  *
- * @param buf		pointer to buffer to pu data
+ * @param buf		pointer to buffer to put data
  * @param buf_pos	pointer to current offset to which the buffer is already used (in/out)
  * @param buf_len	length of the buffer
  * @param tag		tag of the data
  * @param data 		data to be pushed into the buffer          - will result in a no-op if NULL
- * @param data_len 	lengh of data to be pushed into the buffer - will result in a no-op if 0
+ * @param data_len 	lengh of data to be pushed into the buffer - will result in a no-op if NULL
  *
  * @return length of the added tlv, -1 if there was an error.
  */
 size_t muacc_push_tlv (char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag, 
 	const void *data, size_t data_len);
-	
+
+/** push flag in an TLV buffer
+ *
+ * @param buf		pointer to buffer to put data
+ * @param buf_pos	pointer to current offset to which the buffer is already used (in/out)
+ * @param buf_len	length of the buffer
+ * @param tag		tag to push
+ * @return length of the added tlv, -1 if there was an error.
+ */
+size_t muacc_push_tlv_tag( char *buf, size_t *buf_pos, size_t buf_len,
+	muacc_tlv_t tag);
+
+/** push flag in an TLV buffer
+ *
+ * @param fd		file descriptor to read from
+ * @param buf		pointer to buffer to put data
+ * @param buf_pos	pointer to current offset to which the buffer is already used (in/out)
+ * @param buf_len	length of the buffer
+ * @param tag		tag extracted (out, pointer within buf)
+ * @param data		data extracted (out, pointer within buf)
+ * @param data		data extracted (out, pointer within buf)
+ *
+ *
+ * @return length of the tlv read, -1 if there was an error.
+ */
 size_t muacc_read_tlv( int fd, 
  	char *buf, size_t *buf_pos, size_t buf_len,
  	muacc_tlv_t *tag, 

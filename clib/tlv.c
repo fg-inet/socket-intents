@@ -8,6 +8,29 @@
 #include "tlv.h"
 #include "muacc.h"
 
+size_t muacc_push_tlv_tag( char *buf, size_t *buf_pos, size_t buf_len,
+	muacc_tlv_t tag)
+{
+	size_t tlv_len = sizeof(muacc_tlv_t)+sizeof(size_t);
+
+	/* check size */
+	if ( *buf_pos + tlv_len >= buf_len)
+	{
+		#ifdef CLIB_NOISY_DEBUG
+		fprintf(stderr, "%6d: muacc_push_tlv: buffer too small: buf_len=%li, pos=%li needed=%li\n", getpid(), (long) buf_len, (long) *buf_pos, (long) tlv_len);
+		#endif
+		return(-1);
+	}
+
+	*((muacc_tlv_t *) (buf + *buf_pos)) = tag;
+	*buf_pos += sizeof(muacc_tlv_t);
+
+	*((size_t *) (buf + *buf_pos)) = 0;
+	*buf_pos += sizeof(size_t);
+
+	return(tlv_len);
+
+}
 
 size_t muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag, 
@@ -24,7 +47,7 @@ size_t muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 		return(-1);
 	}
 	
-	if ( data == NULL || data_len == 0 )
+	if ( data == NULL || data_len == 0)
 	{
 		return 0;
 	}
@@ -34,7 +57,7 @@ size_t muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	
 	*((size_t *) (buf + *buf_pos)) = data_len;
 	*buf_pos += sizeof(size_t);
-	
+
 	memcpy( (void *) (buf + *buf_pos), data,  data_len);
 	*buf_pos += data_len;
 
