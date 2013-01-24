@@ -10,14 +10,15 @@
 #include <stdio.h>
 #include <errno.h>
 #include <err.h>
-#include "muacc.h"
+#include "../clib/muacc.h"
+#include "../config.h"
+
 
 
 int main(int c, char **v) {
 	
 	struct addrinfo hints, *res, *res0;
 	int error;
-	char pbuf[NI_MAXSERV];
     char abuf[NI_MAXHOST];
 	int i = 0;
 	
@@ -35,11 +36,11 @@ int main(int c, char **v) {
 	} 
 	else if (c == 2) 
 	{
-	    error = getaddrinfo(v[1], NULL, &hints, &res0);
+	    error = muacc_getaddrinfo(&ctx, v[1], NULL, &hints, &res0);
 	} 
 	else if (c == 3) 
 	{
-	    error = getaddrinfo(v[1], v[2], &hints, &res0);
+	    error = muacc_getaddrinfo(&ctx, v[1], v[2], &hints, &res0);
 	}
 
     if (error) {
@@ -48,14 +49,13 @@ int main(int c, char **v) {
 	
     for (res = res0; res; res = res->ai_next) {
 	    memset(&abuf, 0, sizeof(abuf));
-	    memset(&pbuf, 0, sizeof(pbuf));
-		muacc_getnameinfo( &ctx, 
-					 res->ai_addr, res->ai_addrlen,
-				     abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf),
-					 NI_NUMERICHOST|NI_NUMERICSERV);
-        fprintf(stderr, "response %2d: %-24s port %-5s\n", i++, abuf, pbuf);	
+		getnameinfo( res->ai_addr, res->ai_addrlen,
+				     abuf, sizeof(abuf)-1, NULL, 0,
+					 NI_NUMERICHOST);
+        fprintf(stderr, "response %2d: %-24s canonname %-24s\n", i++, abuf, (res->ai_canonname==NULL)?"(none)":(res->ai_canonname));	
 	}
 	
+	freeaddrinfo(res0);
 	muacc_release_context(&ctx);
 	exit(0);
 			   

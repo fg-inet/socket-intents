@@ -37,7 +37,7 @@ else
 fi
 
 AC_DEFINE(CLIB_NOISY_DEBUG, 1, "Print a lot of debugging messages in the client library")
-AC_DEFINE(SOCKSD_NOISY_DEBUG, 0, "Print a lot of debugging messages in the socks daemin")
+AC_DEFINE(SOCKSD_NOISY_DEBUG, 1, "Print a lot of debugging messages in the socks daemin")
 
 
 AC_OUTPUT

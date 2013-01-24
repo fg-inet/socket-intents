@@ -178,15 +178,18 @@ size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, struct _muacc_ctx *ct
 
 	size_t pos0 = *pos;
 	
-    if( 0 > muacc_push_tlv(buf, pos, len, bind_sa_req,		ctx->bind_sa_req, 		ctx->bind_sa_req_len        ) ) goto _muacc_pack_ctx_err;
-	if( 0 > muacc_push_tlv(buf, pos, len, bind_sa_res,		ctx->bind_sa_res,		ctx->bind_sa_res_len        ) ) goto _muacc_pack_ctx_err;
-	if( 0 > muacc_push_tlv(buf, pos, len, remote_sa_req,  	ctx->remote_sa_req, 	ctx->remote_sa_req_len      ) ) goto _muacc_pack_ctx_err;
-	if( 0 > muacc_push_tlv(buf, pos, len, remote_sa_res,  	ctx->remote_sa_res, 	ctx->remote_sa_res_len      ) ) goto _muacc_pack_ctx_err;
+    if( ctx->bind_sa_req != NULL &&
+    	0 > muacc_push_tlv(buf, pos, len, bind_sa_req,		ctx->bind_sa_req, 		ctx->bind_sa_req_len        ) ) goto _muacc_pack_ctx_err;
+	if( ctx->bind_sa_res != NULL &&
+		0 > muacc_push_tlv(buf, pos, len, bind_sa_res,		ctx->bind_sa_res,		ctx->bind_sa_res_len        ) ) goto _muacc_pack_ctx_err;
+	if( ctx->remote_sa_req != NULL &&
+		0 > muacc_push_tlv(buf, pos, len, remote_sa_req,  	ctx->remote_sa_req, 	ctx->remote_sa_req_len      ) ) goto _muacc_pack_ctx_err;
+	if( ctx->remote_sa_res != NULL &&
+		0 > muacc_push_tlv(buf, pos, len, remote_sa_res,  	ctx->remote_sa_res, 	ctx->remote_sa_res_len      ) ) goto _muacc_pack_ctx_err;
 	if( ctx->remote_hostname != NULL && /* strlen(NULL) might have undesired side effects… */
 		0 > muacc_push_tlv(buf, pos, len, remote_hostname,	ctx->remote_hostname, strlen(ctx->remote_hostname)) ) goto _muacc_pack_ctx_err;
     if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_hint, ctx->remote_addrinfo_hint) ) goto _muacc_pack_ctx_err;
 	if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_res,  ctx->remote_addrinfo_res ) ) goto _muacc_pack_ctx_err;
-
 
 	return ( *pos - pos0 );
 	
@@ -196,26 +199,112 @@ _muacc_pack_ctx_err:
 	
 }
 
-int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct _muacc_ctx *ctx)
+int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct _muacc_ctx *_ctx)
 {
+	struct addrinfo *ai;
+	struct sockaddr *sa;
+	char *str;
+
+
 	switch(tag) 
 	{
-		case bind_sa_req:	 
-		case bind_sa_res:	
-		case remote_sa_req:  
-		case remote_sa_res:  
+		case bind_sa_req:
+			#ifdef CLIB_NOISY_DEBUG
+			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking bind_sa_req\n", (int) getpid());
+			#endif
+			if( muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
+			{
+				free(_ctx->bind_sa_req);
+				_ctx->bind_sa_req = sa;
+			}
+			else
+				return(-1);
+			break;
+		case bind_sa_res:
+			#ifdef CLIB_NOISY_DEBUG
+			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking bind_sa_res\n", (int) getpid());
+			#endif
+			if( muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
+			{
+				free(_ctx->bind_sa_res);
+				_ctx->bind_sa_res = sa;
+			}
+			else
+				return(-1);
+			break;
+		case remote_sa_req:
+			#ifdef CLIB_NOISY_DEBUG
+			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking remote_sa_req\n", (int) getpid());
+			#endif
+			if( muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
+			{
+				free(_ctx->remote_sa_req);
+				_ctx->remote_sa_req = sa;
+			}
+			else
+				return(-1);
+			break;
+		case remote_sa_res:
+			#ifdef CLIB_NOISY_DEBUG
+			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking remote_sa_res\n", (int) getpid());
+			#endif
+			if( muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
+			{
+				free(_ctx->remote_sa_res);
+				_ctx->remote_sa_res = sa;
+			}
+			else
+				return(-1);
+			break;
 		case remote_hostname:
+			#ifdef CLIB_NOISY_DEBUG
+			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking remote_hostname\n", (int) getpid());
+			#endif
+			if((str = malloc(data_len)) != NULL)
+			{
+				str[data_len-1] = 0x00;
+				_ctx->remote_hostname = str;
+			}
+			else
+				return -1;
+			break;
 		case remote_addrinfo_hint:
+			#ifdef CLIB_NOISY_DEBUG
+			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking remote_addrinfo_hint\n", (int) getpid());
+			#endif
+			if( muacc_extract_addrinfo_tlv( data, data_len, &ai) > 0)
+			{
+				freeaddrinfo(_ctx->remote_addrinfo_hint);
+				_ctx->remote_addrinfo_hint = ai;
+			}
+			else
+				return(-1);
+			break;
+
 		case remote_addrinfo_res:
+			#ifdef CLIB_NOISY_DEBUG
+			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking remote_addrinfo_res\n", (int) getpid());
+			#endif
+			if( muacc_extract_addrinfo_tlv( data, data_len, &ai) > 0)
+			{
+				freeaddrinfo(_ctx->remote_addrinfo_res);
+				_ctx->remote_addrinfo_res = ai;
+			}
+			else
+				return(-1);
+			break;
+
 		default:
 			fprintf(stderr, "_muacc_unpack_ctx: ignoring unknown tag %x\n", tag);
-			return(-1);
+			break;
 	}
+
+	return(0);
 
 } 
 
 
-int _muacc_contact_mam (muacc_mam_action_t action, struct _muacc_ctx *_ctx) 
+int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 {
 	
 	char buf[MUACC_TLV_LEN];
@@ -230,19 +319,11 @@ int _muacc_contact_mam (muacc_mam_action_t action, struct _muacc_ctx *_ctx)
 	#endif
 	
 	/* pack request */
-	if( 0 > muacc_push_tlv(buf, &pos, sizeof(buf), action, &action, sizeof(muacc_mam_action_t)) ) goto  _muacc_contact_mam_pack_err;
-	#ifdef CLIB_NOISY_DEBUG
-	fprintf(stderr, ".");
-	#endif
-
+	if( 0 > muacc_push_tlv(buf, &pos, sizeof(buf), action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_contact_mam_pack_err;
 	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), _ctx) ) goto  _muacc_contact_mam_pack_err;
-	#ifdef CLIB_NOISY_DEBUG
-	fprintf(stderr, ".");
-	#endif
-
 	if( 0 > muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) ) goto  _muacc_contact_mam_pack_err;
 	#ifdef CLIB_NOISY_DEBUG
-	fprintf(stderr, ".done\n");
+	fprintf(stderr, " done\n");
 	#endif
 
 	
@@ -250,7 +331,7 @@ int _muacc_contact_mam (muacc_mam_action_t action, struct _muacc_ctx *_ctx)
 	if( 0 > (ret = send(_ctx->mamsock, buf, pos, 0)) )
 	{
 		fprintf(stderr, "%6d: _muacc_contact_mam: error sending request: %s\n", (int) getpid(), strerror(errno));
-		goto  _muacc_contact_mam_err;
+		return(-1);
 	}
 	else
  	{
@@ -267,10 +348,16 @@ int _muacc_contact_mam (muacc_mam_action_t action, struct _muacc_ctx *_ctx)
 	while( (ret = muacc_read_tlv(_ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0) 
 	{
 		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d:\tpos=%ld tag=%x, len=%ld", (int) getpid(), pos, tag, data_len);
+		fprintf(stderr, "%6d:\tpos=%ld tag=%x, len=%ld\n", (int) getpid(), pos, tag, data_len);
 		#endif
-		if( 0 > _muacc_unpack_ctx(tag, data, data_len, _ctx) ) goto  _muacc_contact_mam_err;
+		if( tag == eof )
+			break;
+		else if ( 0 > _muacc_unpack_ctx(tag, data, data_len, _ctx) )
+			goto  _muacc_contact_mam_parse_err;
 	}
+	#ifdef CLIB_NOISY_DEBUG
+	fprintf(stderr, "%6d: _muacc_contact_mam processing response done: pos=%li last_res=%li done\n", (int) getpid(), pos, ret);
+	#endif
 	return(0);
 
 
@@ -281,9 +368,66 @@ _muacc_contact_mam_pack_err:
 	#endif
 	return(-1);
 	
-_muacc_contact_mam_err:
+_muacc_contact_mam_parse_err:
+
+	#ifdef CLIB_NOISY_DEBUG
+	fprintf(stderr, "%6d: _muacc_contact_mam failed to process response\n", (int) getpid());
+	#endif
 	return(-1);
 	
+}
+
+struct sockaddr *_muacc_clone_sockaddr(struct sockaddr *src, size_t src_len)
+{
+	struct sockaddr *ret = NULL;
+
+	if((ret = malloc(src_len)) == NULL)
+		return NULL;
+
+	memcpy(ret, src, src_len);
+	return(ret);
+}
+
+struct addrinfo *_muacc_clone_addrinfo(struct addrinfo *src, size_t src_len)
+{
+	struct addrinfo *res = NULL;
+	struct addrinfo **cur = &res;
+
+    struct addrinfo *ai;
+
+	for (ai = src; ai; ai = ai->ai_next)
+	{
+		/* allocate memory and copy */
+		if( (*cur = malloc(sizeof(struct addrinfo))) == NULL )
+			goto _muacc_clone_addrinfo_malloc_err;
+		memcpy( *cur, ai, sizeof(struct addrinfo));
+
+		if ( ai->ai_addr != NULL)
+		{
+			(*cur)->ai_addr = _muacc_clone_sockaddr(ai->ai_addr, ai->ai_addrlen);
+			if((*cur)->ai_addr == NULL)
+				goto _muacc_clone_addrinfo_malloc_err;
+		}
+
+		if ( ai->ai_canonname != NULL)
+		{
+			size_t sl = strlen(ai->ai_canonname)+1;
+			if( ( (*cur)->ai_canonname = malloc(sl) ) == NULL )
+				goto _muacc_clone_addrinfo_malloc_err;
+			memcpy( (*cur)->ai_canonname, ai->ai_canonname, sl);
+			((*cur)->ai_canonname)[sl] = 0x00;
+		}
+
+		cur = &((*cur)->ai_next);
+
+	}
+
+	return res;
+
+	_muacc_clone_addrinfo_malloc_err:
+	fprintf(stderr, "%6d: _muacc_clone_addrinfo failed to allocate memory\n", (int) getpid());
+	return NULL;
+
 }
 
 int muacc_getaddrinfo(struct muacc_context *ctx,
@@ -370,13 +514,13 @@ int muacc_connect(struct muacc_context *ctx,
 		goto muacc_connect_fallback;
 	}
 	
-	ctx->ctx->remote_sa_req     = address;
+	ctx->ctx->remote_sa_req     = _muacc_clone_sockaddr(address, address_len);
 	ctx->ctx->remote_sa_req_len = address_len;
 	
 	if(ctx->ctx->remote_sa_res == NULL)
 	{
 		/* set default request as default */
-		ctx->ctx->remote_sa_res 	= address;
+		ctx->ctx->remote_sa_res 	= _muacc_clone_sockaddr(address, address_len);
 		ctx->ctx->remote_sa_res_len	= address_len;
 	}
 	
