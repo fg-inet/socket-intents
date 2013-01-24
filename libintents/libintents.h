@@ -27,32 +27,32 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
 
 typedef enum category 
 {
-	QUERY, 				// Small, short
-	BULKTRANSFER, 		// Large, short, fast, bursty
-	CONTROLTRAFFIC,		// Large, long, slow, bursty
-	KEEPALIVES,			// Small, long, slow, not bursty
-	STREAM				// Large, long, fast, not bursty
+	C_QUERY, 			// Small, short
+	C_BULKTRANSFER, 	// Large, short, fast, bursty
+	C_CONTROLTRAFFIC,	// Large, long, slow, bursty
+	C_KEEPALIVES,		// Small, long, slow, not bursty
+	C_STREAM			// Large, long, fast, not bursty
 } category_t;
 
 typedef enum burstiness
 {
-	RANDOMBURSTS,
-	REGULARBURSTS,
-	NOBURSTS,
-	BULK				// Congestion window limited
+	B_RANDOMBURSTS,
+	B_REGULARBURSTS,
+	B_NOBURSTS,
+	B_BULK				// Congestion window limited
 } burstiness_t;
 
 typedef enum timeliness
 {
-	STREAM,				// Low delay, low jitter
-	INTERACTIVE,		// Low delay, possible jitter
-	TRANSFER,			// Should complete eventually
-	BACKGROUNDTRAFFIC	// Only loose time constraint
+	T_STREAM,			// Low delay, low jitter
+	T_INTERACTIVE,		// Low delay, possible jitter
+	T_TRANSFER,			// Should complete eventually
+	T_BACKGROUNDTRAFFIC	// Only loose time constraint
 } timeliness_t;
 
 typedef enum resilience
 {
-	SENSITIVE,			// Connection loss makes application fail
-	TOLERANT,			// Connection loss is tolerable, but inconvenient
-	RESILIENT			// Connection loss is acceptable
+	R_SENSITIVE,		// Connection loss makes application fail
+	R_TOLERANT,			// Connection loss is tolerable, but inconvenient
+	R_RESILIENT			// Connection loss is acceptable
 } resilience_t;

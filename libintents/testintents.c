@@ -18,15 +18,18 @@ int main(int argc, char *argv[])
 	 * Create a socket and set some options
 	 */
 {
-	struct sockaddr testaddr;
 	int testsocket;
 
 	if ((testsocket = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
 		perror("Socket error");
 	
+	const struct sockaddr testaddr = {.sa_family=AF_INET, .sa_data="127.0.0.1"};
+	/*struct sockaddr testaddr;
 	memset(&testaddr, 0, sizeof(testaddr));
 	testaddr.sa_family = AF_INET;
-	strncpy(testaddr.sa_data,"127.0.0.1",sizeof(testaddr.sa_data));
+	strncpy(testaddr.sa_data,"127.0.0.1",sizeof(testaddr.sa_data));*/
+
+	connect(testsocket, &testaddr, sizeof(testaddr));
 	
 	int option = 0;
 	int value = 0;

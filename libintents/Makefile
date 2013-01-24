@@ -8,6 +8,7 @@ all: lib test
 
 lib: libintents.o
 	$(CC) $(CFLAGS) -shared -Wl,-soname,libintents.so.1 -o libintents.so.1.0 libintents.o
+	ln -s libintents.so.1.0 libintents.so
 
 libintents.o: libintents.c
 	$(CC) $(CFLAGS) -fPIC -c libintents.c
