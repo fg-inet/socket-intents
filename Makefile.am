@@ -1,7 +1,9 @@
 AUTOMAKE_OPTIONS = subdir-objects
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS}
+AM_CFLAGS = -g --pedantic -Wall -std=c99 -O2
 
-bin_PROGRAMS = muacsocksd
+bin_PROGRAMS = muacsocksd addrinfo
 muacsocksd_SOURCES = clib/muacc.c clib/tlv.c clib/muacc.h muacsocks/muacsocksd.c 
+addrinfo_SOURCES = clib/muacc.c clib/tlv.c clib/muacc.h tests/addrinfo.c 
 
 dist_noinst_SCRIPTS = autogen.sh

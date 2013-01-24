@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <errno.h>
 #include "../clib/muacc.h"
+#include "../config.h"
+
 
 /* socks 5 protocol stuff */
 #define SOCKS5_AUTHDONE	0x1000
@@ -211,7 +213,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 	struct muacc_context ctx; 
 	muacc_init_context(&ctx);
 	#ifdef SOCKSD_NOISY_DEBUG
-	fprintf(stderr, "%6d: initalizing mucc context: done", (int) getpid());
+	fprintf(stderr, "%6d: initalizing mucc context: done\n", (int) getpid());
 	#endif
 
 	memset(&s5_iobuffer, 0x0, sizeof(s5_iobuffer));
@@ -290,7 +292,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 			sin->sin_family = AF_INET;
 			remote_out_len = sizeof(struct sockaddr_in);
 			#ifdef HAVE_SOCKADDR_LEN
-			sin->sin_len = remote_out_len 
+			sin->sin_len = remote_out_len; 
 			#endif
 			
 			
@@ -314,7 +316,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
             sin->sin6_family = AF_INET6;
 			remote_out_len = sizeof(struct sockaddr_in6);
 			#ifdef HAVE_SOCKADDR_LEN
-			sin->sin6_len = remote_out_len 
+			sin->sin6_len = remote_out_len; 
 			#endif
 			
             memcpy(&(sin->sin6_addr), &s5_iobuffer.cmd.addr.ipv6.sin6_addr, sizeof(struct in6_addr));
@@ -393,6 +395,12 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 			perror(NULL);
 			s5_replay(fd, SOCKS5_GFAIL, NULL);
 	        goto do_socks_closed;
+		}
+		else
+		{
+			#ifdef SOCKSD_NOISY_DEBUG
+			fprintf(stderr, "%6d: remote socket created successfully\n", (int) getpid());
+			#endif
 		}
 		
 		/* go ahead an connect */
@@ -548,7 +556,7 @@ main(int c, char **v)
 	/* set up v6 socket */
     sin.sin6_family = AF_INET6;
 	#ifdef HAVE_SOCKADDR_LEN
-	sin.sin6_len = sizeof(sin)
+	sin.sin6_len = sizeof(sin);
 	#endif
     sin.sin6_addr = in6addr_any;
     sin.sin6_port = htons(9050);
