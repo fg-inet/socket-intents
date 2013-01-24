@@ -12,19 +12,19 @@
 
 
 struct _muacc_ctx {
-	int usage;                          	/**> referance counter */
-	uint8_t locks;                      	/**> lock to avoid multiple concurrent requests to mam */
-	int mamsock;                        	/**> socket to talk tu mam */
+	int usage;                          	/**> reference counter */
+	uint8_t locks;                      	/**> lock to avoid multiple concurrent requests to MAM */
+	int mamsock;                        	/**> socket to talk to MAM */
 	int flags;								/**> flags of the context */
 	struct sockaddr *bind_sa_req;       	/**> local address requested */
 	socklen_t 		 bind_sa_req_len;      	/**> length of bind_sa_req*/
-	struct sockaddr *bind_sa_res;       	/**> local address choosen by mam */
+	struct sockaddr *bind_sa_res;       	/**> local address choosen by MAM */
 	socklen_t 		 bind_sa_res_len;      	/**> length of bind_sa_res*/
 	struct sockaddr *remote_sa_req;     	/**> remote address requested */
 	socklen_t 		 remote_sa_req_len;    	/**> length of remote_sa_req*/
 	char 			*remote_hostname;      	/**> hostname to resolve */
 	struct addrinfo	*remote_addrinfo_hint;	/**> hints for resolving */
-	struct addrinfo	*remote_addrinfo_res;	/**> candidate remote addresses (sorted by mam preference) */
+	struct addrinfo	*remote_addrinfo_res;	/**> candidate remote addresses (sorted by MAM preference) */
 	struct sockaddr *remote_sa_res;     	/**> remote address choosen in the end */
 	socklen_t 		 remote_sa_res_len;    	/**> length of remote_sa_res */
 };
@@ -78,7 +78,7 @@ int muacc_retain_context(struct muacc_context *ctx)
 	return(++(ctx->ctx->usage));
 }
 
-/* Helper makeing a connection to MAM */
+/* Helper making a connection to MAM */
 int _connect_ctx_to_mam(struct _muacc_ctx *_ctx) 
 {
 	
@@ -123,7 +123,7 @@ int muacc_init_context(struct muacc_context *ctx)
 	memset(_ctx, 0x00, sizeof(struct _muacc_ctx));	
 	_ctx->usage = 1;
 	
-	/* connect to mam */
+	/* connect to MAM */
 	if(_connect_ctx_to_mam(_ctx))
 	{
 		/* free context backing struct */
@@ -163,9 +163,9 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	
 	memcpy(_ctx, src->ctx, sizeof(struct _muacc_ctx));
 	
-	/* TODO: Make a deep copy of all linked structs (otherwise might result in free hell!)
+	/* TODO: Make a deep copy of all linked structs (otherwise might result in free hell!) */
 
-	/* connect to mam */
+	/* connect to MAM */
 	if(_connect_ctx_to_mam(_ctx))
 	{
 		/* free context backing struct */

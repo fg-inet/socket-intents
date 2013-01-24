@@ -12,27 +12,27 @@ typedef struct muacc_context
 	struct _muacc_ctx *ctx;
 } muacc_context_t;
 
-/** initalize backround structures for muacc_context
+/** initialize background structures for muacc_context
  *
- * @return 0 on sucsess, -1 oherwise
+ * @return 0 on success, -1 otherwise
  */ 
 int muacc_init_context(struct muacc_context *ctx);
 
 /** make a deep copy of a muacc_context
  *
- * @return 0 on sucsess, -1 oherwise
+ * @return 0 on success, -1 otherwise
  */ 
 int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src);
  
-/** increase reference for muacc_context 
+/** increase reference counter for muacc_context 
   *
-  * @return current refernece count
+  * @return current reference count
   */
 int muacc_retain_context(struct muacc_context *ctx);
 
-/** decrease reference for muacc_context and free backround structures if it reaces 0
+/** decrease reference for muacc_context and free background structures if it reaches 0
   *
-  * @return current refernece count
+  * @return current reference count
   */
 int muacc_release_context(struct muacc_context *ctx);
 
