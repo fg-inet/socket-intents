@@ -12,24 +12,26 @@
 
 
 struct _muacc_ctx {
-	int usage;                          	/* referance counter */
-	uint8_t locks;                      	/* lock to avoid multiple concurrent requests to mam */
-	int mamsock;                        	/* socket to talk tu mam */
-	int flags;								/* flags of the context */
-	struct sockaddr *bind_sa_req;       	/* local address requested */
-	socklen_t 		 bind_sa_req_len;      	/* */
-	struct sockaddr *bind_sa_res;       	/* local address choosen by mam */
-	socklen_t 		 bind_sa_res_len;      	/* */
-	struct sockaddr *remote_sa_req;     	/* remote address requested */
-	socklen_t 		 remote_sa_req_len;    	/* */
-	char 			*remote_hostname;      	/* hostname resolved */
-	struct addrinfo	*remote_addrinfo_hint;	/* candidate remote addresses (sorted by mam preference) */
-	struct addrinfo	*remote_addrinfo_res;	/* candidate remote addresses (sorted by mam preference) */
-	struct sockaddr *remote_sa_res;     	/* remote address choosen in the end */
-	socklen_t 		 remote_sa_res_len;    	/* */
+	int usage;                          	/**> referance counter */
+	uint8_t locks;                      	/**> lock to avoid multiple concurrent requests to mam */
+	int mamsock;                        	/**> socket to talk tu mam */
+	int flags;								/**> flags of the context */
+	struct sockaddr *bind_sa_req;       	/**> local address requested */
+	socklen_t 		 bind_sa_req_len;      	/**> length of bind_sa_req*/
+	struct sockaddr *bind_sa_res;       	/**> local address choosen by mam */
+	socklen_t 		 bind_sa_res_len;      	/**> length of bind_sa_res*/
+	struct sockaddr *remote_sa_req;     	/**> remote address requested */
+	socklen_t 		 remote_sa_req_len;    	/**> length of remote_sa_req*/
+	char 			*remote_hostname;      	/**> hostname to resolve */
+	struct addrinfo	*remote_addrinfo_hint;	/**> hints for resolving */
+	struct addrinfo	*remote_addrinfo_res;	/**> candidate remote addresses (sorted by mam preference) */
+	struct sockaddr *remote_sa_res;     	/**> remote address choosen in the end */
+	socklen_t 		 remote_sa_res_len;    	/**> length of remote_sa_res */
 };
 
-/* locking simulation - just to make sure that we have no 
+/** Helper doing locking simulation - lock part
+ * 
+ * just to make sure that we have no 
  * interleaving requests on a single socket
  */
 int _lock_ctx (struct _muacc_ctx *_ctx)
@@ -37,12 +39,16 @@ int _lock_ctx (struct _muacc_ctx *_ctx)
 	return( -(_ctx->locks++) );
 }
 
+/** Helper doing locking simulation - unlock part
+ * 
+ * just to make sure that we have no 
+ * interleaving requests on a single socket
+ */
 int _unlock_ctx (struct _muacc_ctx *_ctx)
 {
 	return( -(--(_ctx->locks)) );
 }
 
-/* reference counting based memory management for muacc_context */
 int muacc_release_context(struct muacc_context *ctx)
 {
 	if(ctx->ctx == 0)
@@ -54,6 +60,7 @@ int muacc_release_context(struct muacc_context *ctx)
 	{
 		close(ctx->ctx->mamsock);
 		free(ctx->ctx);
+		/* ToDo: Do deep free! */
 	}
 	ctx->ctx = NULL;
 	
@@ -71,7 +78,7 @@ int muacc_retain_context(struct muacc_context *ctx)
 	return(++(ctx->ctx->usage));
 }
 
-/* make a connection to the multi-access manager */
+/* Helper makeing a connection to MAM */
 int _connect_ctx_to_mam(struct _muacc_ctx *_ctx) 
 {
 	
@@ -156,6 +163,8 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	
 	memcpy(_ctx, src->ctx, sizeof(struct _muacc_ctx));
 	
+	/* TODO: Make a deep copy of all linked structs (otherwise might result in free hell!)
+
 	/* connect to mam */
 	if(_connect_ctx_to_mam(_ctx))
 	{
@@ -173,6 +182,10 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	return(0);	
 }
 
+
+/** Helper serialzing _ctx in TLVs
+ *
+ */
 size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, struct _muacc_ctx *ctx) 
 {
 
@@ -199,6 +212,11 @@ _muacc_pack_ctx_err:
 	
 }
 
+
+/** Helper parsing a single TLV and pushing the data to _ctx
+ *
+ * keeps memory consistent
+ */
 int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct _muacc_ctx *_ctx)
 {
 	struct addrinfo *ai;
@@ -304,6 +322,9 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 } 
 
 
+/** Helper which sends contents of the context to the MAM and replaces it with the values from the response
+ *
+ */
 int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 {
 	
@@ -377,6 +398,10 @@ _muacc_contact_mam_parse_err:
 	
 }
 
+
+/** helper to deep copy addrinfo sockaddr
+ *
+ */
 struct sockaddr *_muacc_clone_sockaddr(struct sockaddr *src, size_t src_len)
 {
 	struct sockaddr *ret = NULL;
@@ -388,6 +413,10 @@ struct sockaddr *_muacc_clone_sockaddr(struct sockaddr *src, size_t src_len)
 	return(ret);
 }
 
+
+/** helper to deep copy addrinfo structs
+ *
+ */
 struct addrinfo *_muacc_clone_addrinfo(struct addrinfo *src, size_t src_len)
 {
 	struct addrinfo *res = NULL;
@@ -430,6 +459,7 @@ struct addrinfo *_muacc_clone_addrinfo(struct addrinfo *src, size_t src_len)
 
 }
 
+
 int muacc_getaddrinfo(struct muacc_context *ctx,
 		const char *hostname, const char *servname,
 		const struct addrinfo *hints, struct addrinfo **res)		
@@ -452,6 +482,10 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 		goto muacc_getaddrinfo_fallback;
 	}
 	
+	/* ToDo: Involve MAM
+	 *
+	 */
+
 	_unlock_ctx(ctx->ctx);
 	
 muacc_getaddrinfo_fallback:
@@ -482,6 +516,10 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 		goto muacc_setsockopt_fallback;
 	}
 	
+	/* ToDo: encode sockopt for MAM
+	 *
+	 */
+
 	_unlock_ctx(ctx->ctx);
 		
 muacc_setsockopt_fallback:
