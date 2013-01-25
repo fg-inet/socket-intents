@@ -1,14 +1,14 @@
 PROGRAM=testintents
 OBJECTS=
-CFLAGS= -g -Wall -O3 -std=c99
+CFLAGS= -g -Wall -O0 -std=c99 -D_GNU_SOURCE
 LDLIBS= -L. -ldl
 CC=gcc
 
 all: lib test
 
 lib: libintents.o
-	$(CC) $(CFLAGS) -shared -Wl,-soname,libintents.so.1 -o libintents.so.1.0 libintents.o
-	ln -s libintents.so.1.0 libintents.so
+	$(CC) $(CFLAGS) -shared -Wl,-soname,libintents.so.1 -o libintents.so.1.0 libintents.o -L. -lmuacc
+	ln -sf libintents.so.1.0 libintents.so
 
 libintents.o: libintents.c
 	$(CC) $(CFLAGS) -fPIC -c libintents.c
@@ -20,4 +20,4 @@ testintents.o: testintents.c
 	$(CC) $(CFLAGS) -c testintents.c -o testintents.o
 
 clean:
-	rm -f testintents testintents.o libintents.so.1.0 libintents.o
+	rm -f testintents testintents.o libintents.so.1.0 libintents.o libintents.so

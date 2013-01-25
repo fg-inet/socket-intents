@@ -5,7 +5,6 @@
  *
  */
 
-#define _GNU_SOURCE
 #define DEBUG
 
 #ifdef DEBUG
