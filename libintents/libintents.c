@@ -1,12 +1,15 @@
-/*
- * Socket library, extending the Socket API to support intents
+/** \file libintents.c
+ *  \brief 	Socket library, extending the Socket API to support intents -
+ *  		Does NOT provide any guarantees or quality of service of any kind.
  * 
- * Author: Theresa Enghardt <theresa@net.t-labs.tu-berlin.de>
- *
+ *  Socket library that is intended to overload some socket API calls to support intents.
+ *  Communicates socket intents to a Multi Access Manager (MAM) which translates the intents
+ *  into concrete effects on the sockets.
  */
 
-#define DEBUG
-
+/** Print a very verbose output of what the overloaded functions are doing by using -DDEBUG
+ *  Otherwise, print nothing and optimize code out.
+ */
 #ifdef DEBUG
  #define LOG printf
  #else
@@ -31,6 +34,16 @@ int (*orig_setsockopt)(int sockfd, int level, int optname, const void *optval, s
 int (*orig_getsockopt)(int sockfd, int level, int optname, void *optval, socklen_t *optlen) = NULL;
 //int (*orig_getaddrinfo)(const char *node, const char *service, const struct addrinfo *hints, const addrinfo **res);
 
+/** \var int (*orig_socket)(int domain, int type, int protocol)
+ *  Pointer to the 'original' socket function in the library that would be loaded without LD_PRELOAD
+ */
+/** \var int (*orig_setsockopt)(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
+ *  Pointer to the 'original' setsockopt function in the library that would be loaded without LD_PRELOAD
+ */
+/** \var int (*orig_getsockopt)(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
+ *  Pointer to the 'original' getsockopt function in the library that would be loaded without LD_PRELOAD
+ */
+
 int setintent(int sockfd, int optname, const void *optval, socklen_t optlen);
 int getintent(int sockfd, int optname, void *optval, socklen_t *optlen);
 
@@ -38,21 +51,31 @@ int get_orig_function(char* name, void** function);
 
 /* Overloading functions */
 
+/** Intercepts all 'socket' calls.
+ *
+ *  Creates a new socket and initializes a new \a muacc_context_t for it.
+ */
 int socket(int domain, int type, int protocol)
 {
 	LOG("You have called the experimental socket function.\n");
-	static bool call_in_progress = false;
+
+	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 
 	if (!orig_socket)
 	{
+		/* If the original socket function has not been called yet, we need to find it
+		 * for being able to call it later.
+		 */
 		if ((retval = get_orig_function("socket", (void **)&orig_socket)) != 0)
 		{
 			call_in_progress = false;
 			return retval;
 		}
 	}
-
+	/* Check if we are in a nested call of our experimental socket function.
+	 * If so, call the original socket function and return afterwards to prevent loops.
+	 */
 	if (call_in_progress)
 	{
 		LOG("Call in progress - calling original socket function\n");
@@ -89,20 +112,19 @@ int socket(int domain, int type, int protocol)
 	return retval;
 }
 
+/** Intercepts all 'setsockopt' calls.
+ *
+ * If the socket option is an intent, handle it.
+ * Else, pass it on to the original setsockopt function.
+ */
 int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
-	/* 
-	 * Intercepts all 'setsockopt' calls.
-	 * If the socket option is an intent, handle it. 
-	 * Else, pass it on to the original setsockopt function.
-	 */
 {
 	LOG("You have called the experimental setsockopt function on level %d option %d value %d \n", level, optname, *(int *) optval);
 	int retval = 0;
 
 	if (level == SOL_INTENTS)
 	{
-		/*
-		 * Setsockopt was called on SOL_INTENTS level
+		/* Setsockopt was called on SOL_INTENTS level
 		 * so we handle it ourselves
 		 */
 		LOG("Trying to set socket intent option.\n");
@@ -116,8 +138,7 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
 		}
 	}
 	else
-		/*
-		 * Setsockopt was called on another level than SOL_INTENTS
+		/* Setsockopt was called on another level than SOL_INTENTS
 		 * so we call the original setsockopt function
 		 */
 	{
@@ -142,20 +163,19 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
 	return retval;
 }
 
+/** Intercept all 'getsockopt' calls.
+ *
+ * If the socket option is an intent, handle it.
+ * Else, pass it on to the original getsockopt function.
+ */
 int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
-	/*
-	 * Intercept all 'getsockopt' calls.
-	 * If the socket option is an intent, handle it.
-	 * Else, pass it on to the original getsockopt function.
-	 */
 {
 	LOG("You have called the experimental getsockopt function on level %d option %d value %d \n", level, optname, *(int *) optval);
 
 	int opterror = 0;
 	if (level == SOL_INTENTS) 
 	{
-		/*
-		 * Getsockopt was called on SOL_INTENTS level
+		/* Getsockopt was called on SOL_INTENTS level
 		 * so we handle it ourselves
 		 */
 		LOG("Trying to get socket intent option.\n");
@@ -169,8 +189,7 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
 		}
 	}
 	else
-		/*
-		 * Getsockopt was called on another level than SOL_INTENTS
+		/* Getsockopt was called on another level than SOL_INTENTS
 		 * so we call the original getsockopt function
 		 */
 	{
@@ -193,6 +212,8 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
 	return opterror;
 }
 
+/** Get an intent from the multi access context.
+ */
 int getintent(int sockfd, int optname, void *optval, socklen_t *optlen)
 {
 	/* Not yet implemented. */
@@ -200,6 +221,8 @@ int getintent(int sockfd, int optname, void *optval, socklen_t *optlen)
 	return -1;
 }
 
+/** Set an intent to the multi access context.
+ */
 int setintent(int sockfd, int optname, const void *optval, socklen_t optlen)
 {
 	/* Not yet implemented. */
@@ -207,6 +230,11 @@ int setintent(int sockfd, int optname, const void *optval, socklen_t optlen)
 	return -1;
 }
 
+/** Fetch the 'original' function from the library that would be used without LD_PRELOAD.
+ *  \param name The name of the function/symbol
+ *  \param function Buffer where a pointer to the function will be placed on success
+ *  \return 0 on success, -1 otherwise
+ */
 int get_orig_function(char* name, void** function)
 {
 	if (name == NULL)
@@ -216,6 +244,9 @@ int get_orig_function(char* name, void** function)
 	}
 	LOG("Trying to get the original %s function\n", name);
 
+	/* Clear error string before fetching a pointer to \a name from the library that would
+	 * come next in the LD Library Path. Place the pointer in \a **function.
+	 */
 	char *error = NULL;
 	error = dlerror();
 	*function = dlsym(RTLD_NEXT, name);

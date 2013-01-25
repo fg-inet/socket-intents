@@ -1,6 +1,6 @@
 PROGRAM=testintents
 OBJECTS=
-CFLAGS= -g -Wall -O0 -std=c99 -D_GNU_SOURCE
+CFLAGS= -g -Wall -O0 -std=c99 -D_GNU_SOURCE -DDEBUG
 LDLIBS= -L. -ldl
 CC=gcc
 
