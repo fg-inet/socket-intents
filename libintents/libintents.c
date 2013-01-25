@@ -34,30 +34,25 @@ int (*orig_getsockopt)(int sockfd, int level, int optname, void *optval, socklen
 int setintent(int sockfd, int optname, const void *optval, socklen_t optlen);
 int getintent(int sockfd, int optname, void *optval, socklen_t *optlen);
 
+int get_orig_function(char* name, void** function);
+
 /* Overloading functions */
 
 int socket(int domain, int type, int protocol)
 {
 	LOG("You have called the experimental socket function.\n");
+	static bool call_in_progress = false;
 	int retval = 0;
-	char *error = NULL;
 
 	if (!orig_socket)
 	{
-		error = dlerror();
-		orig_socket = dlsym(RTLD_NEXT, "socket");
-		if ((error = dlerror()) != NULL)
+		if ((retval = get_orig_function("socket", (void **)&orig_socket)) != 0)
 		{
-			printf("Could not find original socket function: %s\n", error);
-			return -1;
-		}
-		else
-		{
-			LOG("Found original socket function.\n");
+			call_in_progress = false;
+			return retval;
 		}
 	}
 
-	static bool call_in_progress = false;
 	if (call_in_progress)
 	{
 		LOG("Call in progress - calling original socket function\n");
@@ -65,16 +60,16 @@ int socket(int domain, int type, int protocol)
 	}
 	else
 	{
+		LOG("Set 'call in progress' to true\n");
 		call_in_progress = true;
 	}
 
-	muacc_context_t *testctx = NULL;
-	if (muacc_init_context(testctx) < 0)
+	LOG("Initializing muacc context.\n");
+	muacc_context_t testctx = {.ctx = NULL};
+	if (muacc_init_context(&testctx) < 0)
 	{
-		printf("Error initializing context\n");
+		fprintf(stderr,"Error initializing context\n");
 		errno = ENOMEM;
-		call_in_progress = false;
-		return -1;
 	}
 	else
 	{
@@ -84,7 +79,7 @@ int socket(int domain, int type, int protocol)
 	LOG("Creating socket.\n");
 	if ((retval = orig_socket(domain, type, protocol)) < 0)
 	{
-		printf("Error creating socket.\n");
+		fprintf(stderr, "Error creating socket.\n");
 	}
 	else
 	{
@@ -102,8 +97,8 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
 	 */
 {
 	LOG("You have called the experimental setsockopt function on level %d option %d value %d \n", level, optname, *(int *) optval);
+	int retval = 0;
 
-	int opterror = 0;
 	if (level == SOL_INTENTS)
 	{
 		/*
@@ -111,9 +106,9 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
 		 * so we handle it ourselves
 		 */
 		LOG("Trying to set socket intent option.\n");
-		if ((opterror = setintent(sockfd, optname, optval, optlen)) < 0)
+		if ((retval = setintent(sockfd, optname, optval, optlen)) < 0)
 		{
-			LOG("Error calling setintent.\n");
+			fprintf(stderr,"Error calling setintent.\n");
 		}
 		else
 		{
@@ -126,26 +121,25 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
 		 * so we call the original setsockopt function
 		 */
 	{
-		LOG("Trying to call the original setsockopt function.\n");
-		char *error = NULL;
-		error = dlerror();
-		orig_setsockopt = dlsym(RTLD_NEXT, "setsockopt");
-		if ((error = dlerror()) != NULL)
+
+		if (!orig_setsockopt)
 		{
-			printf("Could not find original setsockopt function: %s\n", error);
-			return -1;
+			if ((retval = get_orig_function("setsockopt",(void **)&orig_setsockopt)) != 0)
+			{
+				return retval;
+			}
 		}
 
-		if ((opterror = orig_setsockopt(sockfd, level, optname, optval, optlen)) < 0)
+		if ((retval = orig_setsockopt(sockfd, level, optname, optval, optlen)) < 0)
 		{
-			LOG("Error calling original setsockopt.\n");
+			fprintf(stderr,"Error calling original setsockopt.\n");
 		}
 		else
 		{
 			LOG("Successfully set %d option to %d. \n", optname, *(int *) optval);
 		}
 	}
-	return opterror;
+	return retval;
 }
 
 int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
@@ -167,7 +161,7 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
 		LOG("Trying to get socket intent option.\n");
 		if ((opterror = getintent(sockfd, optname, optval, optlen)) < 0)
 		{
-			LOG("Error calling getintent.\n");
+			fprintf(stderr,"Error calling getintent.\n");
 		}
 		else
 		{
@@ -181,19 +175,15 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
 		 */
 	{
 		LOG("Trying to call the original getsockopt function.\n");
-		char *error = NULL;
-		error = dlerror();
-		orig_getsockopt = dlsym(RTLD_NEXT, "getsockopt");
-		if ((error = dlerror()) != NULL)
-		{
-			printf("Could not find original getsockopt function: %s\n", error);
-			return -1;
-		}
 
+		if (!orig_getsockopt)
+		{
+			if (get_orig_function("getsockopt",(void **)&orig_getsockopt) < 0) return -1;
+		}
 
 		if ((opterror = orig_getsockopt(sockfd, level, optname, optval, optlen)) < 0)
 		{
-			LOG("Error calling original getsockopt.\n");
+			fprintf(stderr,"Error calling original getsockopt.\n");
 		}
 		else
 		{
@@ -215,4 +205,28 @@ int setintent(int sockfd, int optname, const void *optval, socklen_t optlen)
 	/* Not yet implemented. */
 	errno = ENOSYS;
 	return -1;
+}
+
+int get_orig_function(char* name, void** function)
+{
+	if (name == NULL)
+	{
+		fprintf(stderr,"Could not get original function of NULL.\n");
+		return -1;
+	}
+	LOG("Trying to get the original %s function\n", name);
+
+	char *error = NULL;
+	error = dlerror();
+	*function = dlsym(RTLD_NEXT, name);
+	if ((error = dlerror()) != NULL)
+	{
+		fprintf(stderr,"Could not find original %s function: %s\n", name, error);
+		return -1;
+	}
+	else
+	{
+		LOG("Found original %s function.\n", name);
+	}
+	return 0;
 }
