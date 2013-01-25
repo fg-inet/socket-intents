@@ -15,21 +15,85 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <dlfcn.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netdb.h>
 #include <errno.h>
 #include "libintents.h"
+#include "../clib/muacc.h"
 
 /* Original functions */
-int (*orig_setsockopt)(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
-int (*orig_getsockopt)(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
+int (*orig_socket)(int domain, int type, int protocol) = NULL;
+int (*orig_setsockopt)(int sockfd, int level, int optname, const void *optval, socklen_t optlen) = NULL;
+int (*orig_getsockopt)(int sockfd, int level, int optname, void *optval, socklen_t *optlen) = NULL;
+//int (*orig_getaddrinfo)(const char *node, const char *service, const struct addrinfo *hints, const addrinfo **res);
 
 int setintent(int sockfd, int optname, const void *optval, socklen_t optlen);
 int getintent(int sockfd, int optname, void *optval, socklen_t *optlen);
 
 /* Overloading functions */
+
+int socket(int domain, int type, int protocol)
+{
+	LOG("You have called the experimental socket function.\n");
+	int retval = 0;
+	char *error = NULL;
+
+	if (!orig_socket)
+	{
+		error = dlerror();
+		orig_socket = dlsym(RTLD_NEXT, "socket");
+		if ((error = dlerror()) != NULL)
+		{
+			printf("Could not find original socket function: %s\n", error);
+			return -1;
+		}
+		else
+		{
+			LOG("Found original socket function.\n");
+		}
+	}
+
+	static bool call_in_progress = false;
+	if (call_in_progress)
+	{
+		LOG("Call in progress - calling original socket function\n");
+		return orig_socket(domain, type, protocol);
+	}
+	else
+	{
+		call_in_progress = true;
+	}
+
+	muacc_context_t *testctx = NULL;
+	if (muacc_init_context(testctx) < 0)
+	{
+		printf("Error initializing context\n");
+		errno = ENOMEM;
+		call_in_progress = false;
+		return -1;
+	}
+	else
+	{
+		LOG("Initialized new muacc_context.\n");
+	}
+
+	LOG("Creating socket.\n");
+	if ((retval = orig_socket(domain, type, protocol)) < 0)
+	{
+		printf("Error creating socket.\n");
+	}
+	else
+	{
+		LOG("Successfully created socket %d \n", retval);
+	}
+	call_in_progress = false;
+	return retval;
+}
+
 int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
 	/* 
 	 * Intercepts all 'setsockopt' calls.
