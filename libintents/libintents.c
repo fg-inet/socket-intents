@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <glib.h>
 #include <dlfcn.h>
 #include <string.h>
 #include <sys/types.h>
@@ -43,6 +44,10 @@ int (*orig_getsockopt)(int sockfd, int level, int optname, void *optval, socklen
 /** \var int (*orig_getsockopt)(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
  *  Pointer to the 'original' getsockopt function in the library that would be loaded without LD_PRELOAD
  */
+
+GHashTable *socket_table = NULL;
+static void st_free_socknum(void* data);
+static void st_free_ctx(void* data);
 
 int setintent(int sockfd, int optname, const void *optval, socklen_t optlen);
 int getintent(int sockfd, int optname, void *optval, socklen_t *optlen);
@@ -87,16 +92,10 @@ int socket(int domain, int type, int protocol)
 		call_in_progress = true;
 	}
 
-	LOG("Initializing muacc context.\n");
-	muacc_context_t testctx = {.ctx = NULL};
-	if (muacc_init_context(&testctx) < 0)
+	if (!socket_table)
 	{
-		fprintf(stderr,"Error initializing context\n");
-		errno = ENOMEM;
-	}
-	else
-	{
-		LOG("Initialized new muacc_context.\n");
+		LOG("Initializing socket table\n");
+		socket_table = g_hash_table_new_full(g_int_hash, g_int_equal, st_free_socknum, st_free_ctx);
 	}
 
 	LOG("Creating socket.\n");
@@ -107,7 +106,27 @@ int socket(int domain, int type, int protocol)
 	else
 	{
 		LOG("Successfully created socket %d \n", retval);
+
+		LOG("Initializing muacc context.\n");
+		muacc_context_t *newctx = malloc(sizeof(muacc_context_t));
+		newctx -> ctx = NULL;
+		if (muacc_init_context(newctx) < 0)
+		{
+			fprintf(stderr,"Error initializing context\n");
+			errno = ENOMEM;
+		}
+		else
+		{
+			LOG("Initialized new muacc_context.\n");
+		}
+		//FIXME Move hash table insert inside the 'else'
+		LOG("Inserting socket %d and its muacc_context into hash table.\n",retval);
+		int *socknum = malloc(sizeof(int));
+		*socknum = retval;
+		g_hash_table_insert(socket_table, (void *) socknum, (void *) newctx);
+
 	}
+
 	call_in_progress = false;
 	return retval;
 }
@@ -216,18 +235,47 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
  */
 int getintent(int sockfd, int optname, void *optval, socklen_t *optlen)
 {
-	/* Not yet implemented. */
-	errno = ENOSYS;
-	return -1;
+	muacc_context_t *setctx = g_hash_table_lookup(socket_table, (const void *) &sockfd);
+
+	if (setctx == NULL)
+	{
+		fprintf(stderr, "Failed to look up socket %d in socket table - Aborting.\n", sockfd);
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+	else
+	{
+		LOG("Found context matching socket %d\n", sockfd);
+	}
+
+	//TODO: Get the intent from the context.
+
+	return 0;
 }
 
 /** Set an intent to the multi access context.
  */
 int setintent(int sockfd, int optname, const void *optval, socklen_t optlen)
 {
-	/* Not yet implemented. */
-	errno = ENOSYS;
-	return -1;
+	muacc_context_t *setctx = g_hash_table_lookup(socket_table, (const void *) &sockfd);
+	/*muacc_context_t *setctx = NULL;
+	printf("hash blah %d to %d\n", sockfd, g_int_hash((const void*) &sockfd));
+	g_hash_table_lookup(socket_table, (const void *) &sockfd);*/
+
+	if (setctx == NULL)
+	{
+		fprintf(stderr, "Failed to look up socket %d in socket table - Aborting.\n", sockfd);
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+	else
+	{
+		LOG("Found context matching socket %d\n", sockfd);
+	}
+
+	//TODO: Insert the intent into the context.
+
+	return 0;
 }
 
 /** Fetch the 'original' function from the library that would be used without LD_PRELOAD.
@@ -260,4 +308,14 @@ int get_orig_function(char* name, void** function)
 		LOG("Found original %s function.\n", name);
 	}
 	return 0;
+}
+
+void st_free_socknum(void* data)
+{
+	free((int *)data);
+}
+
+void st_free_ctx(void* data)
+{
+	muacc_release_context((struct muacc_context *)data);
 }
