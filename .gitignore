@@ -1,0 +1,33 @@
+# Files that git should ignore
+
+# Objects, compiled libraries, executables
+*.o
+*.so
+*.so.*
+*.a
+libintents/testintents
+muacsocksd
+addrinfo
+
+# Compiler docs
+doxygen/
+
+# Automake stuff
+*.m4
+config*
+Makefile
+Makefile.in
+autom4te.cache/
+missing
+compile
+depcomp
+install-sh
+
+# Random other stuff
+stamp-h1
+clib/.deps/
+clib/.dirstamp
+muacsocks/.deps/
+muacsocks/.dirstamp
+tests/.deps/
+tests/.dirstamp
