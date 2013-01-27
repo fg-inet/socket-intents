@@ -33,7 +33,9 @@
 int (*orig_socket)(int domain, int type, int protocol) = NULL;
 int (*orig_setsockopt)(int sockfd, int level, int optname, const void *optval, socklen_t optlen) = NULL;
 int (*orig_getsockopt)(int sockfd, int level, int optname, void *optval, socklen_t *optlen) = NULL;
-//int (*orig_getaddrinfo)(const char *node, const char *service, const struct addrinfo *hints, const addrinfo **res);
+int (*orig_getaddrinfo)(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res) = NULL;
+int (*orig_bind)(int sockfd, const struct sockaddr *addr, socklen_t addrlen) = NULL;
+int (*orig_connect)(int sockfd, const struct sockaddr *addr, socklen_t addrlen) = NULL;
 int (*orig_close)(int fd) = NULL;
 
 /** \var int (*orig_socket)(int domain, int type, int protocol)
@@ -44,6 +46,15 @@ int (*orig_close)(int fd) = NULL;
  */
 /** \var int (*orig_getsockopt)(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
  *  Pointer to the 'original' getsockopt function in the library that would be loaded without LD_PRELOAD
+ */
+/** \var int (*orig_getaddrinfo)(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res)
+ *  Pointer to the 'original' getaddrinfo function in the library that would be loaded without LD_PRELOAD
+ */
+/** \var int (*orig_bind)(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+ *  Pointer to the 'original' bind function in the library that would be loaded without LD_PRELOAD
+ */
+/** \var int (*orig_connect)(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+ *  Pointer to the 'original' connect function in the library that would be loaded without LD_PRELOAD
  */
 /** \var int (*orig_close)(int fd)
  *  Pointer to the 'original' close function in the library that would be loaded without LD_PRELOAD
@@ -130,6 +141,7 @@ int socket(int domain, int type, int protocol)
 		int *socknum = malloc(sizeof(int));
 		*socknum = retval;
 		g_hash_table_insert(socket_table, (void *) socknum, (void *) newctx);
+		st_print_table(socket_table);
 
 	}
 
@@ -235,6 +247,134 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
 		}
 	}
 	return opterror;
+}
+
+/** Intercept all 'getaddrinfo' calls.
+ *
+ */
+int getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res)
+{
+	LOG("You have called the experimental getaddrinfo function.\n");
+	static bool call_in_progress = false; // Flag that indicates if this is a nested call
+	int retval = 0;
+
+	if (!orig_getaddrinfo)
+	{
+		if ((retval = get_orig_function("getaddrinfo",(void **)&orig_getaddrinfo)) < 0) return retval;
+	}
+
+	if (call_in_progress)
+	{
+		LOG("Call already in progress. Calling original getaddrinfo.\n");
+		return orig_getaddrinfo(node, service, hints, res);
+	}
+	else
+	{
+		LOG("Set call_in_progress to true.\n");
+		call_in_progress = true;
+	}
+
+	int sockfd = 1; //FIXME: How to get a socket descriptor that makes sense here?
+	muacc_context_t *ctx = g_hash_table_lookup(socket_table, (const void *) &sockfd);
+
+	if (ctx == NULL)
+	{
+		fprintf(stderr, "Failed to look up socket %d in socket table.\n", sockfd);
+		return orig_getaddrinfo(node, service, hints, res);
+	}
+	else
+	{
+		LOG("Found context matching socket %d\n", sockfd);
+	}
+	LOG("Calling muacc_getaddrinfo.\n");
+	if ((retval = muacc_getaddrinfo(ctx, node, service, hints, res)) < 0)
+	{
+		fprintf(stderr,"Error calling muacc_getaddrinfo.\n");
+	}
+
+	call_in_progress = false;
+	return retval;
+}
+
+/** Intercept all 'bind' calls.
+ *
+ */
+int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+{
+	LOG("You have called the experimental bind function.\n");
+	static bool call_in_progress = false; // Flag that indicates if this is a nested call
+	int retval = 0;
+
+	if (!orig_bind)
+	{
+		if ((retval = get_orig_function("bind",(void **)&orig_bind)) < 0) return retval;
+	}
+
+	if (call_in_progress)
+	{
+		LOG("Call already in progress. Calling original bind.\n");
+		return orig_bind(sockfd, addr, addrlen);
+	}
+	else
+	{
+		LOG("Set call_in_progress to true.\n");
+		call_in_progress = true;
+	}
+
+	LOG("Calling original bind.\n");
+	if ((retval = orig_bind(sockfd, addr, addrlen)) < 0)
+	{
+		fprintf(stderr,"Error calling bind.\n");
+	}
+	call_in_progress = false;
+	return retval;
+}
+
+/** Intercept all 'connect' calls.
+ *
+ */
+int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+{
+	LOG("You have called the experimental connect function.\n");
+	static bool call_in_progress = false; // Flag that indicates if this is a nested call
+	int retval = 0;
+
+	if (!orig_connect)
+	{
+		if ((retval = get_orig_function("connect",(void **)&orig_connect)) < 0) return retval;
+	}
+	if (call_in_progress)
+	{
+		LOG("Call already in progress. Calling original connect.\n");
+		return orig_connect(sockfd, addr, addrlen);
+	}
+	else
+	{
+		LOG("Set call_in_progress to true.\n");
+		call_in_progress = true;
+	}
+
+	muacc_context_t *ctx = g_hash_table_lookup(socket_table, (const void *) &sockfd);
+
+	if (ctx == NULL)
+	{
+		fprintf(stderr, "Failed to look up socket %d in socket table - Aborting.\n", sockfd);
+		errno = EOPNOTSUPP;
+		return -1;
+	}
+	else
+	{
+		LOG("Found context matching socket %d\n", sockfd);
+	}
+
+	LOG("Calling muacc_connect.\n");
+
+	if ((retval = muacc_connect(ctx, sockfd, addr, addrlen)) < 0)
+	{
+		fprintf(stderr,"Error calling muacc_connect.\n");
+	}
+	call_in_progress = false;
+	return retval;
 }
 
 int close(int fd)
