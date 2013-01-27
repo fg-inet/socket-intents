@@ -79,7 +79,7 @@ int get_orig_function(char* name, void** function);
  */
 int socket(int domain, int type, int protocol)
 {
-	LOG("You have called the experimental socket function.\n");
+	LOG("--- socket( %d, %d, %d ) ---\n", domain, type, protocol);
 
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
@@ -111,7 +111,7 @@ int socket(int domain, int type, int protocol)
 
 	if (!socket_table)
 	{
-		LOG("Initializing socket table\n");
+		LOG("+++ Initializing socket table +++\n");
 		socket_table = g_hash_table_new_full(g_int_hash, g_int_equal, st_free_socknum, st_free_ctx);
 	}
 
@@ -124,12 +124,12 @@ int socket(int domain, int type, int protocol)
 	{
 		LOG("Successfully created socket %d \n", retval);
 
-		LOG("Initializing muacc context.\n");
+		LOG("+++ Initializing muacc context. +++\n");
 		muacc_context_t *newctx = malloc(sizeof(muacc_context_t));
 		newctx -> ctx = NULL;
 		if (muacc_init_context(newctx) < 0)
 		{
-			fprintf(stderr,"Error initializing context\n");
+			fprintf(stderr,"Error initializing context for socket %d. \n", retval);
 			errno = ENOMEM;
 		}
 		else
@@ -137,7 +137,7 @@ int socket(int domain, int type, int protocol)
 			LOG("Initialized new muacc_context.\n");
 		}
 		//FIXME Move hash table insert inside the 'else'
-		LOG("Inserting socket %d and its muacc_context into hash table.\n",retval);
+		LOG("+++ Inserting socket %d and its muacc_context into hash table. +++\n",retval);
 		int *socknum = malloc(sizeof(int));
 		*socknum = retval;
 		g_hash_table_insert(socket_table, (void *) socknum, (void *) newctx);
@@ -156,7 +156,7 @@ int socket(int domain, int type, int protocol)
  */
 int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
 {
-	LOG("You have called the experimental setsockopt function on level %d option %d value %d \n", level, optname, *(int *) optval);
+	LOG("--- setsockopt ( %d, %d, %d, %d, %d ) --- \n", sockfd, level, optname, *(int *) optval, (int) optlen);
 	int retval = 0;
 
 	if (level == SOL_INTENTS)
@@ -197,6 +197,7 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
 			LOG("Successfully set %d option to %d. \n", optname, *(int *) optval);
 		}
 	}
+	LOG("Setsockopt finished\n");
 	return retval;
 }
 
@@ -207,7 +208,7 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
  */
 int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
 {
-	LOG("You have called the experimental getsockopt function on level %d option %d value %d \n", level, optname, *(int *) optval);
+	LOG("--- getsockopt ( %d, %d, %d, %d, %d ) --- \n", sockfd, level, optname, *(int *) optval, *(int*) optlen);
 
 	int opterror = 0;
 	if (level == SOL_INTENTS) 
@@ -254,7 +255,7 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
  */
 int getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res)
 {
-	LOG("You have called the experimental getaddrinfo function.\n");
+	LOG("--- getaddrinfo ( %s, %s ) ---\n", node, service);
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 
@@ -279,7 +280,7 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 
 	if (ctx == NULL)
 	{
-		fprintf(stderr, "Failed to look up socket %d in socket table.\n", sockfd);
+		fprintf(stderr, "Failed to look up socket %d in socket table - calling original getaddrinfo.\n", sockfd);
 		return orig_getaddrinfo(node, service, hints, res);
 	}
 	else
@@ -301,7 +302,7 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
  */
 int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-	LOG("You have called the experimental bind function.\n");
+	LOG("--- bind ( %d ) --- \n", sockfd);
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 
@@ -335,7 +336,7 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
  */
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-	LOG("You have called the experimental connect function.\n");
+	LOG("--- connect ( %d ) --- \n", sockfd);
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 
@@ -358,9 +359,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
 	if (ctx == NULL)
 	{
-		fprintf(stderr, "Failed to look up socket %d in socket table - Aborting.\n", sockfd);
-		errno = EOPNOTSUPP;
-		return -1;
+		fprintf(stderr, "Failed to look up socket %d in socket table - Just connecting.\n", sockfd);
+		return orig_connect(sockfd, addr, addrlen);
 	}
 	else
 	{
@@ -379,7 +379,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
 int close(int fd)
 {
-	LOG("You have called the experimental close function.\n");
+	LOG("--- close ( %d ) ---\n", fd);
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 	if (!orig_close)
@@ -397,14 +397,14 @@ int close(int fd)
 		call_in_progress = true;
 	}
 
-	LOG("Trying to remove socket %d from socket table.\n", fd);
+	LOG("+++ Trying to remove socket %d from socket table. +++\n", fd);
 	if (!(retval = g_hash_table_remove(socket_table, (const void*) &fd)))
 	{
 		fprintf(stderr, "Could not find socket %d in socket table - nothing removed.\n", fd);
 	}
 	else
 	{
-		LOG("Successfully removed socket %d from socket table.\n", fd);
+		LOG("+++ Successfully removed socket %d from socket table. +++\n", fd);
 	}
 
 	LOG("Calling original close.\n");
@@ -426,13 +426,13 @@ int getintent(int sockfd, int optname, void *optval, socklen_t *optlen)
 
 	if (setctx == NULL)
 	{
-		fprintf(stderr, "Failed to look up socket %d in socket table - Aborting.\n", sockfd);
+		fprintf(stderr, "Getintent: Failed to look up socket %d in socket table - Aborting.\n", sockfd);
 		errno = EOPNOTSUPP;
 		return -1;
 	}
 	else
 	{
-		LOG("Found context matching socket %d\n", sockfd);
+		LOG("Getintent: Found context matching socket %d\n", sockfd);
 	}
 
 	//TODO: Get the intent from the context.
@@ -451,13 +451,13 @@ int setintent(int sockfd, int optname, const void *optval, socklen_t optlen)
 
 	if (setctx == NULL)
 	{
-		fprintf(stderr, "Failed to look up socket %d in socket table - Aborting.\n", sockfd);
+		fprintf(stderr, "Setintent: Failed to look up socket %d in socket table - Aborting.\n", sockfd);
 		errno = EOPNOTSUPP;
 		return -1;
 	}
 	else
 	{
-		LOG("Found context matching socket %d\n", sockfd);
+		LOG("Setintent: Found context matching socket %d\n", sockfd);
 	}
 
 	//TODO: Insert the intent into the context.
@@ -472,12 +472,12 @@ int setintent(int sockfd, int optname, const void *optval, socklen_t optlen)
  */
 int get_orig_function(char* name, void** function)
 {
-	if (name == NULL)
+	if (name == NULL || function == NULL)
 	{
 		fprintf(stderr,"Could not get original function of NULL.\n");
 		return -1;
 	}
-	LOG("Trying to get the original %s function\n", name);
+//	LOG("Trying to get the original %s function\n", name);
 
 	/* Clear error string before fetching a pointer to \a name from the library that would
 	 * come next in the LD Library Path. Place the pointer in \a **function.
@@ -492,7 +492,7 @@ int get_orig_function(char* name, void** function)
 	}
 	else
 	{
-		LOG("Found original %s function.\n", name);
+//		LOG("Found original %s function.\n", name);
 	}
 	return 0;
 }
