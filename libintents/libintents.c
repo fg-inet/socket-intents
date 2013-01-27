@@ -512,13 +512,13 @@ void st_print_table(GHashTable* table)
 		}
 		else
 		{
-			int *blah = keys->data;
-			printf("Socket %d, muacc_context %d\n", *blah, (int) g_hash_table_lookup(table, (const void *) keys->data));
-			for (GList *current = keys; current->next == current; current = current->next)
+			printf("+++ Printing table +++\n");
+			for (GList *current = keys; current != NULL; current = current->next)
 			{
-				int *blub = current->next->data;
-				printf("Socket %d, muacc_context %d\n", *blub, (int) g_hash_table_lookup(table, (const void *) current->next->data));
+				int *item = current->data;
+				printf("Socket %d, muacc_context %d\n", *item, (int) g_hash_table_lookup(table, (const void *) item));
 			}
+			printf("+++ End of table +++\n");
 		}
 
 		g_list_free(keys);
