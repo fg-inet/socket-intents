@@ -34,6 +34,7 @@ int (*orig_socket)(int domain, int type, int protocol) = NULL;
 int (*orig_setsockopt)(int sockfd, int level, int optname, const void *optval, socklen_t optlen) = NULL;
 int (*orig_getsockopt)(int sockfd, int level, int optname, void *optval, socklen_t *optlen) = NULL;
 //int (*orig_getaddrinfo)(const char *node, const char *service, const struct addrinfo *hints, const addrinfo **res);
+int (*orig_close)(int fd) = NULL;
 
 /** \var int (*orig_socket)(int domain, int type, int protocol)
  *  Pointer to the 'original' socket function in the library that would be loaded without LD_PRELOAD
@@ -44,10 +45,15 @@ int (*orig_getsockopt)(int sockfd, int level, int optname, void *optval, socklen
 /** \var int (*orig_getsockopt)(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
  *  Pointer to the 'original' getsockopt function in the library that would be loaded without LD_PRELOAD
  */
+/** \var int (*orig_close)(int fd)
+ *  Pointer to the 'original' close function in the library that would be loaded without LD_PRELOAD
+ */
+
 
 GHashTable *socket_table = NULL;
 static void st_free_socknum(void* data);
 static void st_free_ctx(void* data);
+static void st_print_table(GHashTable* table);
 
 int setintent(int sockfd, int optname, const void *optval, socklen_t optlen);
 int getintent(int sockfd, int optname, void *optval, socklen_t *optlen);
@@ -231,6 +237,47 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
 	return opterror;
 }
 
+int close(int fd)
+{
+	LOG("You have called the experimental close function.\n");
+	static bool call_in_progress = false; // Flag that indicates if this is a nested call
+	int retval = 0;
+	if (!orig_close)
+	{
+		if ((retval = get_orig_function("close",(void **)&orig_close)) < 0) return retval;
+	}
+	if (call_in_progress)
+	{
+		LOG("Call already in progress. Calling original connect.\n");
+		return orig_close(fd);
+	}
+	else
+	{
+		LOG("Set call_in_progress to true.\n");
+		call_in_progress = true;
+	}
+
+	LOG("Trying to remove socket %d from socket table.\n", fd);
+	if (!(retval = g_hash_table_remove(socket_table, (const void*) &fd)))
+	{
+		fprintf(stderr, "Could not find socket %d in socket table - nothing removed.\n", fd);
+	}
+	else
+	{
+		LOG("Successfully removed socket %d from socket table.\n", fd);
+	}
+
+	LOG("Calling original close.\n");
+	if ((retval = orig_close(fd)) < 0)
+	{
+		fprintf(stderr,"Error calling original close.\n");
+	}
+	
+	call_in_progress = false;
+	return retval;
+}
+
+
 /** Get an intent from the multi access context.
  */
 int getintent(int sockfd, int optname, void *optval, socklen_t *optlen)
@@ -310,12 +357,62 @@ int get_orig_function(char* name, void** function)
 	return 0;
 }
 
+void st_print_table(GHashTable* table)
+{
+	if (table == NULL)
+	{
+		fprintf(stderr, "Cannot print NULL table.\n");
+	}
+	else
+	{
+		GList *keys = g_hash_table_get_keys(table);
+		if (keys == NULL)
+		{
+			printf("Table has no keys.\n");
+		}
+		else
+		{
+			int *blah = keys->data;
+			printf("Socket %d, muacc_context %d\n", *blah, (int) g_hash_table_lookup(table, (const void *) keys->data));
+			for (GList *current = keys; current->next == current; current = current->next)
+			{
+				int *blub = current->next->data;
+				printf("Socket %d, muacc_context %d\n", *blub, (int) g_hash_table_lookup(table, (const void *) current->next->data));
+			}
+		}
+
+		g_list_free(keys);
+	}
+}
+
 void st_free_socknum(void* data)
 {
-	free((int *)data);
+	int *sock = data;
+	if ( sock == NULL )
+	{
+		fprintf(stderr, "Cannot free NULL.\n");
+	}
+	else
+	{
+		free(sock);
+	}
 }
 
 void st_free_ctx(void* data)
 {
-	muacc_release_context((struct muacc_context *)data);
+	struct muacc_context *ctx = data;
+	if ( ctx == NULL)
+	{
+		fprintf(stderr,"Cannot free NULL muacc_context.\n");
+	}
+	else if ( ctx->ctx == NULL)
+	{
+		LOG("Freeing empty muacc_context.\n");
+		free(ctx);
+		return;
+	}
+	else
+	{
+		muacc_release_context(data);
+	}
 }
