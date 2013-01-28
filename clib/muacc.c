@@ -339,7 +339,7 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 	}
 	else
  	{
-		DLOG(CLIB_NOISY_DEBUG, "request sent  - %ld of %ld bytes\n", ret, pos);
+		DLOG(CLIB_NOISY_DEBUG, "request sent  - %ld of %ld bytes\n", (long int) ret, (long int) pos);
  	}
 	
 	/* read & unpack response */
@@ -347,13 +347,13 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 	pos = 0;
 	while( (ret = muacc_read_tlv(_ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0) 
 	{
-		DLOG(CLIB_NOISY_DEBUG, "\tpos=%ld tag=%x, len=%ld\n", pos, tag, data_len);
+		DLOG(CLIB_NOISY_DEBUG, "\tpos=%ld tag=%x, len=%ld\n", (long int) pos, tag, (long int) data_len);
 		if( tag == eof )
 			break;
 		else if ( 0 > _muacc_unpack_ctx(tag, data, data_len, _ctx) )
 			goto  _muacc_contact_mam_parse_err;
 	}
-	DLOG(CLIB_NOISY_DEBUG, "processing response done: pos=%li last_res=%li done\n", pos, ret);
+	DLOG(CLIB_NOISY_DEBUG, "processing response done: pos=%li last_res=%li done\n", (long int) pos, (long int) ret);
 	return(0);
 
 
