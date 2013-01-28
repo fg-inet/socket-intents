@@ -49,19 +49,108 @@ int _unlock_ctx (struct _muacc_ctx *_ctx)
 	return( -(--(_ctx->locks)) );
 }
 
+/** helper to deep copy addrinfo sockaddr
+ *
+ */
+struct sockaddr *_muacc_clone_sockaddr(const struct sockaddr *src, size_t src_len)
+{
+	struct sockaddr *ret = NULL;
+	
+	if(src == NULL)
+		return(NULL);
+
+	if((ret = malloc(src_len)) == NULL)
+		return NULL;
+
+	memcpy(ret, src, src_len);
+	
+	return(ret);
+}
+
+
+
+
+/** helper to clone a cstring
+ *
+ */
+char *_muacc_clone_string(const char *src)
+ {
+	 char* ret = NULL;
+		 
+	 if ( src != NULL)
+	 {
+	 	size_t sl = strlen(src)+1;
+	 	if( ( ret = malloc(sl) ) == NULL )
+	 		return(NULL);
+	 	memcpy( ret, src, sl);
+	 	ret[sl] = 0x00;
+	 }
+	 
+	 return(ret);
+ }
+
+
+/** helper to deep copy addrinfo structs
+ *
+ */
+struct addrinfo *_muacc_clone_addrinfo(const struct addrinfo *src)
+{
+	struct addrinfo *res = NULL;
+	struct addrinfo **cur = &res;
+
+    const struct addrinfo *ai;
+
+	if(src == NULL)
+		return(NULL);
+	
+	for (ai = src; ai; ai = ai->ai_next)
+	{
+		/* allocate memory and copy */
+		if( (*cur = malloc(sizeof(struct addrinfo))) == NULL )
+			goto _muacc_clone_addrinfo_malloc_err;
+		memcpy( *cur, ai, sizeof(struct addrinfo));
+
+		if ( ai->ai_addr != NULL)
+		{
+			(*cur)->ai_addr = _muacc_clone_sockaddr(ai->ai_addr, ai->ai_addrlen);
+			if((*cur)->ai_addr == NULL)
+				goto _muacc_clone_addrinfo_malloc_err;
+		}
+
+		if ( ai->ai_canonname != NULL)
+		{
+			if( ( (*cur)->ai_canonname = _muacc_clone_string(ai->ai_canonname)) == NULL )
+				goto _muacc_clone_addrinfo_malloc_err;
+		}
+
+		cur = &((*cur)->ai_next);
+
+	}
+
+	return res;
+
+	_muacc_clone_addrinfo_malloc_err:
+	fprintf(stderr, "%6d: _muacc_clone_addrinfo failed to allocate memory\n", (int) getpid());
+	return NULL;
+
+}
+
 int muacc_release_context(struct muacc_context *ctx)
 {
 	if(ctx == NULL)
 	{
+		DLOG(CLIB_NOISY_DEBUG, "WARNING: tried to release NULL POINTER context\n");		
 		return -1;
 	}
 	else if(ctx->ctx == NULL)
 	{
+		DLOG(CLIB_NOISY_DEBUG, "empty context - nothing to release\n");
 		return 0;
-	}
-			
+	}		
 	else if( --(ctx->ctx->usage) == 0 )
 	{
+		DLOG(CLIB_NOISY_DEBUG, "trying to free data fields\n");		
+		
 		close(ctx->ctx->mamsock);
 		if (ctx->ctx->remote_addrinfo_hint != NULL) freeaddrinfo(ctx->ctx->remote_addrinfo_hint);
 		if (ctx->ctx->remote_addrinfo_res != NULL) freeaddrinfo(ctx->ctx->remote_addrinfo_res);
@@ -72,6 +161,8 @@ int muacc_release_context(struct muacc_context *ctx)
 		if (ctx->ctx->remote_hostname != NULL) free(ctx->ctx->remote_hostname);
 		free(ctx->ctx);
 	}
+	
+	DLOG(CLIB_NOISY_DEBUG, "context sucsessfully freed\n");		
 	
 	return(ctx->ctx->usage);
 }
@@ -164,21 +255,29 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	
 	memcpy(_ctx, src->ctx, sizeof(struct _muacc_ctx));
 	
-	/* TODO: Make a deep copy of all linked structs (otherwise might result in free hell!) */
-
+	_ctx->bind_sa_req   = _muacc_clone_sockaddr(src->ctx->bind_sa_req, src->ctx->bind_sa_req_len);      
+	_ctx->bind_sa_res   = _muacc_clone_sockaddr(src->ctx->bind_sa_res, src->ctx->bind_sa_res_len);      
+	_ctx->remote_sa_req = _muacc_clone_sockaddr(src->ctx->remote_sa_req, src->ctx->remote_sa_req_len);    
+	_ctx->remote_sa_res = _muacc_clone_sockaddr(src->ctx->remote_sa_res, src->ctx->remote_sa_res_len);    
+	
+	_ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(src->ctx->remote_addrinfo_hint);	
+	_ctx->remote_addrinfo_res  = _muacc_clone_addrinfo(src->ctx->remote_addrinfo_res);	
+	
+	_ctx->remote_hostname = _muacc_clone_string(src->ctx->remote_hostname);
+	
+	_ctx->usage = 1;
+	dst->ctx = _ctx;
+	
 	/* connect to MAM */
 	if(_connect_ctx_to_mam(_ctx))
 	{
 		/* free context backing struct */
-		free(_ctx);
+		muacc_release_context(dst);
 	
 		/* declare interface struct invalid */
 		dst->ctx = NULL;
 		return(-1);	
 	}
-	
-	_ctx->usage = 1;
-	dst->ctx = _ctx;
 	
 	return(0);	
 }
@@ -367,67 +466,6 @@ _muacc_contact_mam_parse_err:
 	DLOG(CLIB_NOISY_DEBUG, "failed to process response\n");
 	return(-1);
 	
-}
-
-
-/** helper to deep copy addrinfo sockaddr
- *
- */
-struct sockaddr *_muacc_clone_sockaddr(const struct sockaddr *src, size_t src_len)
-{
-	struct sockaddr *ret = NULL;
-
-	if((ret = malloc(src_len)) == NULL)
-		return NULL;
-
-	memcpy(ret, src, src_len);
-	return(ret);
-}
-
-
-/** helper to deep copy addrinfo structs
- *
- */
-struct addrinfo *_muacc_clone_addrinfo(const struct addrinfo *src, size_t src_len)
-{
-	struct addrinfo *res = NULL;
-	struct addrinfo **cur = &res;
-
-    const struct addrinfo *ai;
-
-	for (ai = src; ai; ai = ai->ai_next)
-	{
-		/* allocate memory and copy */
-		if( (*cur = malloc(sizeof(struct addrinfo))) == NULL )
-			goto _muacc_clone_addrinfo_malloc_err;
-		memcpy( *cur, ai, sizeof(struct addrinfo));
-
-		if ( ai->ai_addr != NULL)
-		{
-			(*cur)->ai_addr = _muacc_clone_sockaddr(ai->ai_addr, ai->ai_addrlen);
-			if((*cur)->ai_addr == NULL)
-				goto _muacc_clone_addrinfo_malloc_err;
-		}
-
-		if ( ai->ai_canonname != NULL)
-		{
-			size_t sl = strlen(ai->ai_canonname)+1;
-			if( ( (*cur)->ai_canonname = malloc(sl) ) == NULL )
-				goto _muacc_clone_addrinfo_malloc_err;
-			memcpy( (*cur)->ai_canonname, ai->ai_canonname, sl);
-			((*cur)->ai_canonname)[sl] = 0x00;
-		}
-
-		cur = &((*cur)->ai_next);
-
-	}
-
-	return res;
-
-	_muacc_clone_addrinfo_malloc_err:
-	fprintf(stderr, "%6d: _muacc_clone_addrinfo failed to allocate memory\n", (int) getpid());
-	return NULL;
-
 }
 
 
