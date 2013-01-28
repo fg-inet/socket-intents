@@ -32,7 +32,7 @@ int muacc_retain_context(struct muacc_context *ctx);
 
 /** decrease reference for muacc_context and free background structures if it reaches 0
   *
-  * @return current reference count
+  * @return current reference count or -1 if context was NULL
   */
 int muacc_release_context(struct muacc_context *ctx);
 

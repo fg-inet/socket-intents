@@ -51,18 +51,27 @@ int _unlock_ctx (struct _muacc_ctx *_ctx)
 
 int muacc_release_context(struct muacc_context *ctx)
 {
-	if(ctx->ctx == 0)
+	if(ctx == NULL)
 	{
-		return(-1);
+		return -1;
+	}
+	else if(ctx->ctx == NULL)
+	{
+		return 0;
 	}
 			
-	if( --(ctx->ctx->usage) == 0 )
+	else if( --(ctx->ctx->usage) == 0 )
 	{
 		close(ctx->ctx->mamsock);
+		if (ctx->ctx->remote_addrinfo_hint != NULL) freeaddrinfo(ctx->ctx->remote_addrinfo_hint);
+		if (ctx->ctx->remote_addrinfo_res != NULL) freeaddrinfo(ctx->ctx->remote_addrinfo_res);
+		if (ctx->ctx->bind_sa_req != NULL) free(ctx->ctx->bind_sa_req);
+		if (ctx->ctx->bind_sa_res != NULL) free(ctx->ctx->bind_sa_res);
+		if (ctx->ctx->remote_sa_req != NULL) free(ctx->ctx->remote_sa_req);
+		if (ctx->ctx->remote_sa_res != NULL) free(ctx->ctx->remote_sa_res);
+		if (ctx->ctx->remote_hostname != NULL) free(ctx->ctx->remote_hostname);
 		free(ctx->ctx);
-		/* ToDo: Do deep free! */
 	}
-	ctx->ctx = NULL;
 	
 	return(ctx->ctx->usage);
 }
