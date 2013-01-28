@@ -366,7 +366,7 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 	else
  	{
 		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d: _muacc_contact_mam request sent  - %ld of %ld bytes\n", (int) getpid(), ret, pos);
+		fprintf(stderr, "%6d: _muacc_contact_mam request sent  - %ld of %ld bytes\n", (int) getpid(), (long int) ret, (long int) pos);
 		#endif
  	}
 	
@@ -378,7 +378,7 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 	while( (ret = muacc_read_tlv(_ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0) 
 	{
 		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d:\tpos=%ld tag=%x, len=%ld\n", (int) getpid(), pos, tag, data_len);
+		fprintf(stderr, "%6d:\tpos=%ld tag=%x, len=%ld\n", (int) getpid(), (long int) pos, tag, (long int) data_len);
 		#endif
 		if( tag == eof )
 			break;
@@ -386,7 +386,7 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 			goto  _muacc_contact_mam_parse_err;
 	}
 	#ifdef CLIB_NOISY_DEBUG
-	fprintf(stderr, "%6d: _muacc_contact_mam processing response done: pos=%li last_res=%li done\n", (int) getpid(), pos, ret);
+	fprintf(stderr, "%6d: _muacc_contact_mam processing response done: pos=%li last_res=%li done\n", (int) getpid(), (long int) pos, (long int) ret);
 	#endif
 	return(0);
 
