@@ -5,6 +5,9 @@
 *.so
 *.so.*
 *.a
+*.deps/
+*.dirstamp
+*.dSYM
 libintents/testintents
 muacsocksd
 addrinfo
@@ -25,9 +28,6 @@ install-sh
 
 # Random other stuff
 stamp-h1
-clib/.deps/
-clib/.dirstamp
-muacsocks/.deps/
-muacsocks/.dirstamp
-tests/.deps/
-tests/.dirstamp
+.settings
+.cproject
+.project
