@@ -492,7 +492,7 @@ muacc_setsockopt_fallback:
 }
 
 int muacc_connect(struct muacc_context *ctx,
-	    int socket, struct sockaddr *address, socklen_t address_len)
+	    int socket, const struct sockaddr *address, socklen_t address_len)
 {	
 	DLOG(CLIB_NOISY_DEBUG, "invoked\n");
 	
@@ -509,13 +509,13 @@ int muacc_connect(struct muacc_context *ctx,
 		goto muacc_connect_fallback;
 	}
 	
-	ctx->ctx->remote_sa_req     = _muacc_clone_sockaddr(address, address_len);
+	ctx->ctx->remote_sa_req     = _muacc_clone_sockaddr((struct sockaddr *)address, address_len);
 	ctx->ctx->remote_sa_req_len = address_len;
 	
 	if(ctx->ctx->remote_sa_res == NULL)
 	{
 		/* set default request as default */
-		ctx->ctx->remote_sa_res 	= _muacc_clone_sockaddr(address, address_len);
+		ctx->ctx->remote_sa_res 	= _muacc_clone_sockaddr((struct sockaddr *)address, address_len);
 		ctx->ctx->remote_sa_res_len	= address_len;
 	}
 	

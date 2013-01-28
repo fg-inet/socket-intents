@@ -54,6 +54,6 @@ int muacc_setsockopt(struct muacc_context *ctx,
  *
  */
 int muacc_connect(struct muacc_context *ctx,
-	    int socket, struct sockaddr *address, socklen_t address_len);
+	    int socket, const struct sockaddr *address, socklen_t address_len);
 
 #endif
