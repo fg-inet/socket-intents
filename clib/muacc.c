@@ -373,7 +373,7 @@ _muacc_contact_mam_parse_err:
 /** helper to deep copy addrinfo sockaddr
  *
  */
-struct sockaddr *_muacc_clone_sockaddr(struct sockaddr *src, size_t src_len)
+struct sockaddr *_muacc_clone_sockaddr(const struct sockaddr *src, size_t src_len)
 {
 	struct sockaddr *ret = NULL;
 
@@ -388,12 +388,12 @@ struct sockaddr *_muacc_clone_sockaddr(struct sockaddr *src, size_t src_len)
 /** helper to deep copy addrinfo structs
  *
  */
-struct addrinfo *_muacc_clone_addrinfo(struct addrinfo *src, size_t src_len)
+struct addrinfo *_muacc_clone_addrinfo(const struct addrinfo *src, size_t src_len)
 {
 	struct addrinfo *res = NULL;
 	struct addrinfo **cur = &res;
 
-    struct addrinfo *ai;
+    const struct addrinfo *ai;
 
 	for (ai = src; ai; ai = ai->ai_next)
 	{
@@ -509,13 +509,13 @@ int muacc_connect(struct muacc_context *ctx,
 		goto muacc_connect_fallback;
 	}
 	
-	ctx->ctx->remote_sa_req     = _muacc_clone_sockaddr((struct sockaddr *)address, address_len);
+	ctx->ctx->remote_sa_req     = _muacc_clone_sockaddr(address, address_len);
 	ctx->ctx->remote_sa_req_len = address_len;
 	
 	if(ctx->ctx->remote_sa_res == NULL)
 	{
 		/* set default request as default */
-		ctx->ctx->remote_sa_res 	= _muacc_clone_sockaddr((struct sockaddr *)address, address_len);
+		ctx->ctx->remote_sa_res 	= _muacc_clone_sockaddr(address, address_len);
 		ctx->ctx->remote_sa_res_len	= address_len;
 	}
 	
