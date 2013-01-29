@@ -11,6 +11,16 @@
 #include "tlv.h"
 #include "dlog.h"
 
+/** Linked list of socket options */
+typedef struct socketopt {
+	int 				level;				/**> Level at which the socket option is valid */
+	int 				optname;			/**> Identifier of the option */
+	void 				*optval;			/**> Pointer to the value */
+	socklen_t 			optlen;				/**> Length of the value */
+	struct socketopt 	*next;				/**> Pointer to the next socket option */
+} socketopt_t;
+
+/** Internal muacc context struct */
 struct _muacc_ctx {
 	int usage;                          	/**> reference counter */
 	uint8_t locks;                      	/**> lock to avoid multiple concurrent requests to MAM */
@@ -27,6 +37,7 @@ struct _muacc_ctx {
 	struct addrinfo	*remote_addrinfo_res;	/**> candidate remote addresses (sorted by MAM preference) */
 	struct sockaddr *remote_sa_res;     	/**> remote address choosen in the end */
 	socklen_t 		 remote_sa_res_len;    	/**> length of remote_sa_res */
+	socketopt_t		*socket_options;		/**> associated socket options */
 };
 
 /** Helper doing locking simulation - lock part
@@ -135,6 +146,49 @@ struct addrinfo *_muacc_clone_addrinfo(const struct addrinfo *src)
 
 }
 
+/** helper to deep copy socketopt linked lists
+ *
+ */
+struct socketopt *_muacc_clone_socketopts(const struct socketopt *src)
+{
+	struct socketopt *ret = NULL;
+
+	if (src == NULL)
+		return NULL;
+
+	if ((ret = malloc(sizeof(struct socketopt))) == NULL)
+	{
+		fprintf(stderr, "%6d: _muacc_clone_socketopts failed to allocate memory.\n", (int) getpid());
+		return NULL;
+	}
+	else
+	{
+		memcpy(ret, src, sizeof(struct socketopt));
+
+		const struct socketopt *srccurrent = src;
+		struct socketopt *dstcurrent = ret;
+		struct socketopt *new = NULL;
+
+		while (srccurrent->next != NULL)
+		{
+			if ((new = malloc(sizeof(struct socketopt))) == NULL)
+			{
+				fprintf(stderr, "%6d: _muacc_clone_socketopts failed to allocate memory.\n", (int) getpid());
+				return NULL;
+			}
+			else
+			{
+				dstcurrent-> next = new;
+				memcpy(new, srccurrent->next, sizeof(struct socketopt));
+				srccurrent = srccurrent->next;
+				dstcurrent = dstcurrent->next;
+			}
+		}
+	}
+
+	return ret;
+}
+
 int muacc_release_context(struct muacc_context *ctx)
 {
 	if(ctx == NULL)
@@ -159,10 +213,16 @@ int muacc_release_context(struct muacc_context *ctx)
 		if (ctx->ctx->remote_sa_req != NULL) free(ctx->ctx->remote_sa_req);
 		if (ctx->ctx->remote_sa_res != NULL) free(ctx->ctx->remote_sa_res);
 		if (ctx->ctx->remote_hostname != NULL) free(ctx->ctx->remote_hostname);
+		while (ctx->ctx->socket_options != NULL)
+		{
+			socketopt_t *current = ctx->ctx->socket_options;
+			ctx->ctx->socket_options = current->next;
+			free(current);
+		}
 		free(ctx->ctx);
 	}
 	
-	DLOG(CLIB_NOISY_DEBUG, "context sucsessfully freed\n");		
+	DLOG(CLIB_NOISY_DEBUG, "context successfully freed\n");
 	
 	return(ctx->ctx->usage);
 }
@@ -265,6 +325,8 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	
 	_ctx->remote_hostname = _muacc_clone_string(src->ctx->remote_hostname);
 	
+	_ctx->socket_options = _muacc_clone_socketopts(src->ctx->socket_options);
+
 	_ctx->usage = 1;
 	dst->ctx = _ctx;
 	
@@ -517,6 +579,19 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 		goto muacc_setsockopt_fallback;
 	}
 	
+	struct socketopt *newopt = malloc(sizeof(struct socketopt));
+	newopt->level = level;
+	newopt->optname = option_name;
+	newopt->optlen = option_len;
+	newopt->optval = malloc(option_len);
+	memcpy(newopt->optval, option_value, option_len);
+
+	struct socketopt *current = ctx->ctx->socket_options;
+	while (current != NULL)
+		current = current->next;
+	
+	current = newopt;
+
 	/* ToDo: encode sockopt for MAM
 	 *
 	 */
