@@ -9,7 +9,7 @@
 
 #include "muacc.h"
 #include "tlv.h"
-
+#include "dlog.h"
 
 struct _muacc_ctx {
 	int usage;                          	/**> reference counter */
@@ -49,19 +49,108 @@ int _unlock_ctx (struct _muacc_ctx *_ctx)
 	return( -(--(_ctx->locks)) );
 }
 
+/** helper to deep copy addrinfo sockaddr
+ *
+ */
+struct sockaddr *_muacc_clone_sockaddr(const struct sockaddr *src, size_t src_len)
+{
+	struct sockaddr *ret = NULL;
+	
+	if(src == NULL)
+		return(NULL);
+
+	if((ret = malloc(src_len)) == NULL)
+		return NULL;
+
+	memcpy(ret, src, src_len);
+	
+	return(ret);
+}
+
+
+
+
+/** helper to clone a cstring
+ *
+ */
+char *_muacc_clone_string(const char *src)
+ {
+	 char* ret = NULL;
+		 
+	 if ( src != NULL)
+	 {
+	 	size_t sl = strlen(src)+1;
+	 	if( ( ret = malloc(sl) ) == NULL )
+	 		return(NULL);
+	 	memcpy( ret, src, sl);
+	 	ret[sl] = 0x00;
+	 }
+	 
+	 return(ret);
+ }
+
+
+/** helper to deep copy addrinfo structs
+ *
+ */
+struct addrinfo *_muacc_clone_addrinfo(const struct addrinfo *src)
+{
+	struct addrinfo *res = NULL;
+	struct addrinfo **cur = &res;
+
+    const struct addrinfo *ai;
+
+	if(src == NULL)
+		return(NULL);
+	
+	for (ai = src; ai; ai = ai->ai_next)
+	{
+		/* allocate memory and copy */
+		if( (*cur = malloc(sizeof(struct addrinfo))) == NULL )
+			goto _muacc_clone_addrinfo_malloc_err;
+		memcpy( *cur, ai, sizeof(struct addrinfo));
+
+		if ( ai->ai_addr != NULL)
+		{
+			(*cur)->ai_addr = _muacc_clone_sockaddr(ai->ai_addr, ai->ai_addrlen);
+			if((*cur)->ai_addr == NULL)
+				goto _muacc_clone_addrinfo_malloc_err;
+		}
+
+		if ( ai->ai_canonname != NULL)
+		{
+			if( ( (*cur)->ai_canonname = _muacc_clone_string(ai->ai_canonname)) == NULL )
+				goto _muacc_clone_addrinfo_malloc_err;
+		}
+
+		cur = &((*cur)->ai_next);
+
+	}
+
+	return res;
+
+	_muacc_clone_addrinfo_malloc_err:
+	fprintf(stderr, "%6d: _muacc_clone_addrinfo failed to allocate memory\n", (int) getpid());
+	return NULL;
+
+}
+
 int muacc_release_context(struct muacc_context *ctx)
 {
 	if(ctx == NULL)
 	{
+		DLOG(CLIB_NOISY_DEBUG, "WARNING: tried to release NULL POINTER context\n");		
 		return -1;
 	}
 	else if(ctx->ctx == NULL)
 	{
+		DLOG(CLIB_NOISY_DEBUG, "empty context - nothing to release\n");
 		return 0;
-	}
-			
+	}		
 	else if( --(ctx->ctx->usage) == 0 )
 	{
+		DLOG(CLIB_NOISY_DEBUG, "trying to free data fields\n");		
+		
 		close(ctx->ctx->mamsock);
 		if (ctx->ctx->remote_addrinfo_hint != NULL) freeaddrinfo(ctx->ctx->remote_addrinfo_hint);
 		if (ctx->ctx->remote_addrinfo_res != NULL) freeaddrinfo(ctx->ctx->remote_addrinfo_res);
@@ -72,6 +161,8 @@ int muacc_release_context(struct muacc_context *ctx)
 		if (ctx->ctx->remote_hostname != NULL) free(ctx->ctx->remote_hostname);
 		free(ctx->ctx);
 	}
+	
+	DLOG(CLIB_NOISY_DEBUG, "context sucsessfully freed\n");		
 	
 	return(ctx->ctx->usage);
 }
@@ -101,17 +192,13 @@ int _connect_ctx_to_mam(struct _muacc_ctx *_ctx)
 	_ctx->mamsock = socket(PF_UNIX, SOCK_STREAM, 0);
 	if(_ctx->mamsock == -1)
 	{
-		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d: _connect_ctx_to_mam socket creation failed: %s\n", (int) getpid(), strerror(errno));
-		#endif
+		DLOG(CLIB_NOISY_DEBUG, "socket creation failed: %s\n", strerror(errno));		
 		return(-errno);	
 	}
 	
 	if(connect(_ctx->mamsock, (struct sockaddr*) &mams, sizeof(mams)) < 0)
 	{
-		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d: _connect_ctx_to_mam connect to mam via %s failed: %s\n", (int) getpid(),  mams.sun_path, strerror(errno));
-		#endif
+		DLOG(CLIB_NOISY_DEBUG, "connect to mam via %s failed: %s\n",  mams.sun_path, strerror(errno));
 		return(-errno);	
 	}
 	
@@ -143,9 +230,7 @@ int muacc_init_context(struct muacc_context *ctx)
 		return(-1);	
 	}
 
-	#ifdef CLIB_NOISY_DEBUG
-	fprintf(stderr, "%6d: muacc_init_context conected & context successfully initalized\n", (int) getpid());
-	#endif	
+	DLOG(CLIB_NOISY_DEBUG,"conected & context successfully initalized\n");
 
 	ctx->ctx = _ctx;
 	return(0);
@@ -157,9 +242,7 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	
 	if(src->ctx == NULL)
 	{
-		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d: muacc_clone_context warning: cloning uninitalized context\n", (int) getpid());
-		#endif	
+		DLOG(CLIB_NOISY_DEBUG,"warning: cloning uninitalized context\n");
 		dst->ctx = NULL;
 		return(0);
 	}
@@ -172,21 +255,29 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	
 	memcpy(_ctx, src->ctx, sizeof(struct _muacc_ctx));
 	
-	/* TODO: Make a deep copy of all linked structs (otherwise might result in free hell!) */
-
+	_ctx->bind_sa_req   = _muacc_clone_sockaddr(src->ctx->bind_sa_req, src->ctx->bind_sa_req_len);      
+	_ctx->bind_sa_res   = _muacc_clone_sockaddr(src->ctx->bind_sa_res, src->ctx->bind_sa_res_len);      
+	_ctx->remote_sa_req = _muacc_clone_sockaddr(src->ctx->remote_sa_req, src->ctx->remote_sa_req_len);    
+	_ctx->remote_sa_res = _muacc_clone_sockaddr(src->ctx->remote_sa_res, src->ctx->remote_sa_res_len);    
+	
+	_ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(src->ctx->remote_addrinfo_hint);	
+	_ctx->remote_addrinfo_res  = _muacc_clone_addrinfo(src->ctx->remote_addrinfo_res);	
+	
+	_ctx->remote_hostname = _muacc_clone_string(src->ctx->remote_hostname);
+	
+	_ctx->usage = 1;
+	dst->ctx = _ctx;
+	
 	/* connect to MAM */
 	if(_connect_ctx_to_mam(_ctx))
 	{
 		/* free context backing struct */
-		free(_ctx);
+		muacc_release_context(dst);
 	
 		/* declare interface struct invalid */
 		dst->ctx = NULL;
 		return(-1);	
 	}
-	
-	_ctx->usage = 1;
-	dst->ctx = _ctx;
 	
 	return(0);	
 }
@@ -236,9 +327,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 	switch(tag) 
 	{
 		case bind_sa_req:
-			#ifdef CLIB_NOISY_DEBUG
-			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking bind_sa_req\n", (int) getpid());
-			#endif
+			DLOG(CLIB_NOISY_DEBUG, "unpacking bind_sa_req\n");
 			if( muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->bind_sa_req);
@@ -248,9 +337,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			break;
 		case bind_sa_res:
-			#ifdef CLIB_NOISY_DEBUG
-			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking bind_sa_res\n", (int) getpid());
-			#endif
+			DLOG(CLIB_NOISY_DEBUG, "unpacking bind_sa_res\n");
 			if( muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->bind_sa_res);
@@ -260,9 +347,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			break;
 		case remote_sa_req:
-			#ifdef CLIB_NOISY_DEBUG
-			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking remote_sa_req\n", (int) getpid());
-			#endif
+			DLOG(CLIB_NOISY_DEBUG, "unpacking remote_sa_req\n");
 			if( muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->remote_sa_req);
@@ -272,9 +357,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			break;
 		case remote_sa_res:
-			#ifdef CLIB_NOISY_DEBUG
-			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking remote_sa_res\n", (int) getpid());
-			#endif
+			DLOG(CLIB_NOISY_DEBUG, "unpacking remote_sa_res\n");
 			if( muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->remote_sa_res);
@@ -284,9 +367,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			break;
 		case remote_hostname:
-			#ifdef CLIB_NOISY_DEBUG
-			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking remote_hostname\n", (int) getpid());
-			#endif
+			DLOG(CLIB_NOISY_DEBUG, "unpacking remote_hostname\n");
 			if((str = malloc(data_len)) != NULL)
 			{
 				str[data_len-1] = 0x00;
@@ -296,9 +377,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return -1;
 			break;
 		case remote_addrinfo_hint:
-			#ifdef CLIB_NOISY_DEBUG
-			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking remote_addrinfo_hint\n", (int) getpid());
-			#endif
+			DLOG(CLIB_NOISY_DEBUG, "unpacking remote_addrinfo_hint\n");
 			if( muacc_extract_addrinfo_tlv( data, data_len, &ai) > 0)
 			{
 				freeaddrinfo(_ctx->remote_addrinfo_hint);
@@ -309,9 +388,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			break;
 
 		case remote_addrinfo_res:
-			#ifdef CLIB_NOISY_DEBUG
-			fprintf(stderr, "%6d: _muacc_unpack_ctx unpacking remote_addrinfo_res\n", (int) getpid());
-			#endif
+			DLOG(CLIB_NOISY_DEBUG, "unpacking remote_addrinfo_res\n");
 			if( muacc_extract_addrinfo_tlv( data, data_len, &ai) > 0)
 			{
 				freeaddrinfo(_ctx->remote_addrinfo_res);
@@ -344,17 +421,13 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 	void *data;
 	size_t data_len;
 	
-	#ifdef CLIB_NOISY_DEBUG
-	fprintf(stderr, "%6d: _muacc_contact_mam packing request", (int) getpid());
-	#endif
+	DLOG(CLIB_NOISY_DEBUG, "packing request");
 	
 	/* pack request */
 	if( 0 > muacc_push_tlv(buf, &pos, sizeof(buf), action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_contact_mam_pack_err;
 	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), _ctx) ) goto  _muacc_contact_mam_pack_err;
 	if( 0 > muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) ) goto  _muacc_contact_mam_pack_err;
-	#ifdef CLIB_NOISY_DEBUG
-	fprintf(stderr, " done\n");
-	#endif
+	DLOG(CLIB_NOISY_DEBUG," done\n");
 
 	
 	/* send requst */
@@ -365,107 +438,34 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 	}
 	else
  	{
-		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d: _muacc_contact_mam request sent  - %ld of %ld bytes\n", (int) getpid(), (long int) ret, (long int) pos);
-		#endif
+		DLOG(CLIB_NOISY_DEBUG, "request sent  - %ld of %ld bytes\n", (long int) ret, (long int) pos);
  	}
 	
 	/* read & unpack response */
-	#ifdef CLIB_NOISY_DEBUG
-	fprintf(stderr, "%6d: _muacc_contact_mam processing response:\n", (int) getpid());
-	#endif
+	DLOG(CLIB_NOISY_DEBUG, "processing response:\n");
 	pos = 0;
 	while( (ret = muacc_read_tlv(_ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0) 
 	{
-		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d:\tpos=%ld tag=%x, len=%ld\n", (int) getpid(), (long int) pos, tag, (long int) data_len);
-		#endif
+		DLOG(CLIB_NOISY_DEBUG, "\tpos=%ld tag=%x, len=%ld\n", (long int) pos, tag, (long int) data_len);
 		if( tag == eof )
 			break;
 		else if ( 0 > _muacc_unpack_ctx(tag, data, data_len, _ctx) )
 			goto  _muacc_contact_mam_parse_err;
 	}
-	#ifdef CLIB_NOISY_DEBUG
-	fprintf(stderr, "%6d: _muacc_contact_mam processing response done: pos=%li last_res=%li done\n", (int) getpid(), (long int) pos, (long int) ret);
-	#endif
+	DLOG(CLIB_NOISY_DEBUG, "processing response done: pos=%li last_res=%li done\n", (long int) pos, (long int) ret);
 	return(0);
 
 
 _muacc_contact_mam_pack_err:
 
-	#ifdef CLIB_NOISY_DEBUG
-	fprintf(stderr, "%6d: _muacc_contact_mam failed to pack request\n", (int) getpid());
-	#endif
+	DLOG(CLIB_NOISY_DEBUG, "failed to pack request\n");
 	return(-1);
 	
 _muacc_contact_mam_parse_err:
 
-	#ifdef CLIB_NOISY_DEBUG
-	fprintf(stderr, "%6d: _muacc_contact_mam failed to process response\n", (int) getpid());
-	#endif
+	DLOG(CLIB_NOISY_DEBUG, "failed to process response\n");
 	return(-1);
 	
-}
-
-
-/** helper to deep copy addrinfo sockaddr
- *
- */
-struct sockaddr *_muacc_clone_sockaddr(struct sockaddr *src, size_t src_len)
-{
-	struct sockaddr *ret = NULL;
-
-	if((ret = malloc(src_len)) == NULL)
-		return NULL;
-
-	memcpy(ret, src, src_len);
-	return(ret);
-}
-
-
-/** helper to deep copy addrinfo structs
- *
- */
-struct addrinfo *_muacc_clone_addrinfo(struct addrinfo *src, size_t src_len)
-{
-	struct addrinfo *res = NULL;
-	struct addrinfo **cur = &res;
-
-    struct addrinfo *ai;
-
-	for (ai = src; ai; ai = ai->ai_next)
-	{
-		/* allocate memory and copy */
-		if( (*cur = malloc(sizeof(struct addrinfo))) == NULL )
-			goto _muacc_clone_addrinfo_malloc_err;
-		memcpy( *cur, ai, sizeof(struct addrinfo));
-
-		if ( ai->ai_addr != NULL)
-		{
-			(*cur)->ai_addr = _muacc_clone_sockaddr(ai->ai_addr, ai->ai_addrlen);
-			if((*cur)->ai_addr == NULL)
-				goto _muacc_clone_addrinfo_malloc_err;
-		}
-
-		if ( ai->ai_canonname != NULL)
-		{
-			size_t sl = strlen(ai->ai_canonname)+1;
-			if( ( (*cur)->ai_canonname = malloc(sl) ) == NULL )
-				goto _muacc_clone_addrinfo_malloc_err;
-			memcpy( (*cur)->ai_canonname, ai->ai_canonname, sl);
-			((*cur)->ai_canonname)[sl] = 0x00;
-		}
-
-		cur = &((*cur)->ai_next);
-
-	}
-
-	return res;
-
-	_muacc_clone_addrinfo_malloc_err:
-	fprintf(stderr, "%6d: _muacc_clone_addrinfo failed to allocate memory\n", (int) getpid());
-	return NULL;
-
 }
 
 
@@ -476,17 +476,13 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 	
 	if(ctx->ctx == 0)
 	{
-		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d: muacc_getaddrinfo context uninialized - fallback to regual connect\n", (int) getpid());
-		#endif
+		DLOG(CLIB_NOISY_DEBUG, "context uninialized - fallback to regual connect\n");
 		goto muacc_getaddrinfo_fallback;
 	}
 
 	if( _lock_ctx(ctx->ctx) )
 	{
-		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d: muacc_getaddrinfo context already in use - fallback to regual connect\n", (int) getpid());
-		#endif
+		DLOG(CLIB_NOISY_DEBUG, "context already in use - fallback to regual connect\n");
 		_unlock_ctx(ctx->ctx);
 		goto muacc_getaddrinfo_fallback;
 	}
@@ -510,17 +506,13 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 	
 	if( ctx->ctx == 0 )
 	{
-		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d: muacc_setsockopt context uninialized - fallback to regual setsockopt\n", (int) getpid());
-		#endif
+		DLOG(CLIB_NOISY_DEBUG, "context uninialized - fallback to regual setsockopt\n");
 		goto muacc_setsockopt_fallback;
 	}
 	
 	if( _lock_ctx(ctx->ctx) )
 	{
-		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d: muacc_setsockopt context already in use - fallback to regual setsockopt\n", (int) getpid());
-		#endif
+		DLOG(CLIB_NOISY_DEBUG, "context already in use - fallback to regual setsockopt\n");
 		_unlock_ctx(ctx->ctx);
 		goto muacc_setsockopt_fallback;
 	}
@@ -540,23 +532,17 @@ muacc_setsockopt_fallback:
 int muacc_connect(struct muacc_context *ctx,
 	    int socket, const struct sockaddr *address, socklen_t address_len)
 {	
-	#ifdef CLIB_NOISY_DEBUG
-	fprintf(stderr, "%6d: muacc_connect invoked\n", (int) getpid());
-	#endif
+	DLOG(CLIB_NOISY_DEBUG, "invoked\n");
 	
 	if( ctx->ctx == 0 )
 	{
-		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d: muacc_connect context uninialized - fallback to regual connect\n", (int) getpid());
-		#endif
+		DLOG(CLIB_NOISY_DEBUG, "context uninialized - fallback to regual connect\n");
 		goto muacc_connect_fallback;
 	}
 	
 	if( _lock_ctx(ctx->ctx) )
 	{
-		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d: muacc_connect context already in use - fallback to regual connect\n", (int) getpid());
-		#endif
+		DLOG(CLIB_NOISY_DEBUG, "context already in use - fallback to regual connect\n");
 		_unlock_ctx(ctx->ctx);
 		goto muacc_connect_fallback;
 	}
@@ -573,9 +559,7 @@ int muacc_connect(struct muacc_context *ctx,
 	
 	if( _muacc_contact_mam(muacc_action_connect, ctx->ctx) <0 ){
 		_unlock_ctx(ctx->ctx);
-		#ifdef CLIB_NOISY_DEBUG
-		fprintf(stderr, "%6d: muacc_connect got no response from mam - fallback to regual connect\n", (int) getpid());
-		#endif
+		DLOG(CLIB_NOISY_DEBUG, "got no response from mam - fallback to regual connect\n");
 		goto muacc_connect_fallback;
 	}
 	
