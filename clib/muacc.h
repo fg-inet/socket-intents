@@ -30,6 +30,11 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src);
   */
 int muacc_retain_context(struct muacc_context *ctx);
 
+/** print contents of the internal data structure of the context
+ *
+ */
+void muacc_print_context(struct muacc_context *ctx);
+
 /** decrease reference for muacc_context and free background structures if it reaches 0
   *
   * @return current reference count or -1 if context was NULL
