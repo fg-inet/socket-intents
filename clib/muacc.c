@@ -306,6 +306,35 @@ void _muacc_print_addrinfo(struct addrinfo *addr)
 	printf(" }");
 }
 
+void _muacc_print_socket_options(struct socketopt *opts)
+{
+	printf("{ ");
+	if (opts == NULL)
+		printf("NULL");
+	else
+	{
+		struct socketopt *current = opts;
+		while (current != NULL)
+		{
+			printf("{ ");
+			printf("level = %d, ", current->level);
+			printf("optname = %d, ", current->optname);
+			if (current-> optval == NULL)
+			{
+				printf("optval = NULL, ");
+			}
+			else
+			{
+				int *value = current->optval;
+				printf("optval = %d ", *value);
+			}
+			printf(" }");
+			current = current->next;
+		}
+	}
+	printf(" }");
+}
+
 void muacc_print_context(struct muacc_context *ctx)
 {
 	if (ctx == NULL)
@@ -342,7 +371,9 @@ void muacc_print_context(struct muacc_context *ctx)
 		printf("\tremote_sa_res = ");
 		_muacc_print_sockaddr(ctx->ctx->remote_sa_res, ctx->ctx->remote_sa_res_len);
 		printf("\n");
-		printf("\tsocket_options = %d\n", (int) ctx->ctx->socket_options);
+		printf("\tsocket_options = ");
+		_muacc_print_socket_options(ctx->ctx->socket_options);
+		printf("\n");
 	}
 }
 
