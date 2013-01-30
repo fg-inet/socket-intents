@@ -4,6 +4,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/un.h>
+#include <arpa/inet.h>
 
 #include "../config.h"
 
@@ -238,6 +239,113 @@ int muacc_retain_context(struct muacc_context *ctx)
 	return(++(ctx->ctx->usage));
 }
 
+void _muacc_print_sockaddr(struct sockaddr *addr, size_t src_len)
+{
+	printf("{ ");
+	if (addr == NULL)
+		printf("NULL");
+	else
+	{
+		if (addr->sa_family == AF_INET)
+		{
+			struct sockaddr_in *inaddr = (struct sockaddr_in *) addr;
+			printf("sin_family = AF_INET, ");
+			printf("sin_port = %d, ", ntohs(inaddr->sin_port));
+			char ipaddr[INET_ADDRSTRLEN];
+			if (inet_ntop(AF_INET, &inaddr->sin_addr, ipaddr, INET_ADDRSTRLEN) != NULL)
+				printf("sin_addr = %s", ipaddr);
+		}
+		else if (addr->sa_family == AF_INET6)
+		{
+			struct sockaddr_in6 *inaddr = (struct sockaddr_in6 *) addr;
+			printf("sin6_family = AF_INET6, ");
+			printf("sin6_port = %d, ", ntohs(inaddr->sin6_port));
+			printf("sin6_flowinfo = %d, ", inaddr->sin6_flowinfo);
+			char ipaddr[INET6_ADDRSTRLEN];
+			if (inet_ntop(AF_INET6, &inaddr->sin6_addr, ipaddr, INET6_ADDRSTRLEN) != NULL)
+				printf("sin6_addr = %s, ", ipaddr);
+			printf("sin6_scope_id = %d", inaddr->sin6_scope_id);
+		}
+		else if (addr->sa_family == AF_UNIX)
+		{
+			struct sockaddr_un *unaddr = (struct sockaddr_un *) addr;
+			printf("sun_family = AF_UNIX, ");
+			printf("sun_path = %s",unaddr->sun_path);
+		}
+		else
+		{
+			printf("sa_family = %d <unknown>", addr->sa_family);
+		}
+	}
+	printf(" }");
+}
+
+void _muacc_print_addrinfo(struct addrinfo *addr)
+{
+	printf("{ ");
+	if (addr == NULL)
+		printf("NULL");
+	else
+	{
+		struct addrinfo *current = addr;
+		while (current != NULL)
+		{
+			printf("{ ");
+			printf("ai_flags = %d, ", current->ai_flags);
+			printf("ai_family = %d, ", current->ai_family);
+			printf("ai_socktype = %d, ", current->ai_socktype);
+			printf("ai_protocol = %d, ", current->ai_protocol);
+			printf("ai_addr = ");
+			_muacc_print_sockaddr(current->ai_addr, current->ai_addrlen);
+			printf(", ");
+			printf("ai_canonname = %s", current->ai_canonname);
+			current = current->ai_next;
+			printf(" }");
+		}
+	}
+	printf(" }");
+}
+
+void muacc_print_context(struct muacc_context *ctx)
+{
+	if (ctx == NULL)
+	{
+		printf("ctx = NULL\n");
+	}
+	if (ctx->ctx == NULL)
+	{
+		printf("ctx->ctx = NULL\n");
+	}
+	else
+	{
+		printf("ctx->ctx = {\n");
+		printf("\tusage = %d\n", ctx->ctx->usage);
+		printf("\tlocks = %d\n", (int) ctx->ctx->locks);
+		printf("\tmamsock = %d\n", ctx->ctx->mamsock);
+		printf("\tflags = %d\n", ctx->ctx->flags);
+		printf("\tbind_sa_req = ");
+		_muacc_print_sockaddr(ctx->ctx->bind_sa_req, ctx->ctx->bind_sa_req_len);
+		printf("\n");
+		printf("\tbind_sa_res = ");
+		_muacc_print_sockaddr(ctx->ctx->bind_sa_res, ctx->ctx->bind_sa_res_len);
+		printf("\n");
+		printf("\tremote_sa_req = ");
+		_muacc_print_sockaddr(ctx->ctx->remote_sa_req, ctx->ctx->remote_sa_req_len);
+		printf("\n");
+		printf("\tremote_hostname = %s\n", ctx->ctx->remote_hostname);
+		printf("\tremote_addrinfo_hint = ");
+		_muacc_print_addrinfo(ctx->ctx->remote_addrinfo_hint);
+		printf("\n");
+		printf("\tremote_addrinfo_res = ");
+		_muacc_print_addrinfo(ctx->ctx->remote_addrinfo_res);
+		printf("\n");
+		printf("\tremote_sa_res = ");
+		_muacc_print_sockaddr(ctx->ctx->remote_sa_res, ctx->ctx->remote_sa_res_len);
+		printf("\n");
+		printf("\tsocket_options = %d\n", (int) ctx->ctx->socket_options);
+	}
+}
+
 /* Helper making a connection to MAM */
 int _connect_ctx_to_mam(struct _muacc_ctx *_ctx) 
 {
@@ -290,7 +398,7 @@ int muacc_init_context(struct muacc_context *ctx)
 		return(-1);	
 	}
 
-	DLOG(CLIB_NOISY_DEBUG,"conected & context successfully initalized\n");
+	DLOG(CLIB_NOISY_DEBUG,"connected & context successfully initalized\n");
 
 	ctx->ctx = _ctx;
 	return(0);
