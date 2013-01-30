@@ -66,9 +66,6 @@ static void st_free_socknum(void* data);
 static void st_free_ctx(void* data);
 static void st_print_table(GHashTable* table);
 
-int setintent(int sockfd, int optname, const void *optval, socklen_t optlen);
-int getintent(int sockfd, int optname, void *optval, socklen_t *optlen);
-
 int get_orig_function(char* name, void** function);
 
 /* Overloading functions */
@@ -134,14 +131,16 @@ int socket(int domain, int type, int protocol)
 		}
 		else
 		{
-			LOG("Initialized new muacc_context.\n");
+			LOG("Initialized new muacc_context: %d\n", (int) newctx);
 		}
 		//FIXME Move hash table insert inside the 'else'
 		LOG("+++ Inserting socket %d and its muacc_context into hash table. +++\n",retval);
 		int *socknum = malloc(sizeof(int));
 		*socknum = retval;
 		g_hash_table_insert(socket_table, (void *) socknum, (void *) newctx);
+		#ifdef DEBUG
 		st_print_table(socket_table);
+		#endif
 
 	}
 
@@ -157,47 +156,40 @@ int socket(int domain, int type, int protocol)
 int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
 {
 	LOG("--- setsockopt ( %d, %d, %d, %d, %d ) --- \n", sockfd, level, optname, *(int *) optval, (int) optlen);
+	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 
-	if (level == SOL_INTENTS)
+	if (!orig_setsockopt)
 	{
-		/* Setsockopt was called on SOL_INTENTS level
-		 * so we handle it ourselves
-		 */
-		LOG("Trying to set socket intent option.\n");
-		if ((retval = setintent(sockfd, optname, optval, optlen)) < 0)
-		{
-			fprintf(stderr,"Error calling setintent.\n");
-		}
-		else
-		{
-			LOG("Successfully set %d option: %d.\n", optname, *(int *) optval);
-		}
+		if ((retval = get_orig_function("setsockopt",(void **)&orig_setsockopt)) != 0) return retval;
+	}
+	if (call_in_progress)
+	{
+		LOG("Call already in progress. Calling original setsockopt.\n");
+		return orig_setsockopt(sockfd, level, optname, optval, optlen);
 	}
 	else
-		/* Setsockopt was called on another level than SOL_INTENTS
-		 * so we call the original setsockopt function
-		 */
 	{
+		LOG("setsockopt: Set call_in_progress to true.\n");
+		call_in_progress = true;
+	}
 
-		if (!orig_setsockopt)
+	muacc_context_t *ctx = g_hash_table_lookup(socket_table, (const void *) &sockfd);
+	if (ctx == NULL)
+	{
+		fprintf(stderr, "Failed to look up socket %d in socket table - calling original setsockopt.\n", sockfd);
+		call_in_progress = false;
+		return orig_setsockopt(sockfd, level, optname, optval, optlen);
+	}
+	else
+	{
+		LOG("Found context matching socket %d - calling muacc_setsockopt.\n", sockfd);
+		if ((retval = muacc_setsockopt(ctx, sockfd, level, optname, optval, optlen)) < 0)
 		{
-			if ((retval = get_orig_function("setsockopt",(void **)&orig_setsockopt)) != 0)
-			{
-				return retval;
-			}
-		}
-
-		if ((retval = orig_setsockopt(sockfd, level, optname, optval, optlen)) < 0)
-		{
-			fprintf(stderr,"Error calling original setsockopt.\n");
-		}
-		else
-		{
-			LOG("Successfully set %d option to %d. \n", optname, *(int *) optval);
+			fprintf(stderr, "Error calling muacc_setsockopt: %d\n", retval);
 		}
 	}
-	LOG("Setsockopt finished\n");
+	call_in_progress = false;
 	return retval;
 }
 
@@ -209,45 +201,44 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
 int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
 {
 	LOG("--- getsockopt ( %d, %d, %d, %d, %d ) --- \n", sockfd, level, optname, *(int *) optval, *(int*) optlen);
+	static bool call_in_progress = false; // Flag that indicates if this is a nested call
+	int retval = 0;
 
-	int opterror = 0;
-	if (level == SOL_INTENTS) 
+	if (!orig_getsockopt)
 	{
-		/* Getsockopt was called on SOL_INTENTS level
-		 * so we handle it ourselves
-		 */
-		LOG("Trying to get socket intent option.\n");
-		if ((opterror = getintent(sockfd, optname, optval, optlen)) < 0)
-		{
-			fprintf(stderr,"Error calling getintent.\n");
-		}
-		else
-		{
-			LOG("Successfully gotten %d option: %d.\n", optname, *(int *) optval);
-		}
+		if ((retval = get_orig_function("getsockopt",(void **)&orig_getsockopt)) != 0) return retval;
+	}
+	if (call_in_progress)
+	{
+		LOG("Call already in progress. Calling original getsockopt.\n");
+		return orig_getsockopt(sockfd, level, optname, optval, optlen);
 	}
 	else
-		/* Getsockopt was called on another level than SOL_INTENTS
-		 * so we call the original getsockopt function
-		 */
 	{
-		LOG("Trying to call the original getsockopt function.\n");
+		LOG("getsockopt: Set call_in_progress to true.\n");
+		call_in_progress = true;
+	}
 
-		if (!orig_getsockopt)
+	muacc_context_t *ctx = g_hash_table_lookup(socket_table, (const void *) &sockfd);
+	if (ctx == NULL)
+	{
+		fprintf(stderr, "Failed to look up socket %d in socket table - calling original getsockopt.\n", sockfd);
+		call_in_progress = false;
+		return orig_getsockopt(sockfd, level, optname, optval, optlen);
+	}
+	else
+	{
+		LOG("Found context matching socket %d - calling muacc_getsockopt.\n", sockfd);
+		if ((retval = muacc_getsockopt(ctx, sockfd, level, optname, optval, optlen)) < 0)
 		{
-			if (get_orig_function("getsockopt",(void **)&orig_getsockopt) < 0) return -1;
-		}
-
-		if ((opterror = orig_getsockopt(sockfd, level, optname, optval, optlen)) < 0)
-		{
-			fprintf(stderr,"Error calling original getsockopt.\n");
-		}
-		else
-		{
-			LOG("Successfully gotten %d option: %d. \n", optname, *(int *)optval);
+			fprintf(stderr, "Error calling muacc_getsockopt.\n");
 		}
 	}
-	return opterror;
+	#ifdef DEBUG
+	muacc_print_context(ctx);
+	#endif
+	call_in_progress = false;
+	return retval;
 }
 
 /** Intercept all 'getaddrinfo' calls.
@@ -388,7 +379,7 @@ int close(int fd)
 	}
 	if (call_in_progress)
 	{
-		LOG("Call already in progress. Calling original connect.\n");
+		LOG("Call already in progress. Calling original close.\n");
 		return orig_close(fd);
 	}
 	else
@@ -397,14 +388,17 @@ int close(int fd)
 		call_in_progress = true;
 	}
 
-	LOG("+++ Trying to remove socket %d from socket table. +++\n", fd);
-	if (!(retval = g_hash_table_remove(socket_table, (const void*) &fd)))
+	if (socket_table != NULL)
 	{
-		fprintf(stderr, "Could not find socket %d in socket table - nothing removed.\n", fd);
-	}
-	else
-	{
-		LOG("+++ Successfully removed socket %d from socket table. +++\n", fd);
+		LOG("+++ Trying to remove socket %d from socket table. +++\n", fd);
+		if (!(retval = g_hash_table_remove(socket_table, (const void*) &fd)))
+		{
+			fprintf(stderr, "Could not find socket %d in socket table - nothing removed.\n", fd);
+		}
+		else
+		{
+			LOG("+++ Successfully removed socket %d from socket table. +++\n", fd);
+		}
 	}
 
 	LOG("Calling original close.\n");
@@ -415,54 +409,6 @@ int close(int fd)
 	
 	call_in_progress = false;
 	return retval;
-}
-
-
-/** Get an intent from the multi access context.
- */
-int getintent(int sockfd, int optname, void *optval, socklen_t *optlen)
-{
-	muacc_context_t *setctx = g_hash_table_lookup(socket_table, (const void *) &sockfd);
-
-	if (setctx == NULL)
-	{
-		fprintf(stderr, "Getintent: Failed to look up socket %d in socket table - Aborting.\n", sockfd);
-		errno = EOPNOTSUPP;
-		return -1;
-	}
-	else
-	{
-		LOG("Getintent: Found context matching socket %d\n", sockfd);
-	}
-
-	//TODO: Get the intent from the context.
-
-	return 0;
-}
-
-/** Set an intent to the multi access context.
- */
-int setintent(int sockfd, int optname, const void *optval, socklen_t optlen)
-{
-	muacc_context_t *setctx = g_hash_table_lookup(socket_table, (const void *) &sockfd);
-	/*muacc_context_t *setctx = NULL;
-	printf("hash blah %d to %d\n", sockfd, g_int_hash((const void*) &sockfd));
-	g_hash_table_lookup(socket_table, (const void *) &sockfd);*/
-
-	if (setctx == NULL)
-	{
-		fprintf(stderr, "Setintent: Failed to look up socket %d in socket table - Aborting.\n", sockfd);
-		errno = EOPNOTSUPP;
-		return -1;
-	}
-	else
-	{
-		LOG("Setintent: Found context matching socket %d\n", sockfd);
-	}
-
-	//TODO: Insert the intent into the context.
-
-	return 0;
 }
 
 /** Fetch the 'original' function from the library that would be used without LD_PRELOAD.
@@ -541,6 +487,8 @@ void st_free_socknum(void* data)
 void st_free_ctx(void* data)
 {
 	struct muacc_context *ctx = data;
+	int retval = 0;
+
 	if ( ctx == NULL)
 	{
 		fprintf(stderr,"Cannot free NULL muacc_context.\n");
@@ -553,6 +501,9 @@ void st_free_ctx(void* data)
 	}
 	else
 	{
-		muacc_release_context(data);
+		if ((retval = muacc_release_context(ctx)) > 0)
+		{
+			fprintf(stderr, "Could not free muacc context: Usage counter still at %d\n", retval);
+		}
 	}
 }
