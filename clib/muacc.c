@@ -11,6 +11,7 @@
 #include "muacc.h"
 #include "tlv.h"
 #include "dlog.h"
+#include "../libintents/libintents.h"
 
 /** Linked list of socket options */
 typedef struct socketopt {
@@ -704,43 +705,150 @@ muacc_getaddrinfo_fallback:
 int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int option_name,
     const void *option_value, socklen_t option_len)
 {	
-	
+	int retval = -2; // Return value; will be set, else structure problem in function
+
 	if( ctx->ctx == 0 )
 	{
 		DLOG(CLIB_NOISY_DEBUG, "context uninialized - fallback to regual setsockopt\n");
-		goto muacc_setsockopt_fallback;
+		return setsockopt(socket, level, option_name, option_value, option_len);
 	}
 	
 	if( _lock_ctx(ctx->ctx) )
 	{
 		DLOG(CLIB_NOISY_DEBUG, "context already in use - fallback to regual setsockopt\n");
 		_unlock_ctx(ctx->ctx);
-		goto muacc_setsockopt_fallback;
+		return setsockopt(socket, level, option_name, option_value, option_len);
 	}
 	
-	struct socketopt *newopt = malloc(sizeof(struct socketopt));
-	newopt->level = level;
-	newopt->optname = option_name;
-	newopt->optlen = option_len;
-	newopt->optval = malloc(option_len);
-	memcpy(newopt->optval, option_value, option_len);
+	if (level == SOL_INTENTS)
+	{
+		// Intent socket options are handled by us
+		if (option_value == NULL || option_len == NULL)
+		{
+			// Invalid buffer
+			errno = EFAULT;
+			_unlock_ctx(ctx->ctx);
+			return -1;
+		}
 
-	struct socketopt *current = ctx->ctx->socket_options;
-	while (current != NULL)
-		current = current->next;
-	
-	current = newopt;
+		// Create a new socketopt entry for the socket option list
+		struct socketopt *newopt = malloc(sizeof(struct socketopt));
+		newopt->level = level;
+		newopt->optname = option_name;
+		newopt->optlen = option_len;
+		newopt->optval = malloc(option_len);
+		memcpy(newopt->optval, option_value, option_len);
+		newopt->next = NULL;
+
+		if (ctx->ctx->socket_options == NULL)
+		{
+			// Add first socket option to the empty list
+			ctx->ctx->socket_options = newopt;
+		}
+		else
+		{
+			// Search for last socket option of the current list
+			struct socketopt *current = ctx->ctx->socket_options;
+			while (current->next != NULL)
+				current = current->next;
+			// Add new option to the end of the socket_option list
+			current->next = newopt;
+		}
+		retval = 0;
+	}
+	else
+	{
+		// Socket option not an intent: Call original setsockopt function
+		if ((retval = setsockopt(socket, level, option_name, option_value, option_len)) < 0)
+		{
+			_unlock_ctx(ctx->ctx);
+			return retval;
+		}
+	}
+
+	// If we arrive here, we have successfully set the option (intent or other)
 
 	/* ToDo: encode sockopt for MAM
 	 *
 	 */
 
 	_unlock_ctx(ctx->ctx);
-		
-muacc_setsockopt_fallback:
+
+	return retval;
+}
+
+int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int option_name,
+    void *option_value, socklen_t *option_len)
+{
+	int retval = -2; // Return value, will be set, else structure problem in function
+
+	if( ctx->ctx == 0 )
+	{
+		DLOG(CLIB_NOISY_DEBUG, "context uninialized - fallback to regual getsockopt\n");
+		return getsockopt(socket, level, option_name, option_value, option_len);
+	}
 	
-	return setsockopt(socket, level, option_name, option_value, option_len);
-		
+	if( _lock_ctx(ctx->ctx) )
+	{
+		DLOG(CLIB_NOISY_DEBUG, "context already in use - fallback to regual getsockopt\n");
+		_unlock_ctx(ctx->ctx);
+		return getsockopt(socket, level, option_name, option_value, option_len);
+	}
+
+	if( level == SOL_INTENTS)
+	{
+		// Intent socket options are handled by us
+		if (option_value == NULL || option_len == NULL)
+		{
+			// Invalid buffer
+			errno = EFAULT;
+			_unlock_ctx(ctx->ctx);
+			return -1;
+		}
+		struct socketopt *current = ctx->ctx->socket_options;
+		while (current != NULL)
+		{
+			// Search for the option_name in this contexts' socket_option list
+			if (current->optname == option_name)
+			{
+				// Found it!
+				if ((memcpy(option_value, current->optval, current->optlen) == NULL) || (memcpy(option_len, &current->optlen, sizeof(size_t)) == NULL))
+				{
+					// Error copying data
+					errno = EFAULT;
+					retval = -1;
+				}
+				else
+				{
+					// Successfully copied data: End loop
+					retval = 0;
+					break;
+				}
+			}
+			current = current->next;
+		}
+		if (current == NULL)
+		{
+			// Reached end of list without finding the option
+			errno = ENOPROTOOPT;
+			retval = -1;
+		}
+	}
+	else
+	{
+		// Requested socket option is not on 'intents' layer
+		if ((retval = getsockopt(socket, level, option_name, option_value, option_len)) < 0)
+		{
+			_unlock_ctx(ctx->ctx);
+			return retval;
+		}
+	}
+
+	// If we arrive here, we have successfully gotten the option (intent or other)
+
+	_unlock_ctx(ctx->ctx);
+
+	return retval;
 }
 
 int muacc_connect(struct muacc_context *ctx,
