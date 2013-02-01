@@ -27,11 +27,10 @@ AC_CHECK_HEADERS([netinet/in.h])
 AC_CHECK_HEADERS([netinet6/in6.h])
 
 
-
-AC_ARG_WITH(muacc_socket, [  --with-muacc-socket            set socket path])
-if test "$muacc_socket" != ""
+AC_ARG_VAR(MUACC_SOCKET, [specify path for MAM socket])
+if test "$MUACC_SOCKET" != ""
 then
-	AC_DEFINE_UNQUOTED(MUACC_SOCKET, $muacc_socket, "Socket location")
+	AC_DEFINE_UNQUOTED(MUACC_SOCKET, $MUACC_SOCKET, "Socket location")
 else
 	AC_DEFINE_UNQUOTED(MUACC_SOCKET, "/tmp/muacc.socket", "Socket location")
 fi

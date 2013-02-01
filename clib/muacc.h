@@ -48,12 +48,19 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 		const char *hostname, const char *servname,
 		const struct addrinfo *hints, struct addrinfo **res);
 
-/** wrapper for setsockopt updating ctx
+/** wrapper for setsockopt, sets intent sockopts in context or calls original
  *
  */
 int muacc_setsockopt(struct muacc_context *ctx, 
         int socket, int level, int option_name,
         const void *option_value, socklen_t option_len);
+
+/** wrapper for getsockopt, returns intent sockopt or calls original getsockopt
+ *
+ */
+int muacc_getsockopt(struct muacc_context *ctx,
+	int socket, int level, int option_name,
+	void *option_value, socklen_t *option_len);
 
 /** wrapper for connect using info from ctx
  *

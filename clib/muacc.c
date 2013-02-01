@@ -704,18 +704,19 @@ muacc_getaddrinfo_fallback:
 int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int option_name,
     const void *option_value, socklen_t option_len)
 {	
+	int retval = -2; // Return value; will be set, else structure problem in function
 	
 	if( ctx->ctx == 0 )
 	{
 		DLOG(CLIB_NOISY_DEBUG, "context uninialized - fallback to regual setsockopt\n");
-		goto muacc_setsockopt_fallback;
+		return setsockopt(socket, level, option_name, option_value, option_len);
 	}
 	
 	if( _lock_ctx(ctx->ctx) )
 	{
 		DLOG(CLIB_NOISY_DEBUG, "context already in use - fallback to regual setsockopt\n");
 		_unlock_ctx(ctx->ctx);
-		goto muacc_setsockopt_fallback;
+		return setsockopt(socket, level, option_name, option_value, option_len);
 	}
 	
 	struct socketopt *newopt = malloc(sizeof(struct socketopt));
@@ -728,8 +729,16 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 	struct socketopt *current = ctx->ctx->socket_options;
 	while (current != NULL)
 		current = current->next;
+	{
+		// Socket option not an intent: Call original setsockopt function
+		if ((retval = setsockopt(socket, level, option_name, option_value, option_len)) < 0)
+		{
+			_unlock_ctx(ctx->ctx);
+			return retval;
+		}
+	}
 	
-	current = newopt;
+	// If we arrive here, we have successfully set the option (intent or other)
 
 	/* ToDo: encode sockopt for MAM
 	 *
@@ -737,10 +746,41 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 
 	_unlock_ctx(ctx->ctx);
 		
-muacc_setsockopt_fallback:
+	return retval;
+}
 	
-	return setsockopt(socket, level, option_name, option_value, option_len);
+int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int option_name,
+    void *option_value, socklen_t *option_len)
+{
+	int retval = -2; // Return value, will be set, else structure problem in function
+
+	if( ctx->ctx == 0 )
+	{
+		DLOG(CLIB_NOISY_DEBUG, "context uninialized - fallback to regual getsockopt\n");
+		return getsockopt(socket, level, option_name, option_value, option_len);
+	}
+	
+	if( _lock_ctx(ctx->ctx) )
+	{
+		DLOG(CLIB_NOISY_DEBUG, "context already in use - fallback to regual getsockopt\n");
+		_unlock_ctx(ctx->ctx);
+		return getsockopt(socket, level, option_name, option_value, option_len);
+	}
+
+	{
+		// Requested socket option is not on 'intents' layer
+		if ((retval = getsockopt(socket, level, option_name, option_value, option_len)) < 0)
+		{
+			_unlock_ctx(ctx->ctx);
+			return retval;
+		}
+	}
+
+	// If we arrive here, we have successfully gotten the option (intent or other)
 		
+	_unlock_ctx(ctx->ctx);
+
+	return retval;
 }
 
 int muacc_connect(struct muacc_context *ctx,
