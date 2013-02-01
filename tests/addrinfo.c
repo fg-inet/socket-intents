@@ -46,7 +46,9 @@ int main(int c, char **v) {
     if (error) {
         errx(1, "%s", gai_strerror(error));
     }
-	
+
+	muacc_print_context(&ctx);
+		
     for (res = res0; res; res = res->ai_next) {
 	    memset(&abuf, 0, sizeof(abuf));
 		getnameinfo( res->ai_addr, res->ai_addrlen,

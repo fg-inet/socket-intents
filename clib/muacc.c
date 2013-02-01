@@ -310,6 +310,27 @@ void _muacc_print_addrinfo(struct addrinfo *addr)
 	printf(" }");
 }
 
+char *_muacc_get_socket_level (int level)
+{
+	struct protoent *p;
+	
+	switch(level)
+	{
+		case SOL_SOCKET:
+			return "SOL_SOCKET";
+		#ifdef USE_SO_INTENDS
+		case SOL_INTENTS:
+			return "SOL_INTENTS";
+		#endif
+		default:
+			p = getprotobynumber(level);
+			if(p == NULL)
+				return "SOL_UNKNOWN";
+			else
+				return p->p_name;
+	}
+}
+
 void _muacc_print_socket_options(struct socketopt *opts)
 {
 	printf("{ ");
@@ -321,7 +342,7 @@ void _muacc_print_socket_options(struct socketopt *opts)
 		while (current != NULL)
 		{
 			printf("{ ");
-			printf("level = %d, ", current->level);
+			printf("level = %d (%s), ", current->level, _muacc_get_socket_level(current->level));
 			printf("optname = %d, ", current->optname);
 			if (current-> optval == NULL)
 			{
@@ -495,18 +516,31 @@ size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, struct _muacc_ctx *ct
 {
 
 	size_t pos0 = *pos;
-	
+
+	DLOG(CLIB_NOISY_DEBUG,"bind_sa_req\n");
     if( ctx->bind_sa_req != NULL &&
     	0 > muacc_push_tlv(buf, pos, len, bind_sa_req,		ctx->bind_sa_req, 		ctx->bind_sa_req_len        ) ) goto _muacc_pack_ctx_err;
+	
+	DLOG(CLIB_NOISY_DEBUG,"bind_sa_res\n");
 	if( ctx->bind_sa_res != NULL &&
 		0 > muacc_push_tlv(buf, pos, len, bind_sa_res,		ctx->bind_sa_res,		ctx->bind_sa_res_len        ) ) goto _muacc_pack_ctx_err;
+	
+	DLOG(CLIB_NOISY_DEBUG,"remote_sa_req\n");
 	if( ctx->remote_sa_req != NULL &&
 		0 > muacc_push_tlv(buf, pos, len, remote_sa_req,  	ctx->remote_sa_req, 	ctx->remote_sa_req_len      ) ) goto _muacc_pack_ctx_err;
+	
+	DLOG(CLIB_NOISY_DEBUG,"remote_sa_res\n");
 	if( ctx->remote_sa_res != NULL &&
 		0 > muacc_push_tlv(buf, pos, len, remote_sa_res,  	ctx->remote_sa_res, 	ctx->remote_sa_res_len      ) ) goto _muacc_pack_ctx_err;
+	
+	DLOG(CLIB_NOISY_DEBUG,"remote_hostname\n");
 	if( ctx->remote_hostname != NULL && /* strlen(NULL) might have undesired side effects… */
 		0 > muacc_push_tlv(buf, pos, len, remote_hostname,	ctx->remote_hostname, strlen(ctx->remote_hostname)) ) goto _muacc_pack_ctx_err;
-    if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_hint, ctx->remote_addrinfo_hint) ) goto _muacc_pack_ctx_err;
+    
+	DLOG(CLIB_NOISY_DEBUG,"remote_addrinfo_hint\n");
+	if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_hint, ctx->remote_addrinfo_hint) ) goto _muacc_pack_ctx_err;
+	
+	DLOG(CLIB_NOISY_DEBUG,"remote_addrinfo_res\n");
 	if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_res,  ctx->remote_addrinfo_res ) ) goto _muacc_pack_ctx_err;
 
 	return ( *pos - pos0 );
@@ -626,13 +660,13 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 	void *data;
 	size_t data_len;
 	
-	DLOG(CLIB_NOISY_DEBUG, "packing request");
+	DLOG(CLIB_NOISY_DEBUG, "packing request\n");
 	
 	/* pack request */
 	if( 0 > muacc_push_tlv(buf, &pos, sizeof(buf), action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_contact_mam_pack_err;
 	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), _ctx) ) goto  _muacc_contact_mam_pack_err;
 	if( 0 > muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) ) goto  _muacc_contact_mam_pack_err;
-	DLOG(CLIB_NOISY_DEBUG," done\n");
+	DLOG(CLIB_NOISY_DEBUG,"packing request done\n");
 
 	
 	/* send requst */
@@ -679,7 +713,9 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 		const struct addrinfo *hints, struct addrinfo **res)		
 {
 	
-	if(ctx->ctx == 0)
+	int ret;
+	
+	if(ctx->ctx == NULL)
 	{
 		DLOG(CLIB_NOISY_DEBUG, "context uninialized - fallback to regual connect\n");
 		goto muacc_getaddrinfo_fallback;
@@ -691,12 +727,37 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 		_unlock_ctx(ctx->ctx);
 		goto muacc_getaddrinfo_fallback;
 	}
+
+	/* save hostname */
+	if(ctx->ctx->remote_hostname != NULL)
+		free(ctx->ctx->remote_hostname);
+	ctx->ctx->remote_hostname = _muacc_clone_string(hostname);
 	
-	/* ToDo: Involve MAM
-	 *
-	 */
+	/* save hint */
+	if(ctx->ctx->remote_addrinfo_hint != NULL)
+		freeaddrinfo(ctx->ctx->remote_addrinfo_hint);
+	ctx->ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(hints);
+	
+	/* contact mam */
+	_muacc_contact_mam(muacc_action_getaddrinfo, ctx->ctx);
+	
+	if(ctx->ctx->remote_addrinfo_res != NULL)
+		ret = 0;
+	else
+	{
+		
+		/* do query on our own */
+		ret = 	 getaddrinfo(hostname, servname, hints, res);	
+		if (ret == 0)
+		{
+			/* save response */
+			ctx->ctx->remote_addrinfo_res = _muacc_clone_addrinfo(*res);
+		}
+	}
 
 	_unlock_ctx(ctx->ctx);
+	
+	return ret;
 	
 muacc_getaddrinfo_fallback:
 
@@ -734,31 +795,6 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 			_unlock_ctx(ctx->ctx);
 			return -1;
 		}
-
-		// Create a new socketopt entry for the socket option list
-		struct socketopt *newopt = malloc(sizeof(struct socketopt));
-		newopt->level = level;
-		newopt->optname = option_name;
-		newopt->optlen = option_len;
-		newopt->optval = malloc(option_len);
-		memcpy(newopt->optval, option_value, option_len);
-		newopt->next = NULL;
-
-		if (ctx->ctx->socket_options == NULL)
-		{
-			// Add first socket option to the empty list
-			ctx->ctx->socket_options = newopt;
-		}
-		else
-		{
-			// Search for last socket option of the current list
-			struct socketopt *current = ctx->ctx->socket_options;
-			while (current->next != NULL)
-				current = current->next;
-			// Add new option to the end of the socket_option list
-			current->next = newopt;
-		}
-		retval = 0;
 	}
 	else
 	#endif
@@ -769,13 +805,42 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 			_unlock_ctx(ctx->ctx);
 			return retval;
 		}
+		
+		retval = 0;
 	}
+	
+	/* we have set sucsessfully an socket option or checked an intend - save for MAM */
+	
+	/* Create a new socketopt entry for the socket option list */
+	struct socketopt *newopt = malloc(sizeof(struct socketopt));
+	newopt->level = level;
+	newopt->optname = option_name;
+	newopt->optlen = option_len;
+	newopt->optval = malloc(option_len);
+	if (newopt->optval == NULL)
+	{
+		perror("__function__ malloc failed");
+		_unlock_ctx(ctx->ctx);
+		return retval;
+	}
+	memcpy(newopt->optval, option_value, option_len);
+	newopt->next = NULL;
 
-	// If we arrive here, we have successfully set the option (intent or other)
-
-	/* ToDo: encode sockopt for MAM
-	 *
-	 */
+	/* put it in the context */
+	if (ctx->ctx->socket_options == NULL)
+	{
+		/* Add first socket option to the empty list */
+		ctx->ctx->socket_options = newopt;
+	}
+	else
+	{
+		/* Search for last socket option of the current list */
+		struct socketopt *current = ctx->ctx->socket_options;
+		while (current->next != NULL)
+			current = current->next;
+		/* Add new option to the end of the socket_option list */
+		current->next = newopt;
+	}
 
 	_unlock_ctx(ctx->ctx);
 

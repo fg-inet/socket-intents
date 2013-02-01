@@ -12,9 +12,6 @@
 #include "dlog.h"
 
 
-#define TLV_NOISY_DEBUG 1
-
-
 inline size_t muacc_push_tlv_tag( char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag)
 {
