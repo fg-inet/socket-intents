@@ -51,7 +51,7 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 /** wrapper for setsockopt, sets intent sockopts in context or calls original
  *
  */
-int muacc_setsockopt(struct muacc_context *ctx, 
+int muacc_setsockopt(struct muacc_context *ctx,
         int socket, int level, int option_name,
         const void *option_value, socklen_t option_len);
 
