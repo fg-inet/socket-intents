@@ -13,6 +13,10 @@
 #include "dlog.h"
 #include "../libintents/libintents.h"
 
+#ifdef USE_SO_INTENDS
+#include "../libintents/libintents.h"
+#endif
+
 /** Linked list of socket options */
 typedef struct socketopt {
 	int 				level;				/**> Level at which the socket option is valid */
@@ -720,6 +724,7 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 		return setsockopt(socket, level, option_name, option_value, option_len);
 	}
 	
+	#ifdef USE_SO_INTENDS
 	if (level == SOL_INTENTS)
 	{
 		// Intent socket options are handled by us
@@ -757,6 +762,7 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 		retval = 0;
 	}
 	else
+	#endif
 	{
 		// Socket option not an intent: Call original setsockopt function
 		if ((retval = setsockopt(socket, level, option_name, option_value, option_len)) < 0)
@@ -795,6 +801,8 @@ int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int optio
 		return getsockopt(socket, level, option_name, option_value, option_len);
 	}
 
+
+	#ifdef USE_SO_INTENDS
 	if( level == SOL_INTENTS)
 	{
 		// Intent socket options are handled by us
@@ -835,6 +843,7 @@ int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int optio
 		}
 	}
 	else
+	#endif
 	{
 		// Requested socket option is not on 'intents' layer
 		if ((retval = getsockopt(socket, level, option_name, option_value, option_len)) < 0)
