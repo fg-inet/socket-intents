@@ -12,7 +12,7 @@
 #include "tlv.h"
 #include "dlog.h"
 
-#ifdef USE_SO_INTENDS
+#ifdef USE_SO_INTENTS
 #include "../libintents/libintents.h"
 #endif
 
@@ -318,7 +318,7 @@ char *_muacc_get_socket_level (int level)
 	{
 		case SOL_SOCKET:
 			return "SOL_SOCKET";
-		#ifdef USE_SO_INTENDS
+		#ifdef USE_SO_INTENTS
 		case SOL_INTENTS:
 			return "SOL_INTENTS";
 		#endif
@@ -784,7 +784,7 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 		return setsockopt(socket, level, option_name, option_value, option_len);
 	}
 	
-	#ifdef USE_SO_INTENDS
+	#ifdef USE_SO_INTENTS
 	if (level == SOL_INTENTS)
 	{
 		// Intent socket options are handled by us
@@ -866,7 +866,7 @@ int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int optio
 	}
 
 
-	#ifdef USE_SO_INTENDS
+	#ifdef USE_SO_INTENTS
 	if( level == SOL_INTENTS)
 	{
 		// Intent socket options are handled by us
