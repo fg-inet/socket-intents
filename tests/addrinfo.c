@@ -54,7 +54,7 @@ int main(int c, char **v) {
 		getnameinfo( res->ai_addr, res->ai_addrlen,
 				     abuf, sizeof(abuf)-1, NULL, 0,
 					 NI_NUMERICHOST);
-        fprintf(stderr, "response %2d: %-24s canonname %-24s\n", i++, abuf, (res->ai_canonname==NULL)?"(none)":(res->ai_canonname));	
+        fprintf(stdout, "response %2d: %-24s canonname %-24s\n", i++, abuf, (res->ai_canonname==NULL)?"(none)":(res->ai_canonname));
 	}
 	
 	freeaddrinfo(res0);

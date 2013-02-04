@@ -12,7 +12,7 @@
 #include "dlog.h"
 
 
-inline size_t muacc_push_tlv_tag( char *buf, size_t *buf_pos, size_t buf_len,
+size_t muacc_push_tlv_tag( char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag)
 {
 	return muacc_push_tlv(buf, buf_pos, buf_len, tag, NULL, 0);
@@ -148,18 +148,30 @@ size_t muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
     const struct addrinfo *ai;
 	size_t data_len = 0; 
 	size_t tlv_len = -1; 
-	
+
+	DLOG(TLV_NOISY_DEBUG, "invoked buf_pos=%ld buf_len=%ld ai=%p\n", (long) *buf_pos, (long) buf_len, (void *) ai0);
+
 	if ( ai0 == NULL )
 	{
 		return 0;
 	}
 	
 	/* calculate size */
-    for (ai = ai0; ai; ai = ai->ai_next) 
+    for (ai = ai0; ai != NULL; ai = ai->ai_next)
 	{	
-		data_len += sizeof(struct addrinfo) + ai->ai_addrlen + (ai->ai_canonname != NULL)?( sizeof(size_t) + strlen(ai->ai_canonname) ):0; 
+		size_t i = 0;
+
+		i += sizeof(struct addrinfo);
+		i += ai->ai_addrlen;
+		if(ai->ai_canonname != NULL)
+			i += strlen(ai->ai_canonname);
+
+		DLOG(TLV_NOISY_DEBUG, "calculated  length of  addrinfo at %p is %ld\n", (void *) ai, (long) i);
+		data_len += i;
 	}
 	
+	DLOG(TLV_NOISY_DEBUG, "total length is %ld\n", (long) data_len);
+
 	/* check size */
 	tlv_len = sizeof(muacc_tlv_t)+sizeof(size_t)+data_len;
 	if ( *buf_pos + tlv_len >= buf_len)
@@ -183,8 +195,10 @@ size_t muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	 *          string ai->ai_canonname			 if ai->ai_canonname != NULL
 	 *          ... next struct if ai->ai_next != NULL ...
 	 */
-    for (ai = ai0; ai; ai = ai->ai_next) 
+    for (ai = ai0; ai != NULL; ai = ai->ai_next)
 	{	
+		DLOG(TLV_NOISY_DEBUG, "copy addrinfo at %p to tlv buf_pos=%ld buf_len=%ld\n", (void *) ai, (long) *buf_pos, (long) buf_len);
+
 		memcpy( (void *) (buf + *buf_pos), ai, sizeof(struct addrinfo));
 		*buf_pos += sizeof(struct addrinfo);
 		if ( ai->ai_addr != NULL) 
@@ -214,7 +228,9 @@ size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct add
 
 	size_t allocated = 0;
 
-	for( ; ai->ai_next != NULL ; )
+	DLOG(TLV_NOISY_DEBUG, "invoked data_len=%ld\n", (long) data_len);
+
+	do
 	{
 
 		/* check length */
@@ -231,6 +247,8 @@ size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct add
 		memcpy( ai, (void *) (data + data_pos),sizeof(struct addrinfo));
 		data_pos += sizeof(struct addrinfo);
 
+		DLOG(TLV_NOISY_DEBUG, "copied addrinfo to %p\n", (void *) ai);
+
 		/* addrinfo */
 		if ( ai->ai_addr != NULL)
 		{
@@ -246,6 +264,9 @@ size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct add
 			allocated += ai->ai_addrlen;
 			memcpy( ai->ai_addr,  (void *) (data + data_pos), ai->ai_addrlen);
 			data_pos += ai->ai_addrlen;
+
+			DLOG(TLV_NOISY_DEBUG, "copied addrinfo ai_addr to %p\n", (void *) ai->ai_addr);
+
 		}
 
 		/* ai_canonname */
@@ -273,14 +294,16 @@ size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct add
 			memcpy( ai->ai_canonname, (void *) (data + data_pos), canonname_len);
 			*((ai->ai_canonname)+canonname_len-1) = 0x00;
 			data_pos += canonname_len;
+
+			DLOG(TLV_NOISY_DEBUG, "copied addrinfo ai_canonname to %p (%s)\n", (void *) ai->ai_canonname, ai->ai_canonname);
+
 		}
 
 		/* fix pointers */
-		ai->ai_next = NULL;
 		*ai1 = ai;
 		ai1 = &(ai->ai_next);
 
-	}
+	} while (ai->ai_next != NULL);
 
     return allocated;
 

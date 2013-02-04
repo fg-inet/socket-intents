@@ -18,9 +18,12 @@ typedef enum
 	
 typedef enum 
 {
-	muacc_action_connect,		/**< is from a connect */
-	muacc_action_getaddrinfo,	/**< is from a getaddrinfo */
-	muacc_action_setsocketopt	/**< is from a setsocketopt */
+	muacc_action_connect,					/**< is from a connect */
+	muacc_action_getaddrinfo_preresolve,	/**< is from a getaddrinfo, pre resolving */
+	muacc_action_getaddrinfo_postresolve,	/**< is from a getaddrinfo, post resolving,
+											  *     only called if muacc_action_getaddrinfo_preresolve did not
+											  *     provide an address after calling getaddrinfo ourselves */
+	muacc_action_setsocketopt				/**< is from a setsocketopt */
 } muacc_mam_action_t;
 
 
