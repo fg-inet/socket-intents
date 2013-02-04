@@ -13,7 +13,7 @@
 #include "dlog.h"
 #include "../libintents/libintents.h"
 
-#ifdef USE_SO_INTENDS
+#ifdef USE_SO_INTENTS
 #include "../libintents/libintents.h"
 #endif
 
@@ -309,6 +309,27 @@ void _muacc_print_addrinfo(struct addrinfo *addr)
 		}
 	}
 	printf(" }");
+}
+
+char *_muacc_get_socket_level (int level)
+{
+	struct protoent *p;
+	
+	switch(level)
+	{
+		case SOL_SOCKET:
+			return "SOL_SOCKET";
+		#ifdef USE_SO_INTENTS
+		case SOL_INTENTS:
+			return "SOL_INTENTS";
+		#endif
+		default:
+			p = getprotobynumber(level);
+			if(p == NULL)
+				return "SOL_UNKNOWN";
+			else
+				return p->p_name;
+	}
 }
 
 void _muacc_print_socket_options(struct socketopt *opts)
@@ -724,7 +745,7 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 		return setsockopt(socket, level, option_name, option_value, option_len);
 	}
 	
-	#ifdef USE_SO_INTENDS
+	#ifdef USE_SO_INTENTS
 	if (level == SOL_INTENTS)
 	{
 		// Intent socket options are handled by us
@@ -802,7 +823,7 @@ int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int optio
 	}
 
 
-	#ifdef USE_SO_INTENDS
+	#ifdef USE_SO_INTENTS
 	if( level == SOL_INTENTS)
 	{
 		// Intent socket options are handled by us
