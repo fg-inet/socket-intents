@@ -26,6 +26,36 @@ typedef enum
 	muacc_action_setsocketopt				/**< is from a setsocketopt */
 } muacc_mam_action_t;
 
+/** Linked list of socket options */
+typedef struct socketopt {
+	int 				level;				/**> Level at which the socket option is valid */
+	int 				optname;			/**> Identifier of the option */
+	void 				*optval;			/**> Pointer to the value */
+	socklen_t 			optlen;				/**> Length of the value */
+	struct socketopt 	*next;				/**> Pointer to the next socket option */
+} socketopt_t;
+
+/** Internal muacc context struct */
+struct _muacc_ctx {
+	int usage;                          	/**> reference counter */
+	uint8_t locks;                      	/**> lock to avoid multiple concurrent requests to MAM */
+	int mamsock;                        	/**> socket to talk to/in MAM */
+	char *buf;                        		/**> buffer for i/o */
+	/* fields below will be serialized */
+	struct sockaddr *bind_sa_req;       	/**> local address requested */
+	socklen_t 		 bind_sa_req_len;      	/**> length of bind_sa_req*/
+	struct sockaddr *bind_sa_res;       	/**> local address choosen by MAM */
+	socklen_t 		 bind_sa_res_len;      	/**> length of bind_sa_res*/
+	struct sockaddr *remote_sa_req;     	/**> remote address requested */
+	socklen_t 		 remote_sa_req_len;    	/**> length of remote_sa_req*/
+	char 			*remote_hostname;      	/**> hostname to resolve */
+	struct addrinfo	*remote_addrinfo_hint;	/**> hints for resolving */
+	struct addrinfo	*remote_addrinfo_res;	/**> candidate remote addresses (sorted by MAM preference) */
+	struct sockaddr *remote_sa_res;     	/**> remote address choosen in the end */
+	socklen_t 		 remote_sa_res_len;    	/**> length of remote_sa_res */
+	socketopt_t		*socket_options;		/**> associated socket options */
+};
+
 
 /** push data in an TLV buffer
  *
