@@ -26,15 +26,14 @@ AC_CHECK_MEMBER([struct sockaddr.sa_len],
 AC_CHECK_HEADERS([netinet/in.h])
 AC_CHECK_HEADERS([netinet6/in6.h])
 
-AC_ARG_ENABLE(use_so_intents, AS_HELP_STRING([--with-intents],[enable intents socket options]))
-if test "$use_so_intents" != ""
+AC_ARG_ENABLE(intents, AS_HELP_STRING([--enable-intents],[enable intents socket options]))
+if test "$enable_intents" != ""
 then
-	AC_DEFINE_UNQUOTED(USE_SO_INTENTS, 1, "enable intents socket options")
+	AC_DEFINE_UNQUOTED(USE_SO_INTENTS, 1, "Enable intents socket options")
 fi
 
-
-AC_ARG_WITH(muacc_socket, [  --with-muacc-socket            set socket path])
-if test "$muacc_socket" != ""
+AC_ARG_VAR(MUACC_SOCKET, [specify path for MAM socket])
+if test "$MUACC_SOCKET" != ""
 then
 	AC_DEFINE_UNQUOTED(MUACC_SOCKET, $muacc_socket, "Socket location")
 else
