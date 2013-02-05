@@ -5,6 +5,7 @@ AC_PROG_CC
 AM_PROG_CC_C_O
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile])
+PKG_PROG_PKG_CONFIG
 AC_FUNC_FORK
 AC_FUNC_MALLOC
 AC_CHECK_HEADERS([unistd.h])
@@ -25,6 +26,9 @@ AC_CHECK_MEMBER([struct sockaddr.sa_len],
 ])
 AC_CHECK_HEADERS([netinet/in.h])
 AC_CHECK_HEADERS([netinet6/in6.h])
+
+PKG_CHECK_MODULES([libevent], [libevent])
+PKG_CHECK_MODULES([glib2], [glib-2.0])
 
 AC_ARG_ENABLE(intents, AS_HELP_STRING([--enable-intents],[enable intents socket options]))
 if test "$enable_intents" != ""
