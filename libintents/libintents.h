@@ -6,6 +6,9 @@
  *
  */
 
+#ifndef __LIBINTENTS_H__
+#define __LIBINTENTS_H__
+
 /* Exported Functions */
 int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
 
@@ -56,3 +59,5 @@ typedef enum resilience
 	R_TOLERANT,			// Connection loss is tolerable, but inconvenient
 	R_RESILIENT			// Connection loss is acceptable
 } resilience_t;
+
+#endif
