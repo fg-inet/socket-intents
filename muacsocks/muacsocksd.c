@@ -67,7 +67,7 @@ union s5_inputbuffer
 
 int s5_replay(int fd, u_int8_t response, const struct sockaddr *addr)
 {
-	union s5_inputbuffer s5_iobuffer = {};
+	union s5_inputbuffer s5_iobuffer = {{0}};
 	int rlen = sizeof(s5_iobuffer);
 	int resp = 0;
 	
@@ -206,7 +206,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
     char abuf[INET6_ADDRSTRLEN];
 	char pbuf[NI_MAXSERV];
     char nbuf[NI_MAXHOST];
-	struct addrinfo ai_hints = {};
+	struct addrinfo ai_hints = {0};
 	struct addrinfo *ai_res = NULL;
 	union s5_inputbuffer s5_iobuffer;
 	
@@ -488,9 +488,9 @@ do_socks_closed:
 
 int do_accept(int listener)
 {
-    struct sockaddr_storage sa = {};
+    struct sockaddr_storage sa = {0};
 	socklen_t salen = sizeof(sa);	
-	struct sockaddr_storage	 la = {};
+	struct sockaddr_storage	 la = {0};
 	socklen_t lalen = sizeof(la); 
     int fd = -1, pid= -1;
     
@@ -542,7 +542,7 @@ int do_accept(int listener)
 int
 main(int c, char **v)
 {
-    struct sockaddr_in6	sin = {};
+    struct sockaddr_in6	sin = {0};
     int listener = -1;
     int one  = 1;
     int zero = 0;
