@@ -51,7 +51,7 @@ size_t _muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 		*buf_pos += data_len;
 	}
 
-	DLOG(CLIB_TLV_NOISY_DEBUG, "put tlv: buf_pos=%ld tag=%x data_len=%ld tlv_len=%ld \n", *buf_pos, tag, data_len, tlv_len);
+	DLOG(CLIB_TLV_NOISY_DEBUG, "put tlv: buf_pos=%ld tag=%x data_len=%ld tlv_len=%ld \n", (long int) *buf_pos, tag, (long int) data_len, (long int) tlv_len);
 
 	return(tlv_len);
 }
@@ -64,7 +64,7 @@ size_t _muacc_read_tlv( int fd,
 	size_t tlv_len;
 	size_t rlen, rrem; 
 	
-	DLOG(CLIB_TLV_NOISY_DEBUG, "invoked - buf_pos=%ld\n", *buf_pos);
+	DLOG(CLIB_TLV_NOISY_DEBUG, "invoked - buf_pos=%ld\n", (long int) *buf_pos);
 
 	/* check size */
 	if ( *buf_pos + sizeof(muacc_tlv_t) + sizeof(size_t) >= buf_len ) 
@@ -95,7 +95,7 @@ size_t _muacc_read_tlv( int fd,
 	
 	tlv_len = sizeof(muacc_tlv_t) + sizeof(size_t) + *data_len;
 	
-	DLOG(CLIB_TLV_NOISY_DEBUG, "read header - buf_pos=%ld tag=%x, data_len=%ld tlv_len=%ld \n" , *buf_pos, *tag, *data_len, tlv_len);
+	DLOG(CLIB_TLV_NOISY_DEBUG, "read header - buf_pos=%ld tag=%x, data_len=%ld tlv_len=%ld \n" , (long int) *buf_pos, *tag, (long int) *data_len, (long int) tlv_len);
 
 	/* check size again */
 	if (*buf_pos + *data_len >= buf_len)
@@ -130,7 +130,7 @@ size_t _muacc_read_tlv( int fd,
 		*buf_pos += rlen;
 	}
 
-	DLOG(CLIB_TLV_NOISY_DEBUG, "read data done - buf_pos=%ld tag=%x, data_len=%ld tlv_len=%ld \n" , *buf_pos, *tag, *data_len, tlv_len);
+	DLOG(CLIB_TLV_NOISY_DEBUG, "read data done - buf_pos=%ld tag=%x, data_len=%ld tlv_len=%ld \n" , (long int) *buf_pos, *tag, (long int) *data_len, (long int) tlv_len);
 
 	return(tlv_len);
 
@@ -238,7 +238,7 @@ size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct ad
 		/* check length */
 		if (data_len-data_pos < sizeof(struct addrinfo))
 		{
-			DLOG(CLIB_TLV_NOISY_DEBUG, "data_len too short - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
+			DLOG(CLIB_TLV_NOISY_DEBUG, "data_len too short - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
 			return(-1);
 		}
 
@@ -257,7 +257,7 @@ size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct ad
 			/* check length again */
 			if (data_len-data_pos < ai->ai_addrlen)
 			{
-				DLOG(CLIB_TLV_NOISY_DEBUG, "data_len too short while extracting ai_addr - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
+				DLOG(CLIB_TLV_NOISY_DEBUG, "data_len too short while extracting ai_addr - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
 				goto muacc_extract_addrinfo_tlv_length_failed;
 			}
 			/* get memory and copy struct */
@@ -277,7 +277,7 @@ size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct ad
 			/* check length again */
 			if (data_len-data_pos < sizeof(size_t))
 			{
-				DLOG(CLIB_TLV_NOISY_DEBUG, " data_len too short while extracting ai_canonname_len - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
+				DLOG(CLIB_TLV_NOISY_DEBUG, " data_len too short while extracting ai_canonname_len - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
 				goto muacc_extract_addrinfo_tlv_length_failed;
 			}
 			/* get string length + trailing\0 */
@@ -287,7 +287,7 @@ size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct ad
 			/* check length again */
 			if (data_len-data_pos < canonname_len)
 			{
-				DLOG(CLIB_TLV_NOISY_DEBUG, "data_len too short while extracting ai_canonname - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
+				DLOG(CLIB_TLV_NOISY_DEBUG, "data_len too short while extracting ai_canonname - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
 				goto muacc_extract_addrinfo_tlv_length_failed;
 			}
 			if( (ai->ai_canonname = malloc(canonname_len)) == NULL )
@@ -325,7 +325,7 @@ size_t _muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct 
 	/* check length */
 	if (data_len-data_pos < sizeof(struct addrinfo))
 	{
-		DLOG(CLIB_TLV_NOISY_DEBUG, "data_len too short - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
+		DLOG(CLIB_TLV_NOISY_DEBUG, "data_len too short - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
 		return(-1);
 	}
 
