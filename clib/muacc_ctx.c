@@ -9,8 +9,8 @@
 #include "../config.h"
 
 #include "muacc.h"
-#include "muacc_tlv.h"
 #include "muacc_ctx.h"
+#include "muacc_tlv.h"
 #include "muacc_util.h"
 #include "dlog.h"
 
@@ -56,7 +56,7 @@ int muacc_init_context(struct muacc_context *ctx)
 		return(-1);
 	}
 
-	DLOG(CLIB_NOISY_DEBUG,"connected & context successfully initalized\n");
+	DLOG(CLIB_CTX_NOISY_DEBUG,"connected & context successfully initalized\n");
 
 	ctx->ctx = _ctx;
 	return(0);
@@ -76,17 +76,17 @@ int muacc_release_context(struct muacc_context *ctx)
 {
 	if(ctx == NULL)
 	{
-		DLOG(CLIB_NOISY_DEBUG, "WARNING: tried to release NULL POINTER context\n");		
+		DLOG(CLIB_CTX_NOISY_DEBUG, "WARNING: tried to release NULL POINTER context\n");		
 		return -1;
 	}
 	else if(ctx->ctx == NULL)
 	{
-		DLOG(CLIB_NOISY_DEBUG, "empty context - nothing to release\n");
+		DLOG(CLIB_CTX_NOISY_DEBUG, "empty context - nothing to release\n");
 		return 0;
 	}		
 	else if( --(ctx->ctx->usage) == 0 )
 	{
-		DLOG(CLIB_NOISY_DEBUG, "trying to free data fields\n");		
+		DLOG(CLIB_CTX_NOISY_DEBUG, "trying to free data fields\n");		
 		
 		close(ctx->ctx->mamsock);
 		if (ctx->ctx->remote_addrinfo_hint != NULL) freeaddrinfo(ctx->ctx->remote_addrinfo_hint);
@@ -105,7 +105,7 @@ int muacc_release_context(struct muacc_context *ctx)
 		free(ctx->ctx);
 	}
 	
-	DLOG(CLIB_NOISY_DEBUG, "context successfully freed\n");
+	DLOG(CLIB_CTX_NOISY_DEBUG, "context successfully freed\n");
 	
 	return(ctx->ctx->usage);
 }
@@ -123,7 +123,7 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	
 	if(src->ctx == NULL)
 	{
-		DLOG(CLIB_NOISY_DEBUG,"warning: cloning uninitalized context\n");
+		DLOG(CLIB_CTX_NOISY_DEBUG,"warning: cloning uninitalized context\n");
 		dst->ctx = NULL;
 		return(0);
 	}
@@ -171,30 +171,30 @@ size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, struct _muacc_ctx *ct
 
 	size_t pos0 = *pos;
 
-	DLOG(CLIB_NOISY_DEBUG,"bind_sa_req pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG,"bind_sa_req pos=%ld\n", (long) *pos);
     if( ctx->bind_sa_req != NULL &&
     	0 > muacc_push_tlv(buf, pos, len, bind_sa_req,		ctx->bind_sa_req, 		ctx->bind_sa_req_len        ) ) goto _muacc_pack_ctx_err;
 	
-	DLOG(CLIB_NOISY_DEBUG,"bind_sa_res pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG,"bind_sa_res pos=%ld\n", (long) *pos);
 	if( ctx->bind_sa_res != NULL &&
 		0 > muacc_push_tlv(buf, pos, len, bind_sa_res,		ctx->bind_sa_res,		ctx->bind_sa_res_len        ) ) goto _muacc_pack_ctx_err;
 	
-	DLOG(CLIB_NOISY_DEBUG,"remote_sa_req pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_sa_req pos=%ld\n", (long) *pos);
 	if( ctx->remote_sa_req != NULL &&
 		0 > muacc_push_tlv(buf, pos, len, remote_sa_req,  	ctx->remote_sa_req, 	ctx->remote_sa_req_len      ) ) goto _muacc_pack_ctx_err;
 	
-	DLOG(CLIB_NOISY_DEBUG,"remote_sa_res pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_sa_res pos=%ld\n", (long) *pos);
 	if( ctx->remote_sa_res != NULL &&
 		0 > muacc_push_tlv(buf, pos, len, remote_sa_res,  	ctx->remote_sa_res, 	ctx->remote_sa_res_len      ) ) goto _muacc_pack_ctx_err;
 	
-	DLOG(CLIB_NOISY_DEBUG,"remote_hostname pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_hostname pos=%ld\n", (long) *pos);
 	if( ctx->remote_hostname != NULL && /* strlen(NULL) might have undesired side effects… */
 		0 > muacc_push_tlv(buf, pos, len, remote_hostname,	ctx->remote_hostname, strlen(ctx->remote_hostname)) ) goto _muacc_pack_ctx_err;
     
-	DLOG(CLIB_NOISY_DEBUG,"remote_addrinfo_hint pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_addrinfo_hint pos=%ld\n", (long) *pos);
 	if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_hint, ctx->remote_addrinfo_hint) ) goto _muacc_pack_ctx_err;
 	
-	DLOG(CLIB_NOISY_DEBUG,"remote_addrinfo_res pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_addrinfo_res pos=%ld\n", (long) *pos);
 	if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_res,  ctx->remote_addrinfo_res ) ) goto _muacc_pack_ctx_err;
 
 	return ( *pos - pos0 );
@@ -216,7 +216,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 	switch(tag) 
 	{
 		case bind_sa_req:
-			DLOG(CLIB_NOISY_DEBUG, "unpacking bind_sa_req\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking bind_sa_req\n");
 			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->bind_sa_req);
@@ -226,7 +226,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			break;
 		case bind_sa_res:
-			DLOG(CLIB_NOISY_DEBUG, "unpacking bind_sa_res\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking bind_sa_res\n");
 			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->bind_sa_res);
@@ -236,7 +236,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			break;
 		case remote_sa_req:
-			DLOG(CLIB_NOISY_DEBUG, "unpacking remote_sa_req\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking remote_sa_req\n");
 			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->remote_sa_req);
@@ -246,7 +246,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			break;
 		case remote_sa_res:
-			DLOG(CLIB_NOISY_DEBUG, "unpacking remote_sa_res\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking remote_sa_res\n");
 			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->remote_sa_res);
@@ -256,7 +256,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			break;
 		case remote_hostname:
-			DLOG(CLIB_NOISY_DEBUG, "unpacking remote_hostname\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking remote_hostname\n");
 			if((str = malloc(data_len)) != NULL)
 			{
 				str[data_len-1] = 0x00;
@@ -266,7 +266,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return -1;
 			break;
 		case remote_addrinfo_hint:
-			DLOG(CLIB_NOISY_DEBUG, "unpacking remote_addrinfo_hint\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking remote_addrinfo_hint\n");
 			if( _muacc_extract_addrinfo_tlv( data, data_len, &ai) > 0)
 			{
 				freeaddrinfo(_ctx->remote_addrinfo_hint);
@@ -277,7 +277,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			break;
 
 		case remote_addrinfo_res:
-			DLOG(CLIB_NOISY_DEBUG, "unpacking remote_addrinfo_res\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking remote_addrinfo_res\n");
 			if( _muacc_extract_addrinfo_tlv( data, data_len, &ai) > 0)
 			{
 				freeaddrinfo(_ctx->remote_addrinfo_res);
@@ -288,7 +288,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			break;
 
 		default:
-			DLOG(CLIB_NOISY_DEBUG, "_muacc_unpack_ctx: ignoring unknown tag %x\n", tag);
+			DLOG(CLIB_CTX_NOISY_DEBUG, "_muacc_unpack_ctx: ignoring unknown tag %x\n", tag);
 			break;
 	}
 
