@@ -1,3 +1,6 @@
+#ifndef __MUACC_TLV_H__
+#define __MUACC_TLV_H__ 1
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
@@ -25,37 +28,6 @@ typedef enum
 											  *     provide an address after calling getaddrinfo ourselves */
 	muacc_action_setsocketopt				/**< is from a setsocketopt */
 } muacc_mam_action_t;
-
-/** Linked list of socket options */
-typedef struct socketopt {
-	int 				level;				/**> Level at which the socket option is valid */
-	int 				optname;			/**> Identifier of the option */
-	void 				*optval;			/**> Pointer to the value */
-	socklen_t 			optlen;				/**> Length of the value */
-	struct socketopt 	*next;				/**> Pointer to the next socket option */
-} socketopt_t;
-
-/** Internal muacc context struct */
-struct _muacc_ctx {
-	int usage;                          	/**> reference counter */
-	uint8_t locks;                      	/**> lock to avoid multiple concurrent requests to MAM */
-	int mamsock;                        	/**> socket to talk to/in MAM */
-	char *buf;                        		/**> buffer for i/o */
-	/* fields below will be serialized */
-	struct sockaddr *bind_sa_req;       	/**> local address requested */
-	socklen_t 		 bind_sa_req_len;      	/**> length of bind_sa_req*/
-	struct sockaddr *bind_sa_res;       	/**> local address choosen by MAM */
-	socklen_t 		 bind_sa_res_len;      	/**> length of bind_sa_res*/
-	struct sockaddr *remote_sa_req;     	/**> remote address requested */
-	socklen_t 		 remote_sa_req_len;    	/**> length of remote_sa_req*/
-	char 			*remote_hostname;      	/**> hostname to resolve */
-	struct addrinfo	*remote_addrinfo_hint;	/**> hints for resolving */
-	struct addrinfo	*remote_addrinfo_res;	/**> candidate remote addresses (sorted by MAM preference) */
-	struct sockaddr *remote_sa_res;     	/**> remote address choosen in the end */
-	socklen_t 		 remote_sa_res_len;    	/**> length of remote_sa_res */
-	socketopt_t		*socket_options;		/**> associated socket options */
-};
-
 
 /** push data in an TLV buffer
  *
@@ -121,7 +93,7 @@ size_t muacc_push_addrinfo_tlv (
  *
  * @return size of the extracted struct
  */
-size_t muacc_extract_socketaddr_tlv(
+size_t _muacc_extract_socketaddr_tlv(
 	const char *data,           /**< [in]     buffer to extract from */
 	size_t data_len,            /**< [in]     length of data */
 	struct sockaddr **sa0       /**< [out]    pointer to extracted struct (will be allocated) */
@@ -131,10 +103,25 @@ size_t muacc_extract_socketaddr_tlv(
  *
  * @return sum of the sizes of the extracted structs/stringd
  */
-size_t muacc_extract_addrinfo_tlv(
+size_t _muacc_extract_addrinfo_tlv(
 	const char *data,           /**< [in]     buffer to extract from */
 	size_t data_len,            /**< [in]     length of data */
 	struct addrinfo **ai0       /**< [out]    pointer to extracted struct (will be allocated) */
 );
 
+/** speak the TLV protocol as a client to make MAM update _ctx with her wisdom
+ *
+ * @return 0 on success, a negative number otherwise
+ */
+int _muacc_contact_mam (
+	muacc_mam_action_t reason,	/**< [in]	reason for contacting */
+	struct _muacc_ctx *_ctx		/**< [in]	context to be updated */
+);
 
+/** make the TLV client ready by establishing a connection to MAM
+ *
+ * @return 0 on success, a negative number otherwise
+ */
+int _connect_ctx_to_mam(struct _muacc_ctx *_ctx) ;
+
+#endif

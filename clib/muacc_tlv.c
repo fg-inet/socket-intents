@@ -4,13 +4,15 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 
 #include "../config.h"
 
-#include "tlv.h"
 #include "muacc.h"
+#include "muacc_ctx.h"
+#include "muacc_tlv.h"
+#include "muacc_util.h"
 #include "dlog.h"
-
 
 size_t muacc_push_tlv_tag( char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag)
@@ -219,7 +221,7 @@ size_t muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	return(tlv_len);
 }
 
-size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct addrinfo **ai0)
+size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct addrinfo **ai0)
 {
 	struct addrinfo **ai1 = ai0;
 
@@ -315,7 +317,7 @@ size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct add
 
 }
 
-size_t muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct sockaddr **sa0)
+size_t _muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct sockaddr **sa0)
 {
 
 	size_t data_pos = 0;
@@ -340,3 +342,89 @@ size_t muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct s
 	return(-1);
 
 }
+
+
+int _connect_ctx_to_mam(struct _muacc_ctx *_ctx)
+{
+
+	struct sockaddr_un mams;
+	mams.sun_family = AF_UNIX;
+	#ifdef HAVE_SOCKADDR_LEN
+	mams.sun_len = sizeof(struct sockaddr_un);
+	#endif
+	strncpy( mams.sun_path, MUACC_SOCKET, sizeof(mams.sun_path));
+
+	_ctx->mamsock = socket(PF_UNIX, SOCK_STREAM, 0);
+	if(_ctx->mamsock == -1)
+	{
+		DLOG(CLIB_NOISY_DEBUG, "socket creation failed: %s\n", strerror(errno));
+		return(-errno);
+	}
+
+	if(connect(_ctx->mamsock, (struct sockaddr*) &mams, sizeof(mams)) < 0)
+	{
+		DLOG(CLIB_NOISY_DEBUG, "connect to mam via %s failed: %s\n",  mams.sun_path, strerror(errno));
+		return(-errno);
+	}
+
+	return 0;
+}
+
+
+int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
+{
+
+	char buf[MUACC_TLV_LEN];
+	size_t pos = 0;
+	size_t ret = 0;
+	muacc_tlv_t tag;
+	void *data;
+	size_t data_len;
+
+	DLOG(CLIB_NOISY_DEBUG, "packing request\n");
+
+	/* pack request */
+	if( 0 > muacc_push_tlv(buf, &pos, sizeof(buf), action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_contact_mam_pack_err;
+	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), _ctx) ) goto  _muacc_contact_mam_pack_err;
+	if( 0 > muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) ) goto  _muacc_contact_mam_pack_err;
+	DLOG(CLIB_NOISY_DEBUG,"packing request done\n");
+
+
+	/* send requst */
+	if( 0 > (ret = send(_ctx->mamsock, buf, pos, 0)) )
+	{
+		fprintf(stderr, "%6d: _muacc_contact_mam: error sending request: %s\n", (int) getpid(), strerror(errno));
+		return(-1);
+	}
+	else
+ 	{
+		DLOG(CLIB_NOISY_DEBUG, "request sent  - %ld of %ld bytes\n", (long int) ret, (long int) pos);
+ 	}
+
+	/* read & unpack response */
+	DLOG(CLIB_NOISY_DEBUG, "processing response:\n");
+	pos = 0;
+	while( (ret = muacc_read_tlv(_ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0)
+	{
+		DLOG(CLIB_NOISY_DEBUG, "\tpos=%ld tag=%x, len=%ld\n", (long int) pos, tag, (long int) data_len);
+		if( tag == eof )
+			break;
+		else if ( 0 > _muacc_unpack_ctx(tag, data, data_len, _ctx) )
+			goto  _muacc_contact_mam_parse_err;
+	}
+	DLOG(CLIB_NOISY_DEBUG, "processing response done: pos=%li last_res=%li done\n", (long int) pos, (long int) ret);
+	return(0);
+
+
+_muacc_contact_mam_pack_err:
+
+	DLOG(CLIB_NOISY_DEBUG, "failed to pack request\n");
+	return(-1);
+
+_muacc_contact_mam_parse_err:
+
+	DLOG(CLIB_NOISY_DEBUG, "failed to process response\n");
+	return(-1);
+
+}
+

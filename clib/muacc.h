@@ -2,8 +2,8 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#ifndef _MUACC_CTX_
-#define _MUACC_CTX_
+#ifndef __MUACC_H__
+#define __MUACC_H__
 
 #define MUACC_TLV_LEN 2048
 
