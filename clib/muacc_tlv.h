@@ -33,7 +33,7 @@ typedef enum
  *
  * @return length of the added tlv, -1 if there was an error.
  */
-size_t muacc_push_tlv (
+size_t _muacc_push_tlv (
 	char *buf,         /**< [in]	 pointer to buffer to put data */
 	size_t *buf_pos,   /**< [in,out] pointer to current offset to which the buffer is already used (in/out) */
 	size_t buf_len,    /**< [in]	 length of the buffer */
@@ -46,7 +46,7 @@ size_t muacc_push_tlv (
  *
  * @return length of the added tlv, -1 if there was an error.
  */
-size_t muacc_push_tlv_tag( 
+size_t _muacc_push_tlv_tag( 
 	char *buf,         /**< [in]     	pointer to buffer to put data */
 	size_t *buf_pos,   /**< [in,out]    pointer to current offset to which the buffer is already used */
 	size_t buf_len,    /**< [in]    	length of the buffer */
@@ -66,7 +66,7 @@ size_t muacc_push_tlv_tag(
  *
  * @return length of the tlv read, -1 if there was an error.
  */
-size_t muacc_read_tlv( 
+size_t _muacc_read_tlv( 
 	int fd,           	/**< [in]     file descriptor to read from */
  	char *buf,        	/**< [in]     pointer to buffer to put data */
 	size_t *buf_pos,  	/**< [in,out] pointer to current offset to which the buffer is already used (in/out) */
@@ -81,7 +81,7 @@ size_t muacc_read_tlv(
  *
  * @return length of the TLV or -1 on error
  */
-size_t muacc_push_addrinfo_tlv (
+size_t _muacc_push_addrinfo_tlv (
 	char *buf,          		/**< [in]     buffer to copy TLV into */
 	size_t *buf_pos,    		/**< [in,out] position of next free space in the buffer */
 	size_t buf_len,     		/**< [in]     length of the buffer */

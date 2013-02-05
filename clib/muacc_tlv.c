@@ -14,14 +14,14 @@
 #include "muacc_util.h"
 #include "dlog.h"
 
-size_t muacc_push_tlv_tag( char *buf, size_t *buf_pos, size_t buf_len,
+size_t _muacc_push_tlv_tag( char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag)
 {
-	return muacc_push_tlv(buf, buf_pos, buf_len, tag, NULL, 0);
+	return _muacc_push_tlv(buf, buf_pos, buf_len, tag, NULL, 0);
 
 }
 
-size_t muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
+size_t _muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag, 
 	const void *data, size_t data_len)
 {
@@ -56,7 +56,7 @@ size_t muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	return(tlv_len);
 }
 
-size_t muacc_read_tlv( int fd, 
+size_t _muacc_read_tlv( int fd, 
 	char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t *tag, 
 	void **data, size_t *data_len)
@@ -143,7 +143,7 @@ muacc_read_tlv_err:
 }
 
 
-size_t muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
+size_t _muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag, const struct addrinfo *ai0)
 {
 
@@ -384,9 +384,9 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 	DLOG(CLIB_TLV_NOISY_DEBUG, "packing request\n");
 
 	/* pack request */
-	if( 0 > muacc_push_tlv(buf, &pos, sizeof(buf), action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_contact_mam_pack_err;
+	if( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_contact_mam_pack_err;
 	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), _ctx) ) goto  _muacc_contact_mam_pack_err;
-	if( 0 > muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) ) goto  _muacc_contact_mam_pack_err;
+	if( 0 > _muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) ) goto  _muacc_contact_mam_pack_err;
 	DLOG(CLIB_TLV_NOISY_DEBUG,"packing request done\n");
 
 
@@ -404,7 +404,7 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 	/* read & unpack response */
 	DLOG(CLIB_TLV_NOISY_DEBUG, "processing response:\n");
 	pos = 0;
-	while( (ret = muacc_read_tlv(_ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0)
+	while( (ret = _muacc_read_tlv(_ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0)
 	{
 		DLOG(CLIB_TLV_NOISY_DEBUG, "\tpos=%ld tag=%x, len=%ld\n", (long int) pos, tag, (long int) data_len);
 		if( tag == eof )

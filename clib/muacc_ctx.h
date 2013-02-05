@@ -1,3 +1,7 @@
+/** /file Stuff to manipulate "_muacc_ctx"
+ *
+ */
+
 #ifndef __MUACC_CTX_H__
 #define __MUACC_CTX_H__ 1
 
@@ -53,16 +57,30 @@ int _lock_ctx (struct _muacc_ctx *_ctx);
  */
 int _unlock_ctx (struct _muacc_ctx *_ctx);
 
-/** Helper serialzing _ctx in TLVs
+/** Serialize the _ctx packing struct in a series of TLVs
+ *
+ * this has to be kept in sync with the members of _muacc_ctx
+ * NULL pointers will be skipped
  *
  */
-size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, struct _muacc_ctx *ctx);
+size_t _muacc_pack_ctx(
+	char *buf,						/**> [in]		buffer to write TLVs to */
+	size_t *pos,					/**> [in,out]	position within buf */
+	size_t len,						/**> [in]		length of buf	*/
+	const struct _muacc_ctx *ctx	/**> [in]		context to pack */
+);
 
-/** Helper parsing a single TLV and pushing the data to _ctx
+/** parse a single TLV and push its content to the respective member of _muacc_ctx
  *
- * keeps memory consistent
+ * this has to be kept in sync with the members of _muacc_ctx
+ * has to keep memory consistent (free stuff changed/overwritten)
  */
-int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct _muacc_ctx *_ctx);
+int _muacc_unpack_ctx(
+	muacc_tlv_t tag,				/**> [in]		tag of the TLV */
+	const void *data,				/**> [in]		value of the TLV */
+	size_t data_len,				/**> [in]		length of the TLV */
+	struct _muacc_ctx *_ctx			/**> [in]		context to put parsed data in */
+);
 
 
 #endif

@@ -166,36 +166,36 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 }
 
 
-size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, struct _muacc_ctx *ctx) 
+size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, const struct _muacc_ctx *ctx)
 {
 
 	size_t pos0 = *pos;
 
 	DLOG(CLIB_CTX_NOISY_DEBUG,"bind_sa_req pos=%ld\n", (long) *pos);
     if( ctx->bind_sa_req != NULL &&
-    	0 > muacc_push_tlv(buf, pos, len, bind_sa_req,		ctx->bind_sa_req, 		ctx->bind_sa_req_len        ) ) goto _muacc_pack_ctx_err;
+    	0 > _muacc_push_tlv(buf, pos, len, bind_sa_req,		ctx->bind_sa_req, 		ctx->bind_sa_req_len        ) ) goto _muacc_pack_ctx_err;
 	
 	DLOG(CLIB_CTX_NOISY_DEBUG,"bind_sa_res pos=%ld\n", (long) *pos);
 	if( ctx->bind_sa_res != NULL &&
-		0 > muacc_push_tlv(buf, pos, len, bind_sa_res,		ctx->bind_sa_res,		ctx->bind_sa_res_len        ) ) goto _muacc_pack_ctx_err;
+		0 > _muacc_push_tlv(buf, pos, len, bind_sa_res,		ctx->bind_sa_res,		ctx->bind_sa_res_len        ) ) goto _muacc_pack_ctx_err;
 	
 	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_sa_req pos=%ld\n", (long) *pos);
 	if( ctx->remote_sa_req != NULL &&
-		0 > muacc_push_tlv(buf, pos, len, remote_sa_req,  	ctx->remote_sa_req, 	ctx->remote_sa_req_len      ) ) goto _muacc_pack_ctx_err;
+		0 > _muacc_push_tlv(buf, pos, len, remote_sa_req,  	ctx->remote_sa_req, 	ctx->remote_sa_req_len      ) ) goto _muacc_pack_ctx_err;
 	
 	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_sa_res pos=%ld\n", (long) *pos);
 	if( ctx->remote_sa_res != NULL &&
-		0 > muacc_push_tlv(buf, pos, len, remote_sa_res,  	ctx->remote_sa_res, 	ctx->remote_sa_res_len      ) ) goto _muacc_pack_ctx_err;
+		0 > _muacc_push_tlv(buf, pos, len, remote_sa_res,  	ctx->remote_sa_res, 	ctx->remote_sa_res_len      ) ) goto _muacc_pack_ctx_err;
 	
 	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_hostname pos=%ld\n", (long) *pos);
 	if( ctx->remote_hostname != NULL && /* strlen(NULL) might have undesired side effects… */
-		0 > muacc_push_tlv(buf, pos, len, remote_hostname,	ctx->remote_hostname, strlen(ctx->remote_hostname)) ) goto _muacc_pack_ctx_err;
+		0 > _muacc_push_tlv(buf, pos, len, remote_hostname,	ctx->remote_hostname, strlen(ctx->remote_hostname)) ) goto _muacc_pack_ctx_err;
     
 	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_addrinfo_hint pos=%ld\n", (long) *pos);
-	if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_hint, ctx->remote_addrinfo_hint) ) goto _muacc_pack_ctx_err;
+	if( 0 > _muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_hint, ctx->remote_addrinfo_hint) ) goto _muacc_pack_ctx_err;
 	
 	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_addrinfo_res pos=%ld\n", (long) *pos);
-	if( 0 > muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_res,  ctx->remote_addrinfo_res ) ) goto _muacc_pack_ctx_err;
+	if( 0 > _muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_res,  ctx->remote_addrinfo_res ) ) goto _muacc_pack_ctx_err;
 
 	return ( *pos - pos0 );
 	
