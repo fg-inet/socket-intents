@@ -46,13 +46,15 @@ int main(int c, char **v) {
     if (error) {
         errx(1, "%s", gai_strerror(error));
     }
-	
+
+	muacc_print_context(&ctx);
+		
     for (res = res0; res; res = res->ai_next) {
 	    memset(&abuf, 0, sizeof(abuf));
 		getnameinfo( res->ai_addr, res->ai_addrlen,
 				     abuf, sizeof(abuf)-1, NULL, 0,
 					 NI_NUMERICHOST);
-        fprintf(stderr, "response %2d: %-24s canonname %-24s\n", i++, abuf, (res->ai_canonname==NULL)?"(none)":(res->ai_canonname));	
+        fprintf(stdout, "response %2d: %-24s canonname %-24s\n", i++, abuf, (res->ai_canonname==NULL)?"(none)":(res->ai_canonname));
 	}
 	
 	freeaddrinfo(res0);

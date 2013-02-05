@@ -41,8 +41,11 @@ else
 	AC_DEFINE_UNQUOTED(MUACC_SOCKET, "/tmp/muacc.socket", "Socket location")
 fi
 
-AC_DEFINE(CLIB_NOISY_DEBUG, 1, "Print a lot of debugging messages in the client library")
-AC_DEFINE(SOCKSD_NOISY_DEBUG, 1, "Print a lot of debugging messages in the socks daemin")
+AC_DEFINE(SOCKSD_NOISY_DEBUG, 1, "Print a lot of debugging messages in the socks daemon")
 
+AC_DEFINE(CLIB_IF_NOISY_DEBUG, 1, "Print a lot of debugging messages in the client library interface code")
+AC_DEFINE(CLIB_CTX_NOISY_DEBUG, 1, "Print a lot of debugging messages in the client library context code")
+AC_DEFINE(CLIB_TLV_NOISY_DEBUG, 1, "Print a lot of debugging messages in the client library tlv code")
+AC_DEFINE(CLIB_UTIL_NOISY_DEBUG, 1, "Print a lot of debugging messages in the client library utility code")
 
 AC_OUTPUT

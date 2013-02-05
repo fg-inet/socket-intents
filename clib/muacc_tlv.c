@@ -4,25 +4,24 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 
 #include "../config.h"
 
-#include "tlv.h"
 #include "muacc.h"
+#include "muacc_ctx.h"
+#include "muacc_tlv.h"
+#include "muacc_util.h"
 #include "dlog.h"
 
-
-#define TLV_NOISY_DEBUG 1
-
-
-inline size_t muacc_push_tlv_tag( char *buf, size_t *buf_pos, size_t buf_len,
+size_t _muacc_push_tlv_tag( char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag)
 {
-	return muacc_push_tlv(buf, buf_pos, buf_len, tag, NULL, 0);
+	return _muacc_push_tlv(buf, buf_pos, buf_len, tag, NULL, 0);
 
 }
 
-size_t muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
+size_t _muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag, 
 	const void *data, size_t data_len)
 {
@@ -31,7 +30,7 @@ size_t muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	/* check size */
 	if ( *buf_pos + tlv_len >= buf_len)
 	{
-		DLOG(TLV_NOISY_DEBUG, "buffer too small: buf_len=%li, pos=%li needed=%li\n", (long) buf_len, (long) *buf_pos, (long) tlv_len);
+		DLOG(CLIB_TLV_NOISY_DEBUG, "buffer too small: buf_len=%li, pos=%li needed=%li\n", (long) buf_len, (long) *buf_pos, (long) tlv_len);
 		return(-1);
 	}
 	
@@ -52,12 +51,12 @@ size_t muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 		*buf_pos += data_len;
 	}
 
-	DLOG(TLV_NOISY_DEBUG, "put tlv: buf_pos=%ld tag=%x data_len=%ld tlv_len=%ld \n", *buf_pos, tag, data_len, tlv_len);
+	DLOG(CLIB_TLV_NOISY_DEBUG, "put tlv: buf_pos=%ld tag=%x data_len=%ld tlv_len=%ld \n", *buf_pos, tag, data_len, tlv_len);
 
 	return(tlv_len);
 }
 
-size_t muacc_read_tlv( int fd, 
+size_t _muacc_read_tlv( int fd, 
 	char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t *tag, 
 	void **data, size_t *data_len)
@@ -65,7 +64,7 @@ size_t muacc_read_tlv( int fd,
 	size_t tlv_len;
 	size_t rlen, rrem; 
 	
-	DLOG(TLV_NOISY_DEBUG, "invoked - buf_pos=%ld\n", *buf_pos);
+	DLOG(CLIB_TLV_NOISY_DEBUG, "invoked - buf_pos=%ld\n", *buf_pos);
 
 	/* check size */
 	if ( *buf_pos + sizeof(muacc_tlv_t) + sizeof(size_t) >= buf_len ) 
@@ -96,7 +95,7 @@ size_t muacc_read_tlv( int fd,
 	
 	tlv_len = sizeof(muacc_tlv_t) + sizeof(size_t) + *data_len;
 	
-	DLOG(TLV_NOISY_DEBUG, "read header - buf_pos=%ld tag=%x, data_len=%ld tlv_len=%ld \n" , *buf_pos, *tag, *data_len, tlv_len);
+	DLOG(CLIB_TLV_NOISY_DEBUG, "read header - buf_pos=%ld tag=%x, data_len=%ld tlv_len=%ld \n" , *buf_pos, *tag, *data_len, tlv_len);
 
 	/* check size again */
 	if (*buf_pos + *data_len >= buf_len)
@@ -108,7 +107,7 @@ size_t muacc_read_tlv( int fd,
 	/* check EOF TLV */
 	if( *tag == eof )
 	{
-		DLOG(TLV_NOISY_DEBUG, "found data_len==0 - returning 0\n");
+		DLOG(CLIB_TLV_NOISY_DEBUG, "found data_len==0 - returning 0\n");
 		*data = NULL;
 		*data_len = 0;
 		return(tlv_len);
@@ -131,7 +130,7 @@ size_t muacc_read_tlv( int fd,
 		*buf_pos += rlen;
 	}
 
-	DLOG(TLV_NOISY_DEBUG, "read data done - buf_pos=%ld tag=%x, data_len=%ld tlv_len=%ld \n" , *buf_pos, *tag, *data_len, tlv_len);
+	DLOG(CLIB_TLV_NOISY_DEBUG, "read data done - buf_pos=%ld tag=%x, data_len=%ld tlv_len=%ld \n" , *buf_pos, *tag, *data_len, tlv_len);
 
 	return(tlv_len);
 
@@ -144,25 +143,37 @@ muacc_read_tlv_err:
 }
 
 
-size_t muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
+size_t _muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	muacc_tlv_t tag, const struct addrinfo *ai0)
 {
 
     const struct addrinfo *ai;
 	size_t data_len = 0; 
 	size_t tlv_len = -1; 
-	
+
+	DLOG(CLIB_TLV_NOISY_DEBUG, "invoked buf_pos=%ld buf_len=%ld ai=%p\n", (long) *buf_pos, (long) buf_len, (void *) ai0);
+
 	if ( ai0 == NULL )
 	{
 		return 0;
 	}
 	
 	/* calculate size */
-    for (ai = ai0; ai; ai = ai->ai_next) 
+    for (ai = ai0; ai != NULL; ai = ai->ai_next)
 	{	
-		data_len += sizeof(struct addrinfo) + ai->ai_addrlen + (ai->ai_canonname != NULL)?( sizeof(size_t) + strlen(ai->ai_canonname) ):0; 
+		size_t i = 0;
+
+		i += sizeof(struct addrinfo);
+		i += ai->ai_addrlen;
+		if(ai->ai_canonname != NULL)
+			i += strlen(ai->ai_canonname);
+
+		DLOG(CLIB_TLV_NOISY_DEBUG, "calculated  length of  addrinfo at %p is %ld\n", (void *) ai, (long) i);
+		data_len += i;
 	}
 	
+	DLOG(CLIB_TLV_NOISY_DEBUG, "total length is %ld\n", (long) data_len);
+
 	/* check size */
 	tlv_len = sizeof(muacc_tlv_t)+sizeof(size_t)+data_len;
 	if ( *buf_pos + tlv_len >= buf_len)
@@ -186,8 +197,10 @@ size_t muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	 *          string ai->ai_canonname			 if ai->ai_canonname != NULL
 	 *          ... next struct if ai->ai_next != NULL ...
 	 */
-    for (ai = ai0; ai; ai = ai->ai_next) 
+    for (ai = ai0; ai != NULL; ai = ai->ai_next)
 	{	
+		DLOG(CLIB_TLV_NOISY_DEBUG, "copy addrinfo at %p to tlv buf_pos=%ld buf_len=%ld\n", (void *) ai, (long) *buf_pos, (long) buf_len);
+
 		memcpy( (void *) (buf + *buf_pos), ai, sizeof(struct addrinfo));
 		*buf_pos += sizeof(struct addrinfo);
 		if ( ai->ai_addr != NULL) 
@@ -208,7 +221,7 @@ size_t muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	return(tlv_len);
 }
 
-size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct addrinfo **ai0)
+size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct addrinfo **ai0)
 {
 	struct addrinfo **ai1 = ai0;
 
@@ -217,13 +230,15 @@ size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct add
 
 	size_t allocated = 0;
 
-	for( ; ai->ai_next != NULL ; )
+	DLOG(CLIB_TLV_NOISY_DEBUG, "invoked data_len=%ld\n", (long) data_len);
+
+	do
 	{
 
 		/* check length */
 		if (data_len-data_pos < sizeof(struct addrinfo))
 		{
-			DLOG(TLV_NOISY_DEBUG, "data_len too short - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
+			DLOG(CLIB_TLV_NOISY_DEBUG, "data_len too short - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
 			return(-1);
 		}
 
@@ -234,13 +249,15 @@ size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct add
 		memcpy( ai, (void *) (data + data_pos),sizeof(struct addrinfo));
 		data_pos += sizeof(struct addrinfo);
 
+		DLOG(CLIB_TLV_NOISY_DEBUG, "copied addrinfo to %p\n", (void *) ai);
+
 		/* addrinfo */
 		if ( ai->ai_addr != NULL)
 		{
 			/* check length again */
 			if (data_len-data_pos < ai->ai_addrlen)
 			{
-				DLOG(TLV_NOISY_DEBUG, "data_len too short while extracting ai_addr - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
+				DLOG(CLIB_TLV_NOISY_DEBUG, "data_len too short while extracting ai_addr - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
 				goto muacc_extract_addrinfo_tlv_length_failed;
 			}
 			/* get memory and copy struct */
@@ -249,6 +266,9 @@ size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct add
 			allocated += ai->ai_addrlen;
 			memcpy( ai->ai_addr,  (void *) (data + data_pos), ai->ai_addrlen);
 			data_pos += ai->ai_addrlen;
+
+			DLOG(CLIB_TLV_NOISY_DEBUG, "copied addrinfo ai_addr to %p\n", (void *) ai->ai_addr);
+
 		}
 
 		/* ai_canonname */
@@ -257,7 +277,7 @@ size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct add
 			/* check length again */
 			if (data_len-data_pos < sizeof(size_t))
 			{
-				DLOG(TLV_NOISY_DEBUG, " data_len too short while extracting ai_canonname_len - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
+				DLOG(CLIB_TLV_NOISY_DEBUG, " data_len too short while extracting ai_canonname_len - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
 				goto muacc_extract_addrinfo_tlv_length_failed;
 			}
 			/* get string length + trailing\0 */
@@ -267,7 +287,7 @@ size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct add
 			/* check length again */
 			if (data_len-data_pos < canonname_len)
 			{
-				DLOG(TLV_NOISY_DEBUG, "data_len too short while extracting ai_canonname - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
+				DLOG(CLIB_TLV_NOISY_DEBUG, "data_len too short while extracting ai_canonname - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
 				goto muacc_extract_addrinfo_tlv_length_failed;
 			}
 			if( (ai->ai_canonname = malloc(canonname_len)) == NULL )
@@ -276,14 +296,16 @@ size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct add
 			memcpy( ai->ai_canonname, (void *) (data + data_pos), canonname_len);
 			*((ai->ai_canonname)+canonname_len-1) = 0x00;
 			data_pos += canonname_len;
+
+			DLOG(CLIB_TLV_NOISY_DEBUG, "copied addrinfo ai_canonname to %p (%s)\n", (void *) ai->ai_canonname, ai->ai_canonname);
+
 		}
 
 		/* fix pointers */
-		ai->ai_next = NULL;
 		*ai1 = ai;
 		ai1 = &(ai->ai_next);
 
-	}
+	} while (ai->ai_next != NULL);
 
     return allocated;
 
@@ -295,7 +317,7 @@ size_t muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct add
 
 }
 
-size_t muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct sockaddr **sa0)
+size_t _muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct sockaddr **sa0)
 {
 
 	size_t data_pos = 0;
@@ -303,7 +325,7 @@ size_t muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct s
 	/* check length */
 	if (data_len-data_pos < sizeof(struct addrinfo))
 	{
-		DLOG(TLV_NOISY_DEBUG, "data_len too short - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
+		DLOG(CLIB_TLV_NOISY_DEBUG, "data_len too short - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", data_pos, data_len, sizeof(struct addrinfo));
 		return(-1);
 	}
 
@@ -320,3 +342,89 @@ size_t muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct s
 	return(-1);
 
 }
+
+
+int _connect_ctx_to_mam(struct _muacc_ctx *_ctx)
+{
+
+	struct sockaddr_un mams;
+	mams.sun_family = AF_UNIX;
+	#ifdef HAVE_SOCKADDR_LEN
+	mams.sun_len = sizeof(struct sockaddr_un);
+	#endif
+	strncpy( mams.sun_path, MUACC_SOCKET, sizeof(mams.sun_path));
+
+	_ctx->mamsock = socket(PF_UNIX, SOCK_STREAM, 0);
+	if(_ctx->mamsock == -1)
+	{
+		DLOG(CLIB_TLV_NOISY_DEBUG, "socket creation failed: %s\n", strerror(errno));
+		return(-errno);
+	}
+
+	if(connect(_ctx->mamsock, (struct sockaddr*) &mams, sizeof(mams)) < 0)
+	{
+		DLOG(CLIB_TLV_NOISY_DEBUG, "connect to mam via %s failed: %s\n",  mams.sun_path, strerror(errno));
+		return(-errno);
+	}
+
+	return 0;
+}
+
+
+int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
+{
+
+	char buf[MUACC_TLV_LEN];
+	size_t pos = 0;
+	size_t ret = 0;
+	muacc_tlv_t tag;
+	void *data;
+	size_t data_len;
+
+	DLOG(CLIB_TLV_NOISY_DEBUG, "packing request\n");
+
+	/* pack request */
+	if( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_contact_mam_pack_err;
+	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), _ctx) ) goto  _muacc_contact_mam_pack_err;
+	if( 0 > _muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) ) goto  _muacc_contact_mam_pack_err;
+	DLOG(CLIB_TLV_NOISY_DEBUG,"packing request done\n");
+
+
+	/* send requst */
+	if( 0 > (ret = send(_ctx->mamsock, buf, pos, 0)) )
+	{
+		fprintf(stderr, "%6d: _muacc_contact_mam: error sending request: %s\n", (int) getpid(), strerror(errno));
+		return(-1);
+	}
+	else
+ 	{
+		DLOG(CLIB_TLV_NOISY_DEBUG, "request sent  - %ld of %ld bytes\n", (long int) ret, (long int) pos);
+ 	}
+
+	/* read & unpack response */
+	DLOG(CLIB_TLV_NOISY_DEBUG, "processing response:\n");
+	pos = 0;
+	while( (ret = _muacc_read_tlv(_ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0)
+	{
+		DLOG(CLIB_TLV_NOISY_DEBUG, "\tpos=%ld tag=%x, len=%ld\n", (long int) pos, tag, (long int) data_len);
+		if( tag == eof )
+			break;
+		else if ( 0 > _muacc_unpack_ctx(tag, data, data_len, _ctx) )
+			goto  _muacc_contact_mam_parse_err;
+	}
+	DLOG(CLIB_TLV_NOISY_DEBUG, "processing response done: pos=%li last_res=%li done\n", (long int) pos, (long int) ret);
+	return(0);
+
+
+_muacc_contact_mam_pack_err:
+
+	DLOG(CLIB_TLV_NOISY_DEBUG, "failed to pack request\n");
+	return(-1);
+
+_muacc_contact_mam_parse_err:
+
+	DLOG(CLIB_TLV_NOISY_DEBUG, "failed to process response\n");
+	return(-1);
+
+}
+
