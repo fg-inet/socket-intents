@@ -1,7 +1,7 @@
 PROGRAM=testintents
 OBJECTS=
 LIBRARIES= glib-2.0
-CFLAGS= -g -Wall -O0 -std=c99 -DDEBUG -D_GNU_SOURCE `pkg-config --cflags $(LIBRARIES)`
+CFLAGS= -g -Wall -O0 -std=c99 -DDEBUG -DUSE_SO_INTENTS -D_GNU_SOURCE `pkg-config --cflags $(LIBRARIES)`
 LDLIBS= -L. -ldl `pkg-config --libs $(LIBRARIES)`
 CC=gcc
 
