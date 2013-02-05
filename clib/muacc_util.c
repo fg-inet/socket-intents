@@ -12,6 +12,10 @@
 #include "muacc_util.h"
 #include "muacc_ctx.h"
 
+#ifdef USE_SO_INTENTS
+#include "../libintents/libintents.h"
+#endif
+
 
 struct sockaddr *_muacc_clone_sockaddr(const struct sockaddr *src, size_t src_len)
 {
