@@ -155,7 +155,7 @@ int socket(int domain, int type, int protocol)
  */
 int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
 {
-	LOG("--- setsockopt ( %d, %d, %d, %d, %d ) --- \n", sockfd, level, optname, *(int *) optval, (int) optlen);
+	LOG("--- setsockopt ( %d, %d, %d, %d ) --- \n", sockfd, level, optname, (int) optlen);
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 
@@ -200,7 +200,7 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
  */
 int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
 {
-	LOG("--- getsockopt ( %d, %d, %d, %d, %d ) --- \n", sockfd, level, optname, *(int *) optval, *(int*) optlen);
+	LOG("--- getsockopt ( %d, %d, %d ) --- \n", sockfd, level, optname);
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 
