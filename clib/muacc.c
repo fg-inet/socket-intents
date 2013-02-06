@@ -50,7 +50,7 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 	ctx->ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(hints);
 	
 	/* contact mam */
-	_muacc_contact_mam(muacc_action_getaddrinfo_preresolve, ctx->ctx);
+	_muacc_contact_mam(muacc_act_getaddrinfo_preresolve_req, ctx->ctx);
 	
 	if(ctx->ctx->remote_addrinfo_res != NULL)
 		ret = 0;
@@ -65,7 +65,7 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 			ctx->ctx->remote_addrinfo_res = _muacc_clone_addrinfo(*res);
 
 			/* contact mam again */
-			_muacc_contact_mam(muacc_action_getaddrinfo_postresolve, ctx->ctx);
+			_muacc_contact_mam(muacc_act_getaddrinfo_postresolve_req, ctx->ctx);
 		}
 	}
 
@@ -266,7 +266,7 @@ int muacc_connect(struct muacc_context *ctx,
 		ctx->ctx->remote_sa_res_len	= address_len;
 	}
 	
-	if( _muacc_contact_mam(muacc_action_connect, ctx->ctx) <0 ){
+	if( _muacc_contact_mam(muacc_act_connect_req, ctx->ctx) <0 ){
 		_unlock_ctx(ctx->ctx);
 		DLOG(CLIB_IF_NOISY_DEBUG, "got no response from mam - fallback to regual connect\n");
 		goto muacc_connect_fallback;

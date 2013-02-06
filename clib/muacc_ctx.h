@@ -9,6 +9,8 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#include <event2/buffer.h>
+
 #include "muacc.h"
 #include "muacc_tlv.h"
 
@@ -26,7 +28,9 @@ struct _muacc_ctx {
 	int usage;                          	/**> reference counter */
 	uint8_t locks;                      	/**> lock to avoid multiple concurrent requests to MAM */
 	int mamsock;                        	/**> socket to talk to/in MAM */
-	char *buf;                        		/**> buffer for i/o */
+	struct evbuffer *out;					/**> output buffer when used with libevent2 */
+	struct evbuffer *in;					/**> input buffer when used with libevent2 */
+	muacc_mam_action_t state;				/**> state machine state */
 	/* fields below will be serialized */
 	struct sockaddr *bind_sa_req;       	/**> local address requested */
 	socklen_t 		 bind_sa_req_len;      	/**> length of bind_sa_req*/
@@ -41,6 +45,21 @@ struct _muacc_ctx {
 	socklen_t 		 remote_sa_res_len;    	/**> length of remote_sa_res */
 	socketopt_t		*socket_options;		/**> associated socket options */
 };
+
+/** Helper to allocate and initalize _muacc_ctx
+ *
+ */
+struct _muacc_ctx *_muacc_create_ctx();
+
+/** Helper to maintain refernece count on _muacc_ctx
+ *
+ */
+int _muacc_retain_ctx(struct _muacc_ctx *_ctx);
+
+/** Helper to free _muacc_ctx if reference count reaches 0
+ *
+ */
+int _muacc_free_ctx (struct _muacc_ctx *_ctx);
 
 
 /** Helper doing locking simulation - lock part
@@ -82,5 +101,9 @@ int _muacc_unpack_ctx(
 	struct _muacc_ctx *_ctx			/**> [in]		context to put parsed data in */
 );
 
+/* helper to print ctx
+ *
+ */
+void _muacc_print_ctx(struct _muacc_ctx *_ctx);
 
 #endif

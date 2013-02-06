@@ -344,7 +344,7 @@ size_t _muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct 
 }
 
 
-int _connect_ctx_to_mam(struct _muacc_ctx *_ctx)
+int _muacc_connect_ctx_to_mam(struct _muacc_ctx *_ctx)
 {
 
 	struct sockaddr_un mams;
@@ -374,7 +374,7 @@ int _connect_ctx_to_mam(struct _muacc_ctx *_ctx)
 int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 {
 
-	char buf[MUACC_TLV_LEN];
+	char buf[MUACC_TLV_MAXLEN];
 	size_t pos = 0;
 	size_t ret = 0;
 	muacc_tlv_t tag;

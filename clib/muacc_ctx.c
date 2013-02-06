@@ -30,24 +30,35 @@ int _unlock_ctx (struct _muacc_ctx *_ctx)
 	return( -(--(_ctx->locks)) );
 }
 
-
-int muacc_init_context(struct muacc_context *ctx)
+struct _muacc_ctx *_muacc_create_ctx()
 {
-	struct _muacc_ctx *_ctx;
 
+	struct _muacc_ctx *_ctx;
 
 	/* initalize context backing struct */
 	if( ( _ctx = malloc( sizeof(struct _muacc_ctx) )) == NULL )
 	{
-		perror("muacc_init_context malloc failed");
-		return(-1);
+		perror("_muacc_ctx malloc failed");
+		return(NULL);
 	}
 	memset(_ctx, 0x00, sizeof(struct _muacc_ctx));
 	_ctx->usage = 1;
 
+	return _ctx;
+}
+
+int muacc_init_context(struct muacc_context *ctx)
+{
+	struct _muacc_ctx *_ctx = _muacc_create_ctx();
+
+	if(_ctx == NULL)
+		return(-1);
+
 	/* connect to MAM */
-	if(_connect_ctx_to_mam(_ctx))
+	if(_muacc_connect_ctx_to_mam(_ctx))
 	{
+		DLOG(CLIB_CTX_NOISY_DEBUG,"could not connect to MAM\n");
+
 		/* free context backing struct */
 		free(_ctx);
 
@@ -62,59 +73,71 @@ int muacc_init_context(struct muacc_context *ctx)
 	return(0);
 }
 
+int _muacc_retain_ctx(struct _muacc_ctx *_ctx)
+{
+	return(++(_ctx->usage));
+}
+
+
 int muacc_retain_context(struct muacc_context *ctx)
 {
-	if(ctx->ctx == 0)
+	if(ctx->ctx == NULL)
 	{
 		return(-1);
 	}
 
-	return(++(ctx->ctx->usage));
+	return(_muacc_retain_ctx(ctx->ctx));
 }
+
+
+int _muacc_free_ctx (struct _muacc_ctx *_ctx)
+{
+	if( --(_ctx->usage) == 0 )
+	{
+		DLOG(CLIB_CTX_NOISY_DEBUG, "trying to free data fields\n");		
+		
+		if (_ctx->mamsock != 0) 				close(_ctx->mamsock);
+		if (_ctx->remote_addrinfo_hint != NULL) freeaddrinfo(_ctx->remote_addrinfo_hint);
+		if (_ctx->remote_addrinfo_res != NULL)  freeaddrinfo(_ctx->remote_addrinfo_res);
+		if (_ctx->bind_sa_req != NULL)          free(_ctx->bind_sa_req);
+		if (_ctx->bind_sa_res != NULL)          free(_ctx->bind_sa_res);
+		if (_ctx->remote_sa_req != NULL)        free(_ctx->remote_sa_req);
+		if (_ctx->remote_sa_res != NULL)        free(_ctx->remote_sa_res);
+		if (_ctx->remote_hostname != NULL)      free(_ctx->remote_hostname);
+		while (_ctx->socket_options != NULL)
+		{
+			socketopt_t *current = _ctx->socket_options;
+			_ctx->socket_options = current->next;
+			free(current);
+		}
+		free(_ctx);
+		DLOG(CLIB_CTX_NOISY_DEBUG, "context successfully freed\n");
+
+		return(0);
+	} else {
+		DLOG(CLIB_CTX_NOISY_DEBUG, "context has still %d references\n", _ctx->usage);
+		return(_ctx->usage);
+	}
+}
+
 
 int muacc_release_context(struct muacc_context *ctx)
 {
 	if(ctx == NULL)
 	{
-		DLOG(CLIB_CTX_NOISY_DEBUG, "WARNING: tried to release NULL POINTER context\n");		
+		DLOG(CLIB_CTX_NOISY_DEBUG, "WARNING: tried to release NULL POINTER context\n");
 		return -1;
 	}
 	else if(ctx->ctx == NULL)
 	{
 		DLOG(CLIB_CTX_NOISY_DEBUG, "empty context - nothing to release\n");
 		return 0;
-	}		
-	else if( --(ctx->ctx->usage) == 0 )
-	{
-		DLOG(CLIB_CTX_NOISY_DEBUG, "trying to free data fields\n");		
-		
-		close(ctx->ctx->mamsock);
-		if (ctx->ctx->remote_addrinfo_hint != NULL) freeaddrinfo(ctx->ctx->remote_addrinfo_hint);
-		if (ctx->ctx->remote_addrinfo_res != NULL) freeaddrinfo(ctx->ctx->remote_addrinfo_res);
-		if (ctx->ctx->bind_sa_req != NULL) free(ctx->ctx->bind_sa_req);
-		if (ctx->ctx->bind_sa_res != NULL) free(ctx->ctx->bind_sa_res);
-		if (ctx->ctx->remote_sa_req != NULL) free(ctx->ctx->remote_sa_req);
-		if (ctx->ctx->remote_sa_res != NULL) free(ctx->ctx->remote_sa_res);
-		if (ctx->ctx->remote_hostname != NULL) free(ctx->ctx->remote_hostname);
-		while (ctx->ctx->socket_options != NULL)
-		{
-			socketopt_t *current = ctx->ctx->socket_options;
-			ctx->ctx->socket_options = current->next;
-			free(current);
-		}
-		free(ctx->ctx);
 	}
-	
-	DLOG(CLIB_CTX_NOISY_DEBUG, "context successfully freed\n");
-	
-	return(ctx->ctx->usage);
+	else
+	{
+		return _muacc_free_ctx(ctx->ctx);
+	}
 }
-
-
-
-
-
-
 
 
 int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src) 
@@ -152,7 +175,7 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	dst->ctx = _ctx;
 	
 	/* connect to MAM */
-	if(_connect_ctx_to_mam(_ctx))
+	if(_muacc_connect_ctx_to_mam(_ctx))
 	{
 		/* free context backing struct */
 		muacc_release_context(dst);
@@ -215,6 +238,10 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 
 	switch(tag) 
 	{
+		case action:
+				DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking action\n");
+				_ctx->state = *((muacc_mam_action_t *) data);
+				break;
 		case bind_sa_req:
 			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking bind_sa_req\n");
 			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
@@ -309,35 +336,41 @@ void muacc_print_context(struct muacc_context *ctx)
 	}
 	else
 	{
-		printf("ctx->ctx = {\n");
+		_muacc_print_ctx(ctx->ctx);
+	}
+}
+
+void _muacc_print_ctx(struct _muacc_ctx *_ctx)
+{
+
+		printf("_ctx = {\n");
 		printf("\t// internal values\n");
-		printf("\tusage = %d\n", ctx->ctx->usage);
-		printf("\tlocks = %d\n", (int) ctx->ctx->locks);
-		printf("\tmamsock = %d\n", ctx->ctx->mamsock);
-		printf("\tbuf = %p\n", ctx->ctx->buf);
+		printf("\tusage = %d\n", _ctx->usage);
+		printf("\tlocks = %d\n", (int) _ctx->locks);
+		printf("\tmamsock = %d\n", _ctx->mamsock);
 
 		printf("\t// exported values\n");
 		printf("\tbind_sa_req = ");
-		_muacc_print_sockaddr(ctx->ctx->bind_sa_req, ctx->ctx->bind_sa_req_len);
+		_muacc_print_sockaddr(_ctx->bind_sa_req, _ctx->bind_sa_req_len);
 		printf("\n");
 		printf("\tbind_sa_res = ");
-		_muacc_print_sockaddr(ctx->ctx->bind_sa_res, ctx->ctx->bind_sa_res_len);
+		_muacc_print_sockaddr(_ctx->bind_sa_res, _ctx->bind_sa_res_len);
 		printf("\n");
 		printf("\tremote_sa_req = ");
-		_muacc_print_sockaddr(ctx->ctx->remote_sa_req, ctx->ctx->remote_sa_req_len);
+		_muacc_print_sockaddr(_ctx->remote_sa_req, _ctx->remote_sa_req_len);
 		printf("\n");
-		printf("\tremote_hostname = %s\n", ctx->ctx->remote_hostname);
+		printf("\tremote_hostname = %s\n", _ctx->remote_hostname);
 		printf("\tremote_addrinfo_hint = ");
-		_muacc_print_addrinfo(ctx->ctx->remote_addrinfo_hint);
+		_muacc_print_addrinfo(_ctx->remote_addrinfo_hint);
 		printf("\n");
 		printf("\tremote_addrinfo_res = ");
-		_muacc_print_addrinfo(ctx->ctx->remote_addrinfo_res);
+		_muacc_print_addrinfo(_ctx->remote_addrinfo_res);
 		printf("\n");
 		printf("\tremote_sa_res = ");
-		_muacc_print_sockaddr(ctx->ctx->remote_sa_res, ctx->ctx->remote_sa_res_len);
+		_muacc_print_sockaddr(_ctx->remote_sa_res, _ctx->remote_sa_res_len);
 		printf("\n");
 		printf("\tsocket_options = ");
-		_muacc_print_socket_options(ctx->ctx->socket_options);
+		_muacc_print_socket_options(_ctx->socket_options);
 		printf("\n");
-	}
+
 }
