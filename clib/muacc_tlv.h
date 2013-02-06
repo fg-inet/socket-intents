@@ -28,7 +28,7 @@ typedef enum
 	muacc_act_getaddrinfo_preresolve_req,	/**< is from a getaddrinfo, pre resolving */
 	muacc_act_getaddrinfo_preresolve_resp,
 	muacc_act_getaddrinfo_postresolve_req,	/**< is from a getaddrinfo, post resolving,
-											  *     only called if muacc_action_getaddrinfo_preresolve did not
+	 	 	 	 	 	 	 	 	 	 	  *     only called if muacc_action_getaddrinfo_preresolve did not
 											  *     provide an address after calling getaddrinfo ourselves */
 	muacc_act_getaddrinfo_postresolve_resp,
 	muacc_act_setsocketopt_req,				/**< is from a setsocketopt */
@@ -94,6 +94,19 @@ size_t _muacc_extract_addrinfo_tlv(
 	struct addrinfo **ai0       /**< [out]    pointer to extracted struct (will be allocated) */
 );
 
+
+#define _muacc_proc_tlv_event_too_short	-1
+#define _muacc_proc_tlv_event_eof		0
+/** try to read a TLV from an libevent2 evbuffer
+ *
+ * @return number of bytes processed, 0 if last TLV was EOF, -1 if buffer was too short
+ */
+int _muacc_proc_tlv_event(
+	struct evbuffer *input,		/**< [in]	  evbuffer to read from */
+	struct evbuffer *output,	/**< [in]	  evbuffer to write to  */
+	struct _muacc_ctx *_ctx		/**< [in]	  ctx to extract data to */
+);
+
 /** read a TLV from a file descriptor
  *
  * @return length of the tlv read, -1 if there was an error.
@@ -107,6 +120,12 @@ size_t _muacc_read_tlv(
  	void **data,      	/**< [out]    data extracted (pointer within buf) */
 	size_t *data_len  	/**< [out]    length of data extracted */
 );
+
+/** send context via libevent evbuffer
+ *
+ * @return 0 on success, -1 if there was an error.
+ */
+int _muacc_send_ctx_event(struct _muacc_ctx *_ctx, muacc_mam_action_t reason);
 
 /** speak the TLV protocol as a client to make MAM update _ctx with her wisdom
  *
