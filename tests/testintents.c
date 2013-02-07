@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
-#include "libintents.h"
+#include "../libintents/libintents.h"
 
 /** Fixture = Element used in a set of tests; here: just a socket file descriptor
  *

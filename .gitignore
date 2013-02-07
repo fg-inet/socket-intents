@@ -10,9 +10,9 @@
 *.deps/
 *.dirstamp
 *.dSYM
-libintents/testintents
 muacsocksd
 addrinfo
+testintents
 .libs/
 
 # Compiler docs

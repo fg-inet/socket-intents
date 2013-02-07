@@ -23,5 +23,8 @@ muacsocksd_LDADD = $(LDADD) libmuacc.a
 addrinfo_SOURCES = tests/addrinfo.c
 addrinfo_LDADD = $(LDADD) libmuacc.a
 
+TESTS = tests/libintents.sh
+check_PROGRAMS = testintents
+testintents_SOURCES = tests/testintents.c
 
 dist_noinst_SCRIPTS = autogen.sh
