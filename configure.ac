@@ -52,5 +52,6 @@ AC_DEFINE(CLIB_IF_NOISY_DEBUG, 1, "Print a lot of debugging messages in the clie
 AC_DEFINE(CLIB_CTX_NOISY_DEBUG, 1, "Print a lot of debugging messages in the client library context code")
 AC_DEFINE(CLIB_TLV_NOISY_DEBUG, 1, "Print a lot of debugging messages in the client library tlv code")
 AC_DEFINE(CLIB_UTIL_NOISY_DEBUG, 1, "Print a lot of debugging messages in the client library utility code")
+AC_DEFINE(LIBINTENTS_NOISY_DEBUG, 0, "Print a lot of debugging messages in the intents library")
 
 AC_OUTPUT
