@@ -2,15 +2,18 @@
 
 # Objects, compiled libraries, executables
 *.o
+*.lo
 *.so
 *.so.*
 *.a
+*.la
 *.deps/
 *.dirstamp
 *.dSYM
 libintents/testintents
 muacsocksd
 addrinfo
+.libs/
 
 # Compiler docs
 doxygen/
@@ -25,6 +28,9 @@ missing
 compile
 depcomp
 install-sh
+ar-lib
+libtool
+ltmain.sh
 
 # Random other stuff
 stamp-h1
