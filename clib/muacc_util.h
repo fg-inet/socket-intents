@@ -29,11 +29,11 @@ struct addrinfo *_muacc_clone_addrinfo(const struct addrinfo *src);
  */
 struct socketopt *_muacc_clone_socketopts(const struct socketopt *src);
 
-void _muacc_print_sockaddr(struct sockaddr *addr, size_t src_len);
+size_t _muacc_print_sockaddr(char *buf, size_t *buf_pos, size_t buf_len, const struct sockaddr *addr, size_t src_len);
 
-void _muacc_print_addrinfo(struct addrinfo *addr);
+size_t _muacc_print_addrinfo(char *buf, size_t *buf_pos, size_t buf_len, const struct addrinfo *addr);
 
-void _muacc_print_socket_options(struct socketopt *opts);
+size_t _muacc_print_socket_options(char *buf, size_t *buf_pos, size_t buf_len, const struct socketopt *opts);
 
 
 #endif /* __MUACC_UTIL_H__ */

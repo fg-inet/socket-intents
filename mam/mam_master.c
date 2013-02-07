@@ -36,7 +36,12 @@
 
 void process_mam_request(struct _muacc_ctx *_ctx)
 {
-	_muacc_print_ctx(_ctx);
+	char buf[4096] = {0};
+	size_t buf_len = 4096;
+	size_t buf_pos = 0;
+
+	_muacc_print_ctx(buf, &buf_pos, buf_len, _ctx);
+	printf("/**************************************/\n%s\n/**************************************/\n", buf);
 	_muacc_send_ctx_event(_ctx, _ctx->state);
 }
 

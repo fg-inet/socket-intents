@@ -335,6 +335,10 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 
 void muacc_print_context(struct muacc_context *ctx)
 {
+	char buf[4096] = {0};
+	size_t buf_len = 4096;
+	size_t buf_pos = 0;
+
 	if (ctx == NULL)
 	{
 		printf("ctx = NULL\n");
@@ -345,43 +349,43 @@ void muacc_print_context(struct muacc_context *ctx)
 	}
 	else
 	{
-		_muacc_print_ctx(ctx->ctx);
+		_muacc_print_ctx(buf, &buf_pos, buf_len, ctx->ctx);
+		printf("/**************************************/\n%s\n/**************************************/\n", buf);
 	}
 }
 
-void _muacc_print_ctx(struct _muacc_ctx *_ctx)
+void _muacc_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct _muacc_ctx *_ctx)
 {
 
-		printf("/*********************************************************************************************/\n");
 
-		printf("_ctx = {\n");
-		printf("\t// internal values\n");
-		printf("\tusage = %d\n", _ctx->usage);
-		printf("\tlocks = %d\n", (int) _ctx->locks);
-		printf("\tmamsock = %d\n", _ctx->mamsock);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "_ctx = {\n");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\t// internal values\n");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tusage = %d\n", _ctx->usage);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tlocks = %d\n", (int) _ctx->locks);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tmamsock = %d\n", _ctx->mamsock);
 
-		printf("\t// exported values\n");
-		printf("\tbind_sa_req = ");
-		_muacc_print_sockaddr(_ctx->bind_sa_req, _ctx->bind_sa_req_len);
-		printf("\n");
-		printf("\tbind_sa_res = ");
-		_muacc_print_sockaddr(_ctx->bind_sa_res, _ctx->bind_sa_res_len);
-		printf("\n");
-		printf("\tremote_sa_req = ");
-		_muacc_print_sockaddr(_ctx->remote_sa_req, _ctx->remote_sa_req_len);
-		printf("\n");
-		printf("\tremote_hostname = %s\n", _ctx->remote_hostname);
-		printf("\tremote_addrinfo_hint = ");
-		_muacc_print_addrinfo(_ctx->remote_addrinfo_hint);
-		printf("\n");
-		printf("\tremote_addrinfo_res = ");
-		_muacc_print_addrinfo(_ctx->remote_addrinfo_res);
-		printf("\n");
-		printf("\tremote_sa_res = ");
-		_muacc_print_sockaddr(_ctx->remote_sa_res, _ctx->remote_sa_res_len);
-		printf("\n");
-		printf("\tsocket_options = ");
-		_muacc_print_socket_options(_ctx->socket_options);
-		printf("\n");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\t// exported values\n");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tbind_sa_req = ");
+		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->bind_sa_req, _ctx->bind_sa_req_len);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\n");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tbind_sa_res = ");
+		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->bind_sa_res, _ctx->bind_sa_res_len);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\n");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_sa_req = ");
+		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->remote_sa_req, _ctx->remote_sa_req_len);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\n");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_hostname = %s\n", _ctx->remote_hostname);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_addrinfo_hint = ");
+		_muacc_print_addrinfo(buf, buf_pos, buf_len, _ctx->remote_addrinfo_hint);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\n");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_addrinfo_res = ");
+		_muacc_print_addrinfo(buf, buf_pos, buf_len, _ctx->remote_addrinfo_res);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\n");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_sa_res = ");
+		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->remote_sa_res, _ctx->remote_sa_res_len);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\n");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tsocket_options = ");
+		_muacc_print_socket_options(buf, buf_pos, buf_len, _ctx->socket_options);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\n");
 
 }

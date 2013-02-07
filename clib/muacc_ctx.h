@@ -104,6 +104,6 @@ int _muacc_unpack_ctx(
 /* helper to print ctx
  *
  */
-void _muacc_print_ctx(struct _muacc_ctx *_ctx);
+void _muacc_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct _muacc_ctx *_ctx);
 
 #endif
