@@ -12,6 +12,7 @@
 #include "../clib/muacc.h"
 #include "../config.h"
 
+#define SOCKSD_NOISY_DEBUG 0
 
 /* socks 5 protocol stuff */
 #define SOCKS5_AUTHDONE	0x1000

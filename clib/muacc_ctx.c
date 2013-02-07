@@ -18,6 +18,10 @@
 #include "../libintents/libintents.h"
 #endif
 
+#define CLIB_CTX_NOISY_DEBUG0 1
+#define CLIB_CTX_NOISY_DEBUG1 0
+#define CLIB_CTX_NOISY_DEBUG2 0
+
 
 int _lock_ctx (struct _muacc_ctx *_ctx)
 {
@@ -35,6 +39,7 @@ struct _muacc_ctx *_muacc_create_ctx()
 
 	struct _muacc_ctx *_ctx;
 
+
 	/* initalize context backing struct */
 	if( ( _ctx = malloc( sizeof(struct _muacc_ctx) )) == NULL )
 	{
@@ -43,6 +48,8 @@ struct _muacc_ctx *_muacc_create_ctx()
 	}
 	memset(_ctx, 0x00, sizeof(struct _muacc_ctx));
 	_ctx->usage = 1;
+
+	DLOG(CLIB_CTX_NOISY_DEBUG1,"created new _ctx=%p successfully  \n", (void *) _ctx);
 
 	return _ctx;
 }
@@ -57,7 +64,7 @@ int muacc_init_context(struct muacc_context *ctx)
 	/* connect to MAM */
 	if(_muacc_connect_ctx_to_mam(_ctx))
 	{
-		DLOG(CLIB_CTX_NOISY_DEBUG,"could not connect to MAM\n");
+		DLOG(CLIB_CTX_NOISY_DEBUG0,"warning: could not connect to MAM\n");
 
 		/* free context backing struct */
 		free(_ctx);
@@ -67,7 +74,7 @@ int muacc_init_context(struct muacc_context *ctx)
 		return(-1);
 	}
 
-	DLOG(CLIB_CTX_NOISY_DEBUG,"connected & context successfully initalized\n");
+	DLOG(CLIB_CTX_NOISY_DEBUG1,"connected & context successfully initalized\n");
 
 	ctx->ctx = _ctx;
 	return(0);
@@ -94,7 +101,7 @@ int _muacc_free_ctx (struct _muacc_ctx *_ctx)
 {
 	if( --(_ctx->usage) == 0 )
 	{
-		DLOG(CLIB_CTX_NOISY_DEBUG, "trying to free data fields\n");		
+		DLOG(CLIB_CTX_NOISY_DEBUG2, "trying to free data fields\n");
 		
 		if (_ctx->mamsock != 0) 				close(_ctx->mamsock);
 		if (_ctx->remote_addrinfo_hint != NULL) freeaddrinfo(_ctx->remote_addrinfo_hint);
@@ -111,11 +118,11 @@ int _muacc_free_ctx (struct _muacc_ctx *_ctx)
 			free(current);
 		}
 		free(_ctx);
-		DLOG(CLIB_CTX_NOISY_DEBUG, "context successfully freed\n");
+		DLOG(CLIB_CTX_NOISY_DEBUG1, "context successfully freed\n");
 
 		return(0);
 	} else {
-		DLOG(CLIB_CTX_NOISY_DEBUG, "context has still %d references\n", _ctx->usage);
+		DLOG(CLIB_CTX_NOISY_DEBUG1, "context has still %d references\n", _ctx->usage);
 		return(_ctx->usage);
 	}
 }
@@ -125,12 +132,12 @@ int muacc_release_context(struct muacc_context *ctx)
 {
 	if(ctx == NULL)
 	{
-		DLOG(CLIB_CTX_NOISY_DEBUG, "WARNING: tried to release NULL POINTER context\n");
+		DLOG(CLIB_CTX_NOISY_DEBUG0, "WARNING: tried to release NULL POINTER context\n");
 		return -1;
 	}
 	else if(ctx->ctx == NULL)
 	{
-		DLOG(CLIB_CTX_NOISY_DEBUG, "empty context - nothing to release\n");
+		DLOG(CLIB_CTX_NOISY_DEBUG1, "empty context - nothing to release\n");
 		return 0;
 	}
 	else
@@ -146,7 +153,7 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	
 	if(src->ctx == NULL)
 	{
-		DLOG(CLIB_CTX_NOISY_DEBUG,"warning: cloning uninitalized context\n");
+		DLOG(CLIB_CTX_NOISY_DEBUG0,"WARNING: cloning uninitalized context\n");
 		dst->ctx = NULL;
 		return(0);
 	}
@@ -194,30 +201,32 @@ size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, const struct _muacc_c
 
 	size_t pos0 = *pos;
 
-	DLOG(CLIB_CTX_NOISY_DEBUG,"bind_sa_req pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG1,"packing _ctx=%p pos=%ld\n", (void *) ctx, (long) *pos);
+
+	DLOG(CLIB_CTX_NOISY_DEBUG2,"bind_sa_req pos=%ld\n", (long) *pos);
     if( ctx->bind_sa_req != NULL &&
     	0 > _muacc_push_tlv(buf, pos, len, bind_sa_req,		ctx->bind_sa_req, 		ctx->bind_sa_req_len        ) ) goto _muacc_pack_ctx_err;
 	
-	DLOG(CLIB_CTX_NOISY_DEBUG,"bind_sa_res pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG2,"bind_sa_res pos=%ld\n", (long) *pos);
 	if( ctx->bind_sa_res != NULL &&
 		0 > _muacc_push_tlv(buf, pos, len, bind_sa_res,		ctx->bind_sa_res,		ctx->bind_sa_res_len        ) ) goto _muacc_pack_ctx_err;
 	
-	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_sa_req pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG2,"remote_sa_req pos=%ld\n", (long) *pos);
 	if( ctx->remote_sa_req != NULL &&
 		0 > _muacc_push_tlv(buf, pos, len, remote_sa_req,  	ctx->remote_sa_req, 	ctx->remote_sa_req_len      ) ) goto _muacc_pack_ctx_err;
 	
-	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_sa_res pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG2,"remote_sa_res pos=%ld\n", (long) *pos);
 	if( ctx->remote_sa_res != NULL &&
 		0 > _muacc_push_tlv(buf, pos, len, remote_sa_res,  	ctx->remote_sa_res, 	ctx->remote_sa_res_len      ) ) goto _muacc_pack_ctx_err;
 	
-	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_hostname pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG2,"remote_hostname pos=%ld\n", (long) *pos);
 	if( ctx->remote_hostname != NULL && /* strlen(NULL) might have undesired side effects… */
 		0 > _muacc_push_tlv(buf, pos, len, remote_hostname,	ctx->remote_hostname, strlen(ctx->remote_hostname)) ) goto _muacc_pack_ctx_err;
     
-	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_addrinfo_hint pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG2,"remote_addrinfo_hint pos=%ld\n", (long) *pos);
 	if( 0 > _muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_hint, ctx->remote_addrinfo_hint) ) goto _muacc_pack_ctx_err;
 	
-	DLOG(CLIB_CTX_NOISY_DEBUG,"remote_addrinfo_res pos=%ld\n", (long) *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG2,"remote_addrinfo_res pos=%ld\n", (long) *pos);
 	if( 0 > _muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_res,  ctx->remote_addrinfo_res ) ) goto _muacc_pack_ctx_err;
 
 	return ( *pos - pos0 );
@@ -239,11 +248,11 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 	switch(tag) 
 	{
 		case action:
-				DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking action\n");
+				DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking action\n");
 				_ctx->state = *((muacc_mam_action_t *) data);
 				break;
 		case bind_sa_req:
-			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking bind_sa_req\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking bind_sa_req\n");
 			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->bind_sa_req);
@@ -253,7 +262,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			break;
 		case bind_sa_res:
-			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking bind_sa_res\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking bind_sa_res\n");
 			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->bind_sa_res);
@@ -263,7 +272,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			break;
 		case remote_sa_req:
-			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking remote_sa_req\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking remote_sa_req\n");
 			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->remote_sa_req);
@@ -273,7 +282,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			break;
 		case remote_sa_res:
-			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking remote_sa_res\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking remote_sa_res\n");
 			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->remote_sa_res);
@@ -283,7 +292,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			break;
 		case remote_hostname:
-			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking remote_hostname\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking remote_hostname\n");
 			if((str = malloc(data_len)) != NULL)
 			{
 				str[data_len-1] = 0x00;
@@ -293,7 +302,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return -1;
 			break;
 		case remote_addrinfo_hint:
-			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking remote_addrinfo_hint\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking remote_addrinfo_hint\n");
 			if( _muacc_extract_addrinfo_tlv( data, data_len, &ai) > 0)
 			{
 				freeaddrinfo(_ctx->remote_addrinfo_hint);
@@ -304,7 +313,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			break;
 
 		case remote_addrinfo_res:
-			DLOG(CLIB_CTX_NOISY_DEBUG, "unpacking remote_addrinfo_res\n");
+			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking remote_addrinfo_res\n");
 			if( _muacc_extract_addrinfo_tlv( data, data_len, &ai) > 0)
 			{
 				freeaddrinfo(_ctx->remote_addrinfo_res);
@@ -315,7 +324,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			break;
 
 		default:
-			DLOG(CLIB_CTX_NOISY_DEBUG, "_muacc_unpack_ctx: ignoring unknown tag %x\n", tag);
+			DLOG(CLIB_CTX_NOISY_DEBUG0, "_muacc_unpack_ctx: ignoring unknown tag %x\n", tag);
 			break;
 	}
 
@@ -342,6 +351,8 @@ void muacc_print_context(struct muacc_context *ctx)
 
 void _muacc_print_ctx(struct _muacc_ctx *_ctx)
 {
+
+		printf("/*********************************************************************************************/\n");
 
 		printf("_ctx = {\n");
 		printf("\t// internal values\n");
