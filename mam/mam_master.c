@@ -26,6 +26,8 @@
 #include "../clib/muacc.h"
 #include "../clib/muacc_ctx.h"
 #include "../clib/muacc_tlv.h"
+#include "../clib/dlog.h"
+
 
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))
 #define MAX_BUF 0
@@ -143,15 +145,23 @@ int do_listen(struct event_base *base, evutil_socket_t listener, struct sockaddr
 
 }
 
+static void do_graceful_shutdown(evutil_socket_t _, short what, void* ctx) {
+    struct event_base *evb = (struct event_base*) ctx;
+	DLOG(1, "got signal - terminating...\n");
+    event_base_loopexit(evb, NULL);
+}
+
 int
 main(int c, char **v)
 {
     evutil_socket_t listener;
+    struct event *term_event, *int_event;
     struct sockaddr_un sun;
     struct event_base *base;
 
     setvbuf(stderr, NULL, _IONBF, 0);
 
+	DLOG(1, "setting up event base...\n");
 	/* set up libevent */
     base = event_base_new();
     if (!base) {
@@ -160,6 +170,7 @@ main(int c, char **v)
     }
 
 	/* set mam socket */
+	DLOG(1, "setting up mamma's socket %s ...\n", MUACC_SOCKET);
 	sun.sun_family = AF_UNIX;
 	#ifdef HAVE_SOCKADDR_LEN
 	sun.sun_len = sizeof(struct sockaddr_un);
@@ -170,10 +181,26 @@ main(int c, char **v)
     int one = 1;
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 
-	do_listen(base, listener, (struct sockaddr *)&sun, sizeof(sun));
+	DLOG(1, "setting up listener...\n");
+	if( 0 > do_listen(base, listener, (struct sockaddr *)&sun, sizeof(sun)))
+	{
+		DLOG(1, "listen failed\n");
+		return 1;
+	}
+
+	/* call term function on a INT or TERM signal */
+	term_event = evsignal_new(base, SIGTERM, do_graceful_shutdown, base);
+	event_add(term_event, NULL);
+	int_event = evsignal_new(base, SIGINT, do_graceful_shutdown, base);
+	event_add(int_event, NULL);
 
 	/* run libevent */
+	DLOG(1, "running event loop...\n");
     event_base_dispatch(base);
+
+    /* clean up */
+    close(listener);
+    unlink(MUACC_SOCKET);
 
     return 0;
 }
