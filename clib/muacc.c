@@ -102,7 +102,7 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 	if (level == SOL_INTENTS)
 	{
 		// Intent socket options are handled by us
-		if (option_value == NULL || option_len == NULL)
+		if (option_value == NULL)
 		{
 			// Invalid buffer
 			errno = EFAULT;
