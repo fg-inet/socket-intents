@@ -16,6 +16,8 @@
 #include "../libintents/libintents.h"
 #endif
 
+#define CLIB_UTIL_NOISY_DEBUG 0
+
 
 struct sockaddr *_muacc_clone_sockaddr(const struct sockaddr *src, size_t src_len)
 {
@@ -134,71 +136,75 @@ struct socketopt *_muacc_clone_socketopts(const struct socketopt *src)
 }
 
 
-void _muacc_print_sockaddr(struct sockaddr *addr, size_t src_len)
+size_t _muacc_print_sockaddr(char *buf, size_t *buf_pos, size_t buf_len, const struct sockaddr *addr, size_t src_len)
 {
-	printf("{ ");
+	size_t old_pos = *buf_pos;
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
 	if (addr == NULL)
-		printf("NULL");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "NULL");
 	else
 	{
 		if (addr->sa_family == AF_INET)
 		{
 			struct sockaddr_in *inaddr = (struct sockaddr_in *) addr;
-			printf("sin_family = AF_INET, ");
-			printf("sin_port = %d, ", ntohs(inaddr->sin_port));
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin_family = AF_INET, ");
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin_port = %d, ", ntohs(inaddr->sin_port));
 			char ipaddr[INET_ADDRSTRLEN];
 			if (inet_ntop(AF_INET, &inaddr->sin_addr, ipaddr, INET_ADDRSTRLEN) != NULL)
-				printf("sin_addr = %s", ipaddr);
+				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin_addr = %s", ipaddr);
 		}
 		else if (addr->sa_family == AF_INET6)
 		{
 			struct sockaddr_in6 *inaddr = (struct sockaddr_in6 *) addr;
-			printf("sin6_family = AF_INET6, ");
-			printf("sin6_port = %d, ", ntohs(inaddr->sin6_port));
-			printf("sin6_flowinfo = %d, ", inaddr->sin6_flowinfo);
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin6_family = AF_INET6, ");
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin6_port = %d, ", ntohs(inaddr->sin6_port));
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin6_flowinfo = %d, ", inaddr->sin6_flowinfo);
 			char ipaddr[INET6_ADDRSTRLEN];
 			if (inet_ntop(AF_INET6, &inaddr->sin6_addr, ipaddr, INET6_ADDRSTRLEN) != NULL)
-				printf("sin6_addr = %s, ", ipaddr);
-			printf("sin6_scope_id = %d", inaddr->sin6_scope_id);
+				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin6_addr = %s, ", ipaddr);
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin6_scope_id = %d", inaddr->sin6_scope_id);
 		}
 		else if (addr->sa_family == AF_UNIX)
 		{
 			struct sockaddr_un *unaddr = (struct sockaddr_un *) addr;
-			printf("sun_family = AF_UNIX, ");
-			printf("sun_path = %s",unaddr->sun_path);
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sun_family = AF_UNIX, ");
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sun_path = %s",unaddr->sun_path);
 		}
 		else
 		{
-			printf("sa_family = %d <unknown>", addr->sa_family);
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sa_family = %d <unknown>", addr->sa_family);
 		}
 	}
-	printf(" }");
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }");
+
+	return(*buf_pos - old_pos);
 }
 
-void _muacc_print_addrinfo(struct addrinfo *addr)
+size_t _muacc_print_addrinfo(char *buf, size_t *buf_pos, size_t buf_len, const struct addrinfo *addr)
 {
-	printf("{ ");
-	if (addr == NULL)
-		printf("NULL");
-	else
+	size_t old_pos = *buf_pos;
+	const struct addrinfo *current = addr;
+
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
+
+	while (current != NULL)
 	{
-		struct addrinfo *current = addr;
-		while (current != NULL)
-		{
-			printf("{ ");
-			printf("ai_flags = %d, ", current->ai_flags);
-			printf("ai_family = %d, ", current->ai_family);
-			printf("ai_socktype = %d, ", current->ai_socktype);
-			printf("ai_protocol = %d, ", current->ai_protocol);
-			printf("ai_addr = ");
-			_muacc_print_sockaddr(current->ai_addr, current->ai_addrlen);
-			printf(", ");
-			printf("ai_canonname = %s", current->ai_canonname);
-			current = current->ai_next;
-			printf(" }");
-		}
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_flags = %d, ", current->ai_flags);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_family = %d, ", current->ai_family);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_socktype = %d, ", current->ai_socktype);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_protocol = %d, ", current->ai_protocol);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_addr = ");
+		_muacc_print_sockaddr( buf, buf_pos, buf_len, current->ai_addr, current->ai_addrlen);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ", ");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_canonname = %s", current->ai_canonname);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }, ");
+		current = current->ai_next;
 	}
-	printf(" }");
+
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "NULL }");
+
+	return(*buf_pos - old_pos);
 }
 
 char *_muacc_get_socket_level (int level)
@@ -222,31 +228,35 @@ char *_muacc_get_socket_level (int level)
 	}
 }
 
-void _muacc_print_socket_options(struct socketopt *opts)
+size_t _muacc_print_socket_options(char *buf, size_t *buf_pos, size_t buf_len, const struct socketopt *opts)
 {
-	printf("{ ");
+	size_t old_pos = *buf_pos;
+
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
 	if (opts == NULL)
-		printf("NULL");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "NULL");
 	else
 	{
-		struct socketopt *current = opts;
+		const struct socketopt *current = opts;
 		while (current != NULL)
 		{
-			printf("{ ");
-			printf("level = %d (%s), ", current->level, _muacc_get_socket_level(current->level));
-			printf("optname = %d, ", current->optname);
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "level = %d (%s), ", current->level, _muacc_get_socket_level(current->level));
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optname = %d, ", current->optname);
 			if (current-> optval == NULL)
 			{
-				printf("optval = NULL, ");
+				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optval = NULL, ");
 			}
 			else
 			{
 				int *value = current->optval;
-				printf("optval = %d ", *value);
+				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optval = %d ", *value);
 			}
-			printf(" }");
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }");
 			current = current->next;
 		}
 	}
-	printf(" }");
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }");
+
+	return(*buf_pos - old_pos);
 }

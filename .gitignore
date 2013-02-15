@@ -10,10 +10,13 @@
 *.deps/
 *.dirstamp
 *.dSYM
+.libs/
+
+# binaried
+mamma
 muacsocksd
 addrinfo
 testintents
-.libs/
 
 # Compiler docs
 doxygen/
@@ -37,3 +40,4 @@ stamp-h1
 .settings
 .cproject
 .project
+

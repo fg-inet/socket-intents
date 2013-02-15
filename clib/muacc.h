@@ -5,7 +5,6 @@
 #ifndef __MUACC_H__
 #define __MUACC_H__
 
-#define MUACC_TLV_LEN 2048
 
 typedef struct muacc_context 
 {

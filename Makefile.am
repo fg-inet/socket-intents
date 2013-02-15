@@ -15,7 +15,7 @@ lib_LTLIBRARIES = libintents.la
 libintents_la_SOURCES = libintents/libintents.c
 libintents_la_LIBADD = $(glib2_LIBS) -ldl libmuacc.a
 
-bin_PROGRAMS = muacsocksd addrinfo
+bin_PROGRAMS = mamma muacsocksd addrinfo 
 
 muacsocksd_SOURCES = muacsocks/muacsocksd.c
 muacsocksd_LDADD = $(LDADD) libmuacc.a
@@ -23,8 +23,8 @@ muacsocksd_LDADD = $(LDADD) libmuacc.a
 addrinfo_SOURCES = tests/addrinfo.c
 addrinfo_LDADD = $(LDADD) libmuacc.a
 
-TESTS = tests/libintents.sh
-check_PROGRAMS = testintents
-testintents_SOURCES = tests/testintents.c
+
+mamma_SOURCES = $(clib_SOURCES) mam/mam_master.c 
+mamma_LDADD = $(LDADD) libmuacc.a
 
 dist_noinst_SCRIPTS = autogen.sh

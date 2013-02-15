@@ -19,6 +19,11 @@
 #include "../libintents/libintents.h"
 #endif
 
+#define CLIB_IF_NOISY_DEBUG0 1
+#define CLIB_IF_NOISY_DEBUG1 0
+#define CLIB_IF_NOISY_DEBUG2 0
+
+
 
 int muacc_getaddrinfo(struct muacc_context *ctx,
 		const char *hostname, const char *servname,
@@ -29,13 +34,13 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 	
 	if(ctx->ctx == NULL)
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG, "context uninialized - fallback to regual connect\n");
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninialized - fallback to regual connect\n");
 		goto muacc_getaddrinfo_fallback;
 	}
 
 	if( _lock_ctx(ctx->ctx) )
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG, "context already in use - fallback to regual connect\n");
+		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regual connect\n");
 		_unlock_ctx(ctx->ctx);
 		goto muacc_getaddrinfo_fallback;
 	}
@@ -51,7 +56,7 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 	ctx->ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(hints);
 	
 	/* contact mam */
-	_muacc_contact_mam(muacc_action_getaddrinfo_preresolve, ctx->ctx);
+	_muacc_contact_mam(muacc_act_getaddrinfo_preresolve_req, ctx->ctx);
 	
 	if(ctx->ctx->remote_addrinfo_res != NULL)
 		ret = 0;
@@ -65,7 +70,7 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 			ctx->ctx->remote_addrinfo_res = _muacc_clone_addrinfo(*res);
 
 			/* contact mam again */
-			_muacc_contact_mam(muacc_action_getaddrinfo_postresolve, ctx->ctx);
+			_muacc_contact_mam(muacc_act_getaddrinfo_postresolve_req, ctx->ctx);
 		}
 	}
 
@@ -87,13 +92,13 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 
 	if( ctx->ctx == 0 )
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG, "context uninialized - fallback to regual setsockopt\n");
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninialized - fallback to regual setsockopt\n");
 		return setsockopt(socket, level, option_name, option_value, option_len);
 	}
 	
 	if( _lock_ctx(ctx->ctx) )
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG, "context already in use - fallback to regual setsockopt\n");
+		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regual setsockopt\n");
 		_unlock_ctx(ctx->ctx);
 		return setsockopt(socket, level, option_name, option_value, option_len);
 	}
@@ -168,13 +173,13 @@ int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int optio
 
 	if( ctx->ctx == 0 )
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG, "context uninialized - fallback to regual getsockopt\n");
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninialized - fallback to regual getsockopt\n");
 		return getsockopt(socket, level, option_name, option_value, option_len);
 	}
 	
 	if( _lock_ctx(ctx->ctx) )
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG, "context already in use - fallback to regual getsockopt\n");
+		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regual getsockopt\n");
 		_unlock_ctx(ctx->ctx);
 		return getsockopt(socket, level, option_name, option_value, option_len);
 	}
@@ -241,17 +246,17 @@ int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int optio
 int muacc_connect(struct muacc_context *ctx,
 	    int socket, const struct sockaddr *address, socklen_t address_len)
 {	
-	DLOG(CLIB_IF_NOISY_DEBUG, "invoked\n");
+	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
 	
 	if( ctx->ctx == 0 )
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG, "context uninialized - fallback to regual connect\n");
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninialized - fallback to regual connect\n");
 		goto muacc_connect_fallback;
 	}
 	
 	if( _lock_ctx(ctx->ctx) )
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG, "context already in use - fallback to regual connect\n");
+		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regual connect\n");
 		_unlock_ctx(ctx->ctx);
 		goto muacc_connect_fallback;
 	}
@@ -266,9 +271,9 @@ int muacc_connect(struct muacc_context *ctx,
 		ctx->ctx->remote_sa_res_len	= address_len;
 	}
 	
-	if( _muacc_contact_mam(muacc_action_connect, ctx->ctx) <0 ){
+	if( _muacc_contact_mam(muacc_act_connect_req, ctx->ctx) <0 ){
 		_unlock_ctx(ctx->ctx);
-		DLOG(CLIB_IF_NOISY_DEBUG, "got no response from mam - fallback to regual connect\n");
+		DLOG(CLIB_IF_NOISY_DEBUG0, "got no response from mam - fallback to regual connect\n");
 		goto muacc_connect_fallback;
 	}
 	
