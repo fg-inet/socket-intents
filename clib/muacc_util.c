@@ -183,29 +183,26 @@ size_t _muacc_print_sockaddr(char *buf, size_t *buf_pos, size_t buf_len, const s
 size_t _muacc_print_addrinfo(char *buf, size_t *buf_pos, size_t buf_len, const struct addrinfo *addr)
 {
 	size_t old_pos = *buf_pos;
+	const struct addrinfo *current = addr;
 
 	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
-	if (addr == NULL)
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "NULL");
-	else
+
+	while (current != NULL)
 	{
-		const struct addrinfo *current = addr;
-		while (current != NULL)
-		{
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_flags = %d, ", current->ai_flags);
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_family = %d, ", current->ai_family);
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_socktype = %d, ", current->ai_socktype);
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_protocol = %d, ", current->ai_protocol);
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_addr = ");
-			_muacc_print_sockaddr( buf, buf_pos, buf_len, current->ai_addr, current->ai_addrlen);
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ", ");
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_canonname = %s", current->ai_canonname);
-			current = current->ai_next;
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }");
-		}
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_flags = %d, ", current->ai_flags);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_family = %d, ", current->ai_family);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_socktype = %d, ", current->ai_socktype);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_protocol = %d, ", current->ai_protocol);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_addr = ");
+		_muacc_print_sockaddr( buf, buf_pos, buf_len, current->ai_addr, current->ai_addrlen);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ", ");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_canonname = %s", current->ai_canonname);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }, ");
+		current = current->ai_next;
 	}
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }");
+
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "NULL }");
 
 	return(*buf_pos - old_pos);
 }
