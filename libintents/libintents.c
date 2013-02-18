@@ -7,7 +7,10 @@
  *  into concrete effects on the sockets.
  */
 
-/** Print a very verbose output of what the overloaded functions are doing by using -DDEBUG
+/** Enable Debug printing with LIBINTENTS_NOISY_DEBUG{0..2} flags
+ *  LIBINTENTS_NOISY_DEBUG0 - Function calls
+ *  LIBINTENTS_NOISY_DEBUG1 - Socket table modifications
+ *  LIBINTENTS_NOISY_DEBUG2 - Internal workings of the functions
  *  Otherwise, print nothing and optimize code out.
  */
 
@@ -26,8 +29,14 @@
 #include "../clib/muacc.h"
 #include "../clib/dlog.h"
 
-#ifndef LIBINTENTS_NOISY_DEBUG
-#define LIBINTENTS_NOISY_DEBUG 0
+#ifndef LIBINTENTS_NOISY_DEBUG0
+#define LIBINTENTS_NOISY_DEBUG0 1
+#endif
+#ifndef LIBINTENTS_NOISY_DEBUG1
+#define LIBINTENTS_NOISY_DEBUG1 1
+#endif
+#ifndef LIBINTENTS_NOISY_DEBUG2
+#define LIBINTENTS_NOISY_DEBUG2 1
 #endif
 
 #include "libintents.h"
@@ -79,7 +88,7 @@ int get_orig_function(char* name, void** function);
  */
 int socket(int domain, int type, int protocol)
 {
-	DLOG(LIBINTENTS_NOISY_DEBUG, "--- socket( %d, %d, %d ) ---\n", domain, type, protocol);
+	DLOG(LIBINTENTS_NOISY_DEBUG0, "--- socket( %d, %d, %d ) ---\n", domain, type, protocol);
 
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
@@ -100,31 +109,31 @@ int socket(int domain, int type, int protocol)
 	 */
 	if (call_in_progress)
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Call in progress - calling original socket function\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Call in progress - calling original socket function\n");
 		return orig_socket(domain, type, protocol);
 	}
 	else
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Set 'call in progress' to true\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG2, "Set 'call in progress' to true\n");
 		call_in_progress = true;
 	}
 
 	if (!socket_table)
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "+++ Initializing socket table +++\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG1, "+++ Initializing socket table +++\n");
 		socket_table = g_hash_table_new_full(g_int_hash, g_int_equal, st_free_socknum, st_free_ctx);
 	}
 
-	DLOG(LIBINTENTS_NOISY_DEBUG, "Creating socket.\n");
+	DLOG(LIBINTENTS_NOISY_DEBUG2, "Creating socket.\n");
 	if ((retval = orig_socket(domain, type, protocol)) < 0)
 	{
 		fprintf(stderr, "Error creating socket.\n");
 	}
 	else
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Successfully created socket %d \n", retval);
+		DLOG(LIBINTENTS_NOISY_DEBUG2, "Successfully created socket %d \n", retval);
 
-		DLOG(LIBINTENTS_NOISY_DEBUG, "+++ Initializing muacc context. +++\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG2, "+++ Initializing muacc context. +++\n");
 		muacc_context_t *newctx = malloc(sizeof(muacc_context_t));
 		newctx -> ctx = NULL;
 		if (muacc_init_context(newctx) < 0)
@@ -134,7 +143,8 @@ int socket(int domain, int type, int protocol)
 		}
 		else
 		{
-			DLOG(LIBINTENTS_NOISY_DEBUG, "Initialized new muacc_context: %d\n", (int) newctx);
+			DLOG(LIBINTENTS_NOISY_DEBUG1, "Initialized new muacc_context: %p\n", (void *) newctx);
+			DLOG(LIBINTENTS_NOISY_DEBUG1, "+++ Inserting socket %d and its muacc_context into hash table. +++\n",retval);
 		}
 		//FIXME Move hash table insert inside the 'else'
 		DLOG(LIBINTENTS_NOISY_DEBUG, "+++ Inserting socket %d and its muacc_context into hash table. +++\n",retval);
@@ -158,7 +168,7 @@ int socket(int domain, int type, int protocol)
  */
 int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
 {
-	DLOG(LIBINTENTS_NOISY_DEBUG, "--- setsockopt ( %d, %d, %d, %d ) --- \n", sockfd, level, optname, (int) optlen);
+	DLOG(LIBINTENTS_NOISY_DEBUG0, "--- setsockopt ( %d, %d, %d, %d ) --- \n", sockfd, level, optname, (int) optlen);
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 
@@ -168,25 +178,25 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
 	}
 	if (call_in_progress)
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Call already in progress. Calling original setsockopt.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Call already in progress. Calling original setsockopt.\n");
 		return orig_setsockopt(sockfd, level, optname, optval, optlen);
 	}
 	else
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "setsockopt: Set call_in_progress to true.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG2, "Set call_in_progress to true.\n");
 		call_in_progress = true;
 	}
 
 	muacc_context_t *ctx = g_hash_table_lookup(socket_table, (const void *) &sockfd);
 	if (ctx == NULL)
 	{
-		fprintf(stderr, "Failed to look up socket %d in socket table - calling original setsockopt.\n", sockfd);
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Failed to look up socket %d in socket table - calling original setsockopt.\n", sockfd);
 		call_in_progress = false;
 		return orig_setsockopt(sockfd, level, optname, optval, optlen);
 	}
 	else
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Found context matching socket %d - calling muacc_setsockopt.\n", sockfd);
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Found context matching socket %d - calling muacc_setsockopt.\n", sockfd);
 		if ((retval = muacc_setsockopt(ctx, sockfd, level, optname, optval, optlen)) < 0)
 		{
 			fprintf(stderr, "Error calling muacc_setsockopt: %d\n", retval);
@@ -203,7 +213,7 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
  */
 int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
 {
-	DLOG(LIBINTENTS_NOISY_DEBUG, "--- getsockopt ( %d, %d, %d ) --- \n", sockfd, level, optname);
+	DLOG(LIBINTENTS_NOISY_DEBUG0, "--- getsockopt ( %d, %d, %d ) --- \n", sockfd, level, optname);
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 
@@ -213,25 +223,25 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
 	}
 	if (call_in_progress)
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Call already in progress. Calling original getsockopt.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Call already in progress. Calling original getsockopt.\n");
 		return orig_getsockopt(sockfd, level, optname, optval, optlen);
 	}
 	else
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "getsockopt: Set call_in_progress to true.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG2, "Set call_in_progress to true.\n");
 		call_in_progress = true;
 	}
 
 	muacc_context_t *ctx = g_hash_table_lookup(socket_table, (const void *) &sockfd);
 	if (ctx == NULL)
 	{
-		fprintf(stderr, "Failed to look up socket %d in socket table - calling original getsockopt.\n", sockfd);
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Failed to look up socket %d in socket table - calling original getsockopt.\n", sockfd);
 		call_in_progress = false;
 		return orig_getsockopt(sockfd, level, optname, optval, optlen);
 	}
 	else
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Found context matching socket %d - calling muacc_getsockopt.\n", sockfd);
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Found context matching socket %d - calling muacc_getsockopt.\n", sockfd);
 		if ((retval = muacc_getsockopt(ctx, sockfd, level, optname, optval, optlen)) < 0)
 		{
 			fprintf(stderr, "Error calling muacc_getsockopt.\n");
@@ -246,7 +256,7 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
  */
 int getaddrinfo(const char *node, const char *service, const struct addrinfo *hints, struct addrinfo **res)
 {
-	DLOG(LIBINTENTS_NOISY_DEBUG, "--- getaddrinfo ( %s, %s ) ---\n", node, service);
+	DLOG(LIBINTENTS_NOISY_DEBUG0, "--- getaddrinfo ( %s, %s ) ---\n", node, service);
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 
@@ -257,12 +267,12 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 
 	if (call_in_progress)
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Call already in progress. Calling original getaddrinfo.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Call already in progress. Calling original getaddrinfo.\n");
 		return orig_getaddrinfo(node, service, hints, res);
 	}
 	else
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Set call_in_progress to true.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG2, "Set call_in_progress to true.\n");
 		call_in_progress = true;
 	}
 
@@ -271,14 +281,14 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
 
 	if (ctx == NULL)
 	{
-		fprintf(stderr, "Failed to look up socket %d in socket table - calling original getaddrinfo.\n", sockfd);
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Failed to look up socket %d in socket table - calling original getaddrinfo.\n", sockfd);
 		return orig_getaddrinfo(node, service, hints, res);
 	}
 	else
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Found context matching socket %d\n", sockfd);
+		DLOG(LIBINTENTS_NOISY_DEBUG1, "Found context matching socket %d\n", sockfd);
 	}
-	DLOG(LIBINTENTS_NOISY_DEBUG, "Calling muacc_getaddrinfo.\n");
+	DLOG(LIBINTENTS_NOISY_DEBUG0, "Calling muacc_getaddrinfo.\n");
 	if ((retval = muacc_getaddrinfo(ctx, node, service, hints, res)) < 0)
 	{
 		fprintf(stderr,"Error calling muacc_getaddrinfo.\n");
@@ -293,7 +303,7 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
  */
 int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-	DLOG(LIBINTENTS_NOISY_DEBUG, "--- bind ( %d ) --- \n", sockfd);
+	DLOG(LIBINTENTS_NOISY_DEBUG0, "--- bind ( %d ) --- \n", sockfd);
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 
@@ -304,16 +314,16 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
 	if (call_in_progress)
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Call already in progress. Calling original bind.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Call already in progress. Calling original bind.\n");
 		return orig_bind(sockfd, addr, addrlen);
 	}
 	else
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Set call_in_progress to true.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG2, "Set call_in_progress to true.\n");
 		call_in_progress = true;
 	}
 
-	DLOG(LIBINTENTS_NOISY_DEBUG, "Calling original bind.\n");
+	DLOG(LIBINTENTS_NOISY_DEBUG0, "Calling original bind.\n");
 	if ((retval = orig_bind(sockfd, addr, addrlen)) < 0)
 	{
 		fprintf(stderr,"Error calling bind.\n");
@@ -327,7 +337,7 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
  */
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-	DLOG(LIBINTENTS_NOISY_DEBUG, "--- connect ( %d ) --- \n", sockfd);
+	DLOG(LIBINTENTS_NOISY_DEBUG0, "--- connect ( %d ) --- \n", sockfd);
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 
@@ -337,28 +347,29 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	}
 	if (call_in_progress)
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Call already in progress. Calling original connect.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Call already in progress. Calling original connect.\n");
 		return orig_connect(sockfd, addr, addrlen);
 	}
 	else
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Set call_in_progress to true.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG2, "Set call_in_progress to true.\n");
 		call_in_progress = true;
 	}
 
 	muacc_context_t *ctx = g_hash_table_lookup(socket_table, (const void *) &sockfd);
+	DLOG(LIBINTENTS_NOISY_DEBUG2, "Looked up %d in socket table, is %p \n", sockfd, (void*) ctx);
 
 	if (ctx == NULL)
 	{
-		fprintf(stderr, "Failed to look up socket %d in socket table - Just connecting.\n", sockfd);
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Failed to look up socket %d in socket table - Calling original connect.\n", sockfd);
 		return orig_connect(sockfd, addr, addrlen);
 	}
 	else
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Found context matching socket %d\n", sockfd);
+		DLOG(LIBINTENTS_NOISY_DEBUG1, "Found context matching socket %d\n", sockfd);
 	}
 
-	DLOG(LIBINTENTS_NOISY_DEBUG, "Calling muacc_connect.\n");
+	DLOG(LIBINTENTS_NOISY_DEBUG0, "Calling muacc_connect.\n");
 
 	if ((retval = muacc_connect(ctx, sockfd, addr, addrlen)) < 0)
 	{
@@ -370,7 +381,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
 int close(int fd)
 {
-	DLOG(LIBINTENTS_NOISY_DEBUG, "--- close ( %d ) ---\n", fd);
+	DLOG(LIBINTENTS_NOISY_DEBUG0, "--- close ( %d ) ---\n", fd);
 	static bool call_in_progress = false; // Flag that indicates if this is a nested call
 	int retval = 0;
 	if (!orig_close)
@@ -379,29 +390,29 @@ int close(int fd)
 	}
 	if (call_in_progress)
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Call already in progress. Calling original close.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG0, "Call already in progress. Calling original close.\n");
 		return orig_close(fd);
 	}
 	else
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Set call_in_progress to true.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG2, "Set call_in_progress to true.\n");
 		call_in_progress = true;
 	}
 
 	if (socket_table != NULL)
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "+++ Trying to remove socket %d from socket table. +++\n", fd);
+		DLOG(LIBINTENTS_NOISY_DEBUG1, "+++ Trying to remove socket %d from socket table. +++\n", fd);
 		if (!(retval = g_hash_table_remove(socket_table, (const void*) &fd)))
 		{
-			fprintf(stderr, "Could not find socket %d in socket table - nothing removed.\n", fd);
+			DLOG(LIBINTENTS_NOISY_DEBUG1, "Could not find socket %d in socket table - nothing removed.\n", fd);
 		}
 		else
 		{
-			DLOG(LIBINTENTS_NOISY_DEBUG, "+++ Successfully removed socket %d from socket table. +++\n", fd);
+			DLOG(LIBINTENTS_NOISY_DEBUG1, "+++ Successfully removed socket %d from socket table. +++\n", fd);
 		}
 	}
 
-	DLOG(LIBINTENTS_NOISY_DEBUG, "Calling original close.\n");
+	DLOG(LIBINTENTS_NOISY_DEBUG0, "Calling original close.\n");
 	if ((retval = orig_close(fd)) < 0)
 	{
 		fprintf(stderr,"Error calling original close.\n");
@@ -423,7 +434,7 @@ int get_orig_function(char* name, void** function)
 		fprintf(stderr,"Could not get original function of NULL.\n");
 		return -1;
 	}
-//	DLOG(LIBINTENTS_NOISY_DEBUG, "Trying to get the original %s function\n", name);
+	DLOG(LIBINTENTS_NOISY_DEBUG2, "Trying to get the original %s function\n", name);
 
 	/* Clear error string before fetching a pointer to \a name from the library that would
 	 * come next in the LD Library Path. Place the pointer in \a **function.
@@ -438,7 +449,7 @@ int get_orig_function(char* name, void** function)
 	}
 	else
 	{
-//		DLOG(LIBINTENTS_NOISY_DEBUG, "Found original %s function.\n", name);
+		DLOG(LIBINTENTS_NOISY_DEBUG2, "Found original %s function.\n", name);
 	}
 	return 0;
 }
@@ -462,7 +473,7 @@ void st_print_table(GHashTable* table)
 			for (GList *current = keys; current != NULL; current = current->next)
 			{
 				int *item = current->data;
-				printf("Socket %d, muacc_context %d\n", *item, (int) g_hash_table_lookup(table, (const void *) item));
+				printf("Socket %d, muacc_context %p\n", *item, (int) g_hash_table_lookup(table, (const void *) item));
 			}
 			printf("+++ End of table +++\n");
 		}
@@ -489,7 +500,7 @@ void st_free_ctx(void* data)
 	struct muacc_context *ctx = data;
 	int retval = 0;
 
-	#ifdef LIBINTENTS_NOISY_DEBUG
+	#ifdef LIBINTENTS_NOISY_DEBUG1
 	muacc_print_context(ctx);
 	#endif
 
@@ -499,7 +510,7 @@ void st_free_ctx(void* data)
 	}
 	else if ( ctx->ctx == NULL)
 	{
-		DLOG(LIBINTENTS_NOISY_DEBUG, "Freeing empty muacc_context.\n");
+		DLOG(LIBINTENTS_NOISY_DEBUG2, "Freeing empty muacc_context.\n");
 		free(ctx);
 		return;
 	}
