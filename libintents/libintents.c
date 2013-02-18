@@ -145,16 +145,13 @@ int socket(int domain, int type, int protocol)
 		{
 			DLOG(LIBINTENTS_NOISY_DEBUG1, "Initialized new muacc_context: %p\n", (void *) newctx);
 			DLOG(LIBINTENTS_NOISY_DEBUG1, "+++ Inserting socket %d and its muacc_context into hash table. +++\n",retval);
+			int *socknum = malloc(sizeof(int));
+			*socknum = retval;
+			g_hash_table_insert(socket_table, (void *) socknum, (void *) newctx);
+			#ifdef LIBINTENTS_NOISY_DEBUG1
+			st_print_table(socket_table);
+			#endif
 		}
-		//FIXME Move hash table insert inside the 'else'
-		DLOG(LIBINTENTS_NOISY_DEBUG, "+++ Inserting socket %d and its muacc_context into hash table. +++\n",retval);
-		int *socknum = malloc(sizeof(int));
-		*socknum = retval;
-		g_hash_table_insert(socket_table, (void *) socknum, (void *) newctx);
-		#ifdef DEBUG
-		st_print_table(socket_table);
-		#endif
-
 	}
 
 	call_in_progress = false;
