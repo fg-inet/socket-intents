@@ -10,6 +10,7 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <signal.h>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -109,6 +110,7 @@ void do_accept(evutil_socket_t listener, short event, void *arg)
         close(fd);
     } else {
 
+		DLOG(1, "Accepted client %d\n", fd);
     	struct bufferevent *bev;
     	struct _muacc_ctx *_ctx;
 
