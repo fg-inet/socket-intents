@@ -160,6 +160,7 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 		/* Add new option to the end of the socket_option list */
 		current->next = newopt;
 	}
+	retval = 0;
 
 	_unlock_ctx(ctx->ctx);
 
