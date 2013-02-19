@@ -16,9 +16,17 @@
 #include "muacc_util.h"
 #include "dlog.h"
 
+#ifndef CLIB_TLV_NOISY_DEBUG0
 #define CLIB_TLV_NOISY_DEBUG0 1
+#endif
+
+#ifndef CLIB_TLV_NOISY_DEBUG1
 #define CLIB_TLV_NOISY_DEBUG1 0
+#endif
+
+#ifndef CLIB_TLV_NOISY_DEBUG2
 #define CLIB_TLV_NOISY_DEBUG2 0
+#endif
 
 
 size_t _muacc_push_tlv_tag( char *buf, size_t *buf_pos, size_t buf_len,

@@ -18,9 +18,17 @@
 #include "../libintents/libintents.h"
 #endif
 
+#ifndef CLIB_CTX_NOISY_DEBUG0
 #define CLIB_CTX_NOISY_DEBUG0 1
+#endif
+
+#ifndef CLIB_CTX_NOISY_DEBUG1
 #define CLIB_CTX_NOISY_DEBUG1 0
+#endif
+
+#ifndef CLIB_CTX_NOISY_DEBUG2
 #define CLIB_CTX_NOISY_DEBUG2 0
+#endif
 
 
 int _lock_ctx (struct _muacc_ctx *_ctx)

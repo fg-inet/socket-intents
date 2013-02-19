@@ -19,11 +19,17 @@
 #include "../libintents/libintents.h"
 #endif
 
+#ifndef CLIB_IF_NOISY_DEBUG0
 #define CLIB_IF_NOISY_DEBUG0 1
+#endif
+
+#ifndef CLIB_IF_NOISY_DEBUG1
 #define CLIB_IF_NOISY_DEBUG1 0
+#endif
+
+#ifndef CLIB_IF_NOISY_DEBUG2
 #define CLIB_IF_NOISY_DEBUG2 0
-
-
+#endif
 
 int muacc_getaddrinfo(struct muacc_context *ctx,
 		const char *hostname, const char *servname,

@@ -16,7 +16,9 @@
 #include "../libintents/libintents.h"
 #endif
 
+#ifndef CLIB_UTIL_NOISY_DEBUG
 #define CLIB_UTIL_NOISY_DEBUG 0
+#endif
 
 
 struct sockaddr *_muacc_clone_sockaddr(const struct sockaddr *src, size_t src_len)
