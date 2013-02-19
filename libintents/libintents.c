@@ -148,9 +148,7 @@ int socket(int domain, int type, int protocol)
 			int *socknum = malloc(sizeof(int));
 			*socknum = retval;
 			g_hash_table_insert(socket_table, (void *) socknum, (void *) newctx);
-			#ifdef LIBINTENTS_NOISY_DEBUG1
-			st_print_table(socket_table);
-			#endif
+			if (LIBINTENTS_NOISY_DEBUG1) st_print_table(socket_table);
 		}
 	}
 
@@ -241,7 +239,7 @@ int getsockopt(int sockfd, int level, int optname, void *optval, socklen_t *optl
 		DLOG(LIBINTENTS_NOISY_DEBUG0, "Found context matching socket %d - calling muacc_getsockopt.\n", sockfd);
 		if ((retval = muacc_getsockopt(ctx, sockfd, level, optname, optval, optlen)) < 0)
 		{
-			fprintf(stderr, "Error calling muacc_getsockopt.\n");
+			fprintf(stderr, "Error calling muacc_getsockopt: %d\n", retval);
 		}
 	}
 	call_in_progress = false;
@@ -497,9 +495,7 @@ void st_free_ctx(void* data)
 	struct muacc_context *ctx = data;
 	int retval = 0;
 
-	#ifdef LIBINTENTS_NOISY_DEBUG1
-	muacc_print_context(ctx);
-	#endif
+	if (LIBINTENTS_NOISY_DEBUG1) muacc_print_context(ctx);
 
 	if ( ctx == NULL)
 	{
