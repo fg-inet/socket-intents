@@ -33,7 +33,17 @@
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))
 #define MAX_BUF 0
 
+#ifndef MAM_IF_NOISY_DEBUG0
+#define MAM_IF_NOISY_DEBUG0 0
+#endif
 
+#ifndef MAM_IF_NOISY_DEBUG1
+#define MAM_IF_NOISY_DEBUG1 0
+#endif
+
+#ifndef MAM_IF_NOISY_DEBUG2
+#define MAM_IF_NOISY_DEBUG2 0
+#endif
 
 void process_mam_request(struct _muacc_ctx *_ctx)
 {
@@ -110,7 +120,7 @@ void do_accept(evutil_socket_t listener, short event, void *arg)
         close(fd);
     } else {
 
-		DLOG(1, "Accepted client %d\n", fd);
+		DLOG(MAM_IF_NOISY_DEBUG2, "Accepted client %d\n", fd);
     	struct bufferevent *bev;
     	struct _muacc_ctx *_ctx;
 
@@ -154,7 +164,7 @@ int do_listen(struct event_base *base, evutil_socket_t listener, struct sockaddr
 
 static void do_graceful_shutdown(evutil_socket_t _, short what, void* ctx) {
     struct event_base *evb = (struct event_base*) ctx;
-	DLOG(1, "got signal - terminating...\n");
+	DLOG(MAM_IF_NOISY_DEBUG0, "got signal - terminating...\n");
     event_base_loopexit(evb, NULL);
 }
 
@@ -168,7 +178,7 @@ main(int c, char **v)
 
     setvbuf(stderr, NULL, _IONBF, 0);
 
-	DLOG(1, "setting up event base...\n");
+	DLOG(MAM_IF_NOISY_DEBUG2, "setting up event base...\n");
 	/* set up libevent */
     base = event_base_new();
     if (!base) {
@@ -177,7 +187,7 @@ main(int c, char **v)
     }
 
 	/* set mam socket */
-	DLOG(1, "setting up mamma's socket %s ...\n", MUACC_SOCKET);
+	DLOG(MAM_IF_NOISY_DEBUG0, "setting up mamma's socket %s ...\n", MUACC_SOCKET);
 	sun.sun_family = AF_UNIX;
 	#ifdef HAVE_SOCKADDR_LEN
 	sun.sun_len = sizeof(struct sockaddr_un);
@@ -188,10 +198,10 @@ main(int c, char **v)
     int one = 1;
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 
-	DLOG(1, "setting up listener...\n");
+	DLOG(MAM_IF_NOISY_DEBUG2, "setting up listener...\n");
 	if( 0 > do_listen(base, listener, (struct sockaddr *)&sun, sizeof(sun)))
 	{
-		DLOG(1, "listen failed\n");
+		DLOG(MAM_IF_NOISY_DEBUG1, "listen failed\n");
 		return 1;
 	}
 
@@ -202,7 +212,7 @@ main(int c, char **v)
 	event_add(int_event, NULL);
 
 	/* run libevent */
-	DLOG(1, "running event loop...\n");
+	DLOG(MAM_IF_NOISY_DEBUG2, "running event loop...\n");
     event_base_dispatch(base);
 
     /* clean up */
