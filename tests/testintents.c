@@ -85,9 +85,11 @@ void setget_sockopt(dfixture *df, const void* param)
  */
 void create_socket()
 {
+	printf("\n===========\n");
 	int sock = socket(AF_INET, SOCK_DGRAM, 0);
 	g_assert_cmpint(sock, >, 0);
 	close(sock);
+	printf("\n===========\n");
 }
 
 /** Create multiple sockets (IPv4 and UNIX), assert that this succeeds
@@ -95,6 +97,7 @@ void create_socket()
  */
 void create_multiple_sockets()
 {
+	printf("\n===========\n");
 	int sock = socket(AF_INET, SOCK_DGRAM, 0);
 	g_assert_cmpint(sock, >, 0);
 	int sock2 = socket(AF_INET, SOCK_STREAM, 0);
@@ -103,6 +106,7 @@ void create_multiple_sockets()
 	close(sock);
 	close(sock2);
 	close(sock3);
+	printf("\n===========\n");
 }
 
 /* Tests start here! */

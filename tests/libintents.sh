@@ -25,11 +25,11 @@ then
 	exit 1
 fi
 
-pgrep socat
+pgrep mamma
 if [ $? = '1' ]
 	then
-	echo "Socat not running - starting socat..."
-	socat UNIX-LISTEN:/tmp/muacc.socket,fork PIPE&
+	echo "Multi Access Manager not running - starting mamma..."
+	./mamma &
 fi
 
 echo "================================================"
@@ -38,5 +38,3 @@ echo "Please report failures to theresa@net.t-labs.tu-berlin.de"
 echo "================================================"
 
 LD_PRELOAD="$preloadlib" ./testintents
-
-killall socat
