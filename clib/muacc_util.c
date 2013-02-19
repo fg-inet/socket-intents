@@ -228,6 +228,16 @@ char *_muacc_get_socket_level (int level)
 	}
 }
 
+void _muacc_print_socket_option_list(const struct socketopt *opts)
+{
+	char buf[4096];
+	size_t buf_len = 4096;
+	size_t buf_pos = 0;
+
+	_muacc_print_socket_options(buf, &buf_pos, buf_len, opts);
+	printf("%s\n", buf);
+}
+
 size_t _muacc_print_socket_options(char *buf, size_t *buf_pos, size_t buf_len, const struct socketopt *opts)
 {
 	size_t old_pos = *buf_pos;

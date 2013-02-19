@@ -160,6 +160,9 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 		/* Add new option to the end of the socket_option list */
 		current->next = newopt;
 	}
+	DLOG(CLIB_IF_NOISY_DEBUG2, "Added new option to the end of the list:\n\t\t\t");
+	if (CLIB_IF_NOISY_DEBUG2) _muacc_print_socket_option_list(newopt);
+
 	retval = 0;
 
 	_unlock_ctx(ctx->ctx);
@@ -197,6 +200,9 @@ int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int optio
 			_unlock_ctx(ctx->ctx);
 			return -1;
 		}
+
+		DLOG(CLIB_IF_NOISY_DEBUG2, "Looking for socket option: \n\t\t\t{ { level = %d, optname = %d } }\n", level, option_name, (int *) option_value);
+
 		struct socketopt *current = ctx->ctx->socket_options;
 		while (current != NULL)
 		{
@@ -213,6 +219,9 @@ int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int optio
 				else
 				{
 					// Successfully copied data: End loop
+					DLOG(CLIB_IF_NOISY_DEBUG2, "Found socket option: \n\t\t\t");
+					if (CLIB_IF_NOISY_DEBUG2) _muacc_print_socket_option_list(current);
+
 					retval = 0;
 					break;
 				}
