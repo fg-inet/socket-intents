@@ -11,9 +11,13 @@ libmuacc_a_SOURCES = clib/muacc.c clib/muacc_util.c clib/muacc_ctx.c clib/muacc_
 
 include_HEADERS = libintents/libintents.h clib/muacc.h
 
+noinst_LTLIBRARIES = libmuacc_intents.la
+libmuacc_intents_la_SOURCES = clib/muacc.c clib/muacc_util.c clib/muacc_ctx.c clib/muacc_tlv.c clib/muacc.h clib/muacc_util.h clib/muacc_ctx.h clib/muacc_tlv.h
+libmuacc_intents_la_CFLAGS = -DUSE_SO_INTENTS
+
 lib_LTLIBRARIES = libintents.la
 libintents_la_SOURCES = libintents/libintents.c
-libintents_la_LIBADD = $(glib2_LIBS) -ldl libmuacc.a
+libintents_la_LIBADD = $(glib2_LIBS) -ldl libmuacc_intents.la
 
 bin_PROGRAMS = mamma muacsocksd addrinfo 
 
