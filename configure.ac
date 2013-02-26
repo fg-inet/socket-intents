@@ -46,6 +46,52 @@ else
 	AC_DEFINE_UNQUOTED(MUACC_SOCKET, "/tmp/muacc.socket", "Socket location")
 fi
 
-AC_DEFINE(LIBINTENTS_NOISY_DEBUG, 0, "Print a lot of debugging messages in the intents library")
+AC_ARG_VAR(NOISY_DEBUG, [Switch on debugging levels: 0, 1, 2, any combination or off])
+if echo "$NOISY_DEBUG" | egrep -q "0"
+then
+	echo "Debugging level 0 activated"
+	AC_DEFINE(LIBINTENTS_NOISY_DEBUG0, 1, "Print a lot of debugging messages")
+	AC_DEFINE(MAM_IF_NOISY_DEBUG0, 1, "Print a lot of debugging messages")
+	AC_DEFINE(CLIB_TLV_NOISY_DEBUG0, 1, "Print a lot of debugging messages")
+	AC_DEFINE(CLIB_CTX_NOISY_DEBUG0, 1, "Print a lot of debugging messages")
+	AC_DEFINE(CLIB_IF_NOISY_DEBUG0, 1, "Print a lot of debugging messages")
+fi
+if echo "$NOISY_DEBUG" | egrep -q "1"
+then
+	echo "Debugging level 1 activated"
+	AC_DEFINE(LIBINTENTS_NOISY_DEBUG1, 1, "Print a lot of debugging messages")
+	AC_DEFINE(MAM_IF_NOISY_DEBUG1, 1, "Print a lot of debugging messages")
+	AC_DEFINE(CLIB_TLV_NOISY_DEBUG1, 1, "Print a lot of debugging messages")
+	AC_DEFINE(CLIB_CTX_NOISY_DEBUG1, 1, "Print a lot of debugging messages")
+	AC_DEFINE(CLIB_IF_NOISY_DEBUG1, 1, "Print a lot of debugging messages")
+fi
+if echo "$NOISY_DEBUG" | egrep -q "2"
+then
+	echo "Debugging level 2 activated"
+	AC_DEFINE(LIBINTENTS_NOISY_DEBUG2, 1, "Print a lot of debugging messages")
+	AC_DEFINE(MAM_IF_NOISY_DEBUG2, 1, "Print a lot of debugging messages")
+	AC_DEFINE(CLIB_TLV_NOISY_DEBUG2, 1, "Print a lot of debugging messages")
+	AC_DEFINE(CLIB_CTX_NOISY_DEBUG2, 1, "Print a lot of debugging messages")
+	AC_DEFINE(CLIB_IF_NOISY_DEBUG2, 1, "Print a lot of debugging messages")
+fi
+if echo "$NOISY_DEBUG" | egrep -q "off"
+then
+	echo "Debugging disabled"
+	AC_DEFINE(LIBINTENTS_NOISY_DEBUG0, 0, "Print no debugging messages")
+	AC_DEFINE(MAM_IF_NOISY_DEBUG0, 0, "Print no debugging messages")
+	AC_DEFINE(CLIB_TLV_NOISY_DEBUG0, 0, "Print no debugging messages")
+	AC_DEFINE(CLIB_CTX_NOISY_DEBUG0, 0, "Print no debugging messages")
+	AC_DEFINE(CLIB_IF_NOISY_DEBUG0, 0, "Print no debugging messages")
+	AC_DEFINE(LIBINTENTS_NOISY_DEBUG1, 0, "Print no debugging messages")
+	AC_DEFINE(MAM_IF_NOISY_DEBUG1, 0, "Print no debugging messages")
+	AC_DEFINE(CLIB_TLV_NOISY_DEBUG1, 0, "Print no debugging messages")
+	AC_DEFINE(CLIB_CTX_NOISY_DEBUG1, 0, "Print no debugging messages")
+	AC_DEFINE(CLIB_IF_NOISY_DEBUG1, 0, "Print no debugging messages")
+	AC_DEFINE(LIBINTENTS_NOISY_DEBUG2, 0, "Print no debugging messages")
+	AC_DEFINE(MAM_IF_NOISY_DEBUG2, 0, "Print no debugging messages")
+	AC_DEFINE(CLIB_TLV_NOISY_DEBUG2, 0, "Print no debugging messages")
+	AC_DEFINE(CLIB_CTX_NOISY_DEBUG2, 0, "Print no debugging messages")
+	AC_DEFINE(CLIB_IF_NOISY_DEBUG2, 0, "Print no debugging messages")
+fi
 
 AC_OUTPUT
