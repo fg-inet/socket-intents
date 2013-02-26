@@ -43,7 +43,8 @@ struct _muacc_ctx {
 	struct addrinfo	*remote_addrinfo_res;	/**< candidate remote addresses (sorted by MAM preference) */
 	struct sockaddr *remote_sa_res;     	/**< remote address choosen in the end */
 	socklen_t 		 remote_sa_res_len;    	/**< length of remote_sa_res */
-	socketopt_t		*socket_options;		/**< associated socket options */
+	socketopt_t		*sockopts_current;		/**< socket options currently set */
+	socketopt_t		*sockopts_suggested;	/**< socket options suggested by MAM */
 };
 
 /** Helper to allocate and initalize _muacc_ctx

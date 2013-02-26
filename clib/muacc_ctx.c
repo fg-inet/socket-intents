@@ -119,10 +119,16 @@ int _muacc_free_ctx (struct _muacc_ctx *_ctx)
 		if (_ctx->remote_sa_req != NULL)        free(_ctx->remote_sa_req);
 		if (_ctx->remote_sa_res != NULL)        free(_ctx->remote_sa_res);
 		if (_ctx->remote_hostname != NULL)      free(_ctx->remote_hostname);
-		while (_ctx->socket_options != NULL)
+		while (_ctx->sockopts_current != NULL)
 		{
-			socketopt_t *current = _ctx->socket_options;
-			_ctx->socket_options = current->next;
+			socketopt_t *current = _ctx->sockopts_current;
+			_ctx->sockopts_current = current->next;
+			free(current);
+		}
+		while (_ctx->sockopts_suggested != NULL)
+		{
+			socketopt_t *current = _ctx->sockopts_suggested;
+			_ctx->sockopts_suggested = current->next;
 			free(current);
 		}
 		free(_ctx);
@@ -184,7 +190,8 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	
 	_ctx->remote_hostname = _muacc_clone_string(src->ctx->remote_hostname);
 	
-	_ctx->socket_options = _muacc_clone_socketopts(src->ctx->socket_options);
+	_ctx->sockopts_current = _muacc_clone_socketopts(src->ctx->sockopts_current);
+	_ctx->sockopts_suggested = _muacc_clone_socketopts(src->ctx->sockopts_suggested);
 
 	_ctx->usage = 1;
 	dst->ctx = _ctx;
@@ -392,8 +399,11 @@ void _muacc_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct _
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_sa_res = ");
 		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->remote_sa_res, _ctx->remote_sa_res_len);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tsocket_options = ");
-		_muacc_print_socket_options(buf, buf_pos, buf_len, _ctx->socket_options);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tsockopts_current = ");
+		_muacc_print_socket_options(buf, buf_pos, buf_len, _ctx->sockopts_current);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tsockopts_suggested = ");
+		_muacc_print_socket_options(buf, buf_pos, buf_len, _ctx->sockopts_suggested);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\n}\n");
 
 }

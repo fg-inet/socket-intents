@@ -152,15 +152,15 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 	newopt->next = NULL;
 
 	/* put it in the context */
-	if (ctx->ctx->socket_options == NULL)
+	if (ctx->ctx->sockopts_current == NULL)
 	{
 		/* Add first socket option to the empty list */
-		ctx->ctx->socket_options = newopt;
+		ctx->ctx->sockopts_current = newopt;
 	}
 	else
 	{
 		/* Search for last socket option of the current list */
-		struct socketopt *current = ctx->ctx->socket_options;
+		struct socketopt *current = ctx->ctx->sockopts_current;
 		while (current->next != NULL)
 			current = current->next;
 		/* Add new option to the end of the socket_option list */
@@ -209,7 +209,7 @@ int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int optio
 
 		DLOG(CLIB_IF_NOISY_DEBUG2, "Looking for socket option: \n\t\t\t{ { level = %d, optname = %d } }\n", level, option_name, (int *) option_value);
 
-		struct socketopt *current = ctx->ctx->socket_options;
+		struct socketopt *current = ctx->ctx->sockopts_current;
 		while (current != NULL)
 		{
 			// Search for the option_name in this contexts' socket_option list
@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
 		testopt2.optval = &cat;
 		testopt.next = &testopt2;
 
-		testctx.ctx->socket_options = &testopt;
+		testctx.ctx->sockopts_current = &testopt;
 
 		muacc_print_context(&testctx);
 
