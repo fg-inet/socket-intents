@@ -31,8 +31,12 @@ addrinfo_LDADD = $(LDADD) libmuacc.a
 mamma_SOURCES = $(clib_SOURCES) mam/mam_master.c 
 mamma_LDADD = $(LDADD) libmuacc.a
 
-TESTS = tests/libintents.sh
-check_PROGRAMS = testintents
+TESTS = testmuacc
+check_PROGRAMS = testintents testmuacc
+
 testintents_SOURCES = tests/testintents.c
+
+testmuacc_SOURCES = tests/testmuacc.c
+testmuacc_LDADD = $(LDADD) libmuacc_intents.la
 
 dist_noinst_SCRIPTS = autogen.sh
