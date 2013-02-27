@@ -9,6 +9,7 @@
 
 #include "../config.h"
 
+#include "muacc_types.h"
 #include "muacc_util.h"
 #include "muacc_ctx.h"
 
@@ -124,18 +125,46 @@ struct socketopt *_muacc_clone_socketopts(const struct socketopt *src)
 				fprintf(stderr, "%6d: _muacc_clone_socketopts failed to allocate memory.\n", (int) getpid());
 				return NULL;
 			}
-			else
+
+
+			dstcurrent-> next = new;
+			memcpy(new, srccurrent->next, sizeof(struct socketopt));
+
+			if(srccurrent->next->optlen > 0 && srccurrent->next->optval != NULL)
 			{
-				dstcurrent-> next = new;
-				memcpy(new, srccurrent->next, sizeof(struct socketopt));
-				srccurrent = srccurrent->next;
-				dstcurrent = dstcurrent->next;
+				if ((new->optval = malloc(sizeof(struct socketopt))) == NULL)
+				{
+					fprintf(stderr, "%6d: _muacc_clone_socketopts failed to allocate memory.\n", (int) getpid());
+					return NULL;
+				}
+				memcpy(new->optval, srccurrent->next->optval, srccurrent->next->optlen);
 			}
+
+			srccurrent = srccurrent->next;
+			dstcurrent = dstcurrent->next;
 		}
 	}
 
 	return ret;
 }
+
+void _muacc_free_socketopts(struct socketopt *so)
+{
+	struct socketopt *next = so;
+
+	while(next != NULL)
+	{
+		struct socketopt *last = next;
+		next = last->next;
+
+		if(last->optlen > 0 && last->optval != NULL)
+			free(last->optval);
+
+		free(last);
+	}
+
+}
+
 
 
 size_t _muacc_print_sockaddr(char *buf, size_t *buf_pos, size_t buf_len, const struct sockaddr *addr, size_t src_len)

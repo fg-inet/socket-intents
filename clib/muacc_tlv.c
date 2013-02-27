@@ -129,15 +129,7 @@ size_t _muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	*((size_t *) (buf + *buf_pos)) = data_len;
 	*buf_pos += sizeof(size_t);
 	
-	/* deep copy struct 
-	 *
-	 * data is arranged as followed:
-	 * 			struct addrinfo ai
-	 *			struct sockaddr ai->ai_addr      if ai->ai_addr != NULL, length known from ai->ai_addrlen
-	 * 			size_t strlen(ai->ai_canonname)  if ai->ai_canonname != NULL
-	 *          string ai->ai_canonname			 if ai->ai_canonname != NULL
-	 *          ... next struct if ai->ai_next != NULL ...
-	 */
+	/* deep copy struct */
     for (ai = ai0; ai != NULL; ai = ai->ai_next)
 	{	
 		DLOG(CLIB_TLV_NOISY_DEBUG2, "copy addrinfo at %p to tlv buf_pos=%ld buf_len=%ld\n", (void *) ai, (long) *buf_pos, (long) buf_len);
@@ -164,6 +156,69 @@ size_t _muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	return(tlv_len);
 }
 
+size_t _muacc_push_socketopt_tlv( char *buf, size_t *buf_pos, size_t buf_len,
+	muacc_tlv_t tag, const struct socketopt *so0)
+{
+
+    const struct socketopt *so;
+	size_t data_len = 0;
+	size_t tlv_len = -1;
+
+	DLOG(CLIB_TLV_NOISY_DEBUG1, "invoked buf_pos=%ld buf_len=%ld ai=%p\n", (long) *buf_pos, (long) buf_len, (void *) so0);
+
+	/* calculate size */
+    for (so = so0; so != NULL; so = so->next)
+	{
+		size_t i = 0;
+
+		i += sizeof(struct socketopt);
+		if (so->optlen != 0 && so->optval != NULL)
+			i += so->optlen;
+
+		DLOG(CLIB_TLV_NOISY_DEBUG2, "calculated  length of  socketopt at %p is %ld\n", (void *) so, (long) i);
+		data_len += i;
+	}
+
+    DLOG(CLIB_TLV_NOISY_DEBUG2, "total data length is %ld\n", (long) data_len);
+
+	/* check size */
+	tlv_len = sizeof(muacc_tlv_t)+sizeof(size_t)+data_len;
+	if (buf == NULL)
+	{
+		/* checking case */
+		DLOG(CLIB_TLV_NOISY_DEBUG1, "length checking done - total length is %ld - returning\n", (long) data_len);
+		return(tlv_len);
+	}
+	else if ( *buf_pos + tlv_len >= buf_len)
+	{
+		return(-1);
+	}
+
+	/* write tag */
+	*((muacc_tlv_t *) (buf + *buf_pos)) = tag;
+	*buf_pos += sizeof(muacc_tlv_t);
+
+	*((size_t *) (buf + *buf_pos)) = data_len;
+	*buf_pos += sizeof(size_t);
+
+	/* deep copy struct */
+    for (so = so0; so != NULL; so = so->next)
+	{
+    	memcpy((buf+ *buf_pos), so0, sizeof(struct socketopt));
+    	*buf_pos += sizeof(struct socketopt);
+
+    	if (so->optlen != 0 && so->optval != NULL)
+    	{
+        	memcpy((buf+ *buf_pos), so->optval, so->optlen);
+        	*buf_pos += so->optlen;
+    	}
+	}
+
+	DLOG(CLIB_TLV_NOISY_DEBUG1, "done total length copied was %ld - returning\n", (long) tlv_len);
+	return(tlv_len);
+
+}
+
 size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct addrinfo **ai0)
 {
 	struct addrinfo **ai1 = ai0;
@@ -182,7 +237,8 @@ size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct ad
 		if (data_len-data_pos < sizeof(struct addrinfo))
 		{
 			DLOG(CLIB_TLV_NOISY_DEBUG0, "WARNING: data_len too short - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
-			return(-1);
+			*ai1 = NULL;
+			goto muacc_extract_addrinfo_tlv_length_failed;
 		}
 
 		/* get memory and copy struct */
@@ -197,10 +253,13 @@ size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct ad
 		/* addrinfo */
 		if ( ai->ai_addr != NULL)
 		{
+			ai->ai_addr = NULL;
+
 			/* check length again */
 			if (data_len-data_pos < ai->ai_addrlen)
 			{
 				DLOG(CLIB_TLV_NOISY_DEBUG0, "WARNING: data_len too short while extracting ai_addr - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
+				ai->ai_canonname = NULL;
 				goto muacc_extract_addrinfo_tlv_length_failed;
 			}
 			/* get memory and copy struct */
@@ -217,6 +276,8 @@ size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct ad
 		/* ai_canonname */
 		if ( ai->ai_canonname != NULL)
 		{
+			ai->ai_canonname = NULL;
+
 			/* check length again */
 			if (data_len-data_pos < sizeof(size_t))
 			{
@@ -254,8 +315,16 @@ size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct ad
 
     return allocated;
 
-    muacc_extract_addrinfo_tlv_malloc_failed:
     muacc_extract_addrinfo_tlv_length_failed:
+    freeaddrinfo(*ai0);
+    *ai0 = NULL;
+    return -1;
+
+    muacc_extract_addrinfo_tlv_malloc_failed:
+    *ai0 = NULL;
+    return -1;
+
+
 
     *ai0 = NULL;
     return -1;
@@ -284,6 +353,76 @@ size_t _muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct 
 
 	muacc_extract_socketaddr_tlv_malloc_failed:
 	*sa0 = NULL;
+	return(-1);
+
+}
+
+size_t _muacc_extract_socketopt_tlv( const char *data, size_t data_len, struct socketopt **so0)
+{
+	struct socketopt **so1 = so0;
+
+	size_t data_pos = 0;
+	struct socketopt *so;
+
+	size_t allocated = 0;
+
+	DLOG(CLIB_TLV_NOISY_DEBUG1, "invoked data_len=%ld\n", (long) data_len);
+
+	do
+	{
+		/* for cleanup in _muacc_extract_socketopt_tlv_parse_failed */
+		so = NULL;
+
+		/* check length */
+		if (data_len-data_pos < sizeof(struct socketopt))
+		{
+			DLOG(CLIB_TLV_NOISY_DEBUG0, "WARNING: data_len too short - data_pos=%ld data_len=%ld sizeof(struct socketopt)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct socketopt));
+			*so1 = NULL;
+			goto _muacc_extract_socketopt_tlv_parse_failed;
+		}
+
+		/* get memory and copy struct */
+		if( (so = malloc(sizeof(struct socketopt))) == NULL )
+			goto _muacc_extract_socketopt_tlv_malloc_failed;
+		allocated += sizeof(struct socketopt);
+		memcpy( so, (void *) (data + data_pos),sizeof(struct socketopt));
+		data_pos += sizeof(struct addrinfo);
+
+		DLOG(CLIB_TLV_NOISY_DEBUG2, "copied socketaddr to %p\n", (void *) so);
+
+		/* check and set option pointer */
+		if(so->optlen > 0 && so->optval != NULL)
+		{
+			if(data_len-data_pos < so->optlen ) {
+				DLOG(CLIB_TLV_NOISY_DEBUG0, "WARNING: so->optlen too large for data_len - data_pos=%ld data_len=%ld so->optlen=%ld\n", (long int) data_pos, (long int) data_len, (long int) so->optlen);
+				so->optval = NULL;
+				so->next = NULL;
+				goto _muacc_extract_socketopt_tlv_parse_failed;
+			}
+
+			if( (so->optval = malloc(so->optlen)) == NULL )
+				goto _muacc_extract_socketopt_tlv_malloc_failed;
+
+			memcpy(so->optval, (void *) (data + data_pos), so->optlen );
+		}
+
+		/* weave pointer magic */
+		*so1 = so;
+		so1 = &(so->next);
+
+	} while(so->next != NULL);
+
+	DLOG(CLIB_TLV_NOISY_DEBUG1, "done - %ld bytes allocated\n", (long) allocated);
+
+	return(allocated);
+
+	_muacc_extract_socketopt_tlv_parse_failed:
+	_muacc_free_socketopts(*so0);
+	*so0 = NULL;
+	return(-1);
+
+	_muacc_extract_socketopt_tlv_malloc_failed:
+	*so0 = NULL;
 	return(-1);
 
 }

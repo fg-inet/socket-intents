@@ -29,8 +29,19 @@ struct addrinfo *_muacc_clone_addrinfo(const struct addrinfo *src);
  */
 struct socketopt *_muacc_clone_socketopts(const struct socketopt *src);
 
+/** helper to deep free socketopt linked lists
+ *
+ */
+void _muacc_free_socketopts(struct socketopt *so);
+
+/** helper to print a sockaddr into a string
+ *
+ */
 size_t _muacc_print_sockaddr(char *buf, size_t *buf_pos, size_t buf_len, const struct sockaddr *addr, size_t src_len);
 
+/** helper to print a addrinfo list into a string
+ *
+ */
 size_t _muacc_print_addrinfo(char *buf, size_t *buf_pos, size_t buf_len, const struct addrinfo *addr);
 
 /** helper to print a list of socket options
@@ -38,6 +49,9 @@ size_t _muacc_print_addrinfo(char *buf, size_t *buf_pos, size_t buf_len, const s
  */
 void _muacc_print_socket_option_list(const struct socketopt *opts);
 
+/** helper to print a list of socket options into a string
+ *
+ */
 size_t _muacc_print_socket_options(char *buf, size_t *buf_pos, size_t buf_len, const struct socketopt *opts);
 
 

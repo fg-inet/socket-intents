@@ -141,14 +141,20 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 	newopt->level = level;
 	newopt->optname = option_name;
 	newopt->optlen = option_len;
-	newopt->optval = malloc(option_len);
-	if (newopt->optval == NULL)
+	if(option_len > 0 && option_value != NULL)
 	{
-		perror("__function__ malloc failed");
-		_unlock_ctx(ctx->ctx);
-		return retval;
+		newopt->optval = malloc(option_len);
+		if (newopt->optval == NULL)
+		{
+			perror("__function__ malloc failed");
+			_unlock_ctx(ctx->ctx);
+			return retval;
+		}
+		memcpy(newopt->optval, option_value, option_len);
 	}
-	memcpy(newopt->optval, option_value, option_len);
+	else
+		newopt->optval = option_value;
+
 	newopt->next = NULL;
 
 	/* put it in the context */

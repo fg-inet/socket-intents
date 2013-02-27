@@ -3,37 +3,13 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+
 #include <netdb.h>
+#include "muacc_types.h"
+
 
 #define MUACC_TLV_MAXLEN 2048
 
-typedef enum
-{
-	eof = 0x00,		    	/**< end of TLV data – always 0 bytes */
-	action,					/**< action triggering request */
-	bind_sa_req = 0x12, 	/**< local address requested */
-	bind_sa_res,        	/**< local address choosen by mam */
-	remote_hostname = 0x20,	/**< remote host name */
-	remote_srvname,	   		/**< remote service name */
-	remote_sa_req,     		/**< remote address requested */
-	remote_addrinfo_hint,	/**< candidate remote addresses (sorted by mam preference) */
-	remote_addrinfo_res,	/**< candidate remote addresses (sorted by mam preference) */
-	remote_sa_res     		/**< remote address choosen */
-} muacc_tlv_t;
-	
-typedef enum 
-{
-	muacc_act_connect_req,					/**< is from a connect */
-	muacc_act_connect_resp,
-	muacc_act_getaddrinfo_preresolve_req,	/**< is from a getaddrinfo, pre resolving */
-	muacc_act_getaddrinfo_preresolve_resp,
-	muacc_act_getaddrinfo_postresolve_req,	/**< is from a getaddrinfo, post resolving,
-	 	 	 	 	 	 	 	 	 	 	  *     only called if muacc_action_getaddrinfo_preresolve did not
-											  *     provide an address after calling getaddrinfo ourselves */
-	muacc_act_getaddrinfo_postresolve_resp,
-	muacc_act_setsocketopt_req,				/**< is from a setsocketopt */
-	muacc_act_setsocketopt_resp
-} muacc_mam_action_t;
 
 /** push data in an TLV buffer
  *
@@ -63,6 +39,13 @@ size_t _muacc_push_tlv_tag(
 
 	
 /** make a deep copy of the addrinfo and encode in TLV
+ *
+ * data is arranged as followed:
+ * 			struct addrinfo ai
+ *			struct sockaddr ai->ai_addr      if ai->ai_addr != NULL, length known from ai->ai_addrlen
+ * 			size_t strlen(ai->ai_canonname)  if ai->ai_canonname != NULL
+ *          string ai->ai_canonname			 if ai->ai_canonname != NULL
+ *          ... next struct if ai->ai_next != NULL ...
  *
  * @return length of the TLV or -1 on error
  */
@@ -94,6 +77,15 @@ size_t _muacc_extract_addrinfo_tlv(
 	struct addrinfo **ai0       /**< [out]    pointer to extracted struct (will be allocated) */
 );
 
+/** decode an encoded socketopt by deep copying
+ *
+ * @return sum of the sizes of the extracted structs/stringd
+ */
+size_t _muacc_extract_socketopt_tlv(
+	const char *data,           /**< [in]     buffer to extract from */
+	size_t data_len,            /**< [in]     length of data */
+	struct socketopt **so0       /**< [out]    pointer to extracted struct (will be allocated) */
+);
 
 #define _muacc_proc_tlv_event_too_short	-1
 #define _muacc_proc_tlv_event_eof		0
