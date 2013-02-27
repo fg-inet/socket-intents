@@ -66,7 +66,7 @@ int muacc_init_context(struct muacc_context *ctx)
 {
 	struct _muacc_ctx *_ctx = _muacc_create_ctx();
 
-	if(_ctx == NULL)
+	if(_ctx == NULL || ctx == NULL)
 		return(-1);
 
 	/* connect to MAM */

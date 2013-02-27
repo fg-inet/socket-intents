@@ -64,6 +64,16 @@ void compare_sockopts(const struct socketopt *a, const struct socketopt *b)
 	}
 }
 
+/** Trying to create a context with a NULL pointer
+ *  This should return -1, but not crash the application
+ */
+void ctx_create_null()
+{
+	int ret = -2;
+	ret = muacc_init_context(NULL);
+	g_assert_cmpint(ret, ==, -1);
+}
+
 /** Test that prints out a context
  *
  */
@@ -99,6 +109,7 @@ int main(int argc, char *argv[])
 	g_test_init(&argc, &argv, NULL);
 	printf("Welcome to the muacc testing functions\n");
 	g_test_add("/ctx/print_empty", dfixture, NULL, ctx_empty_setup, ctx_print, ctx_destroy);
+	g_test_add_func("/ctx/create_null", ctx_create_null);
 	g_test_add_func("/sockopts/copy", sockopts_copy_valid);
 	return g_test_run();
 }
