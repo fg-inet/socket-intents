@@ -112,14 +112,22 @@ struct socketopt *_muacc_clone_socketopts(const struct socketopt *src)
 	}
 	else
 	{
-		memcpy(ret, src, sizeof(struct socketopt));
-
 		const struct socketopt *srccurrent = src;
 		struct socketopt *dstcurrent = ret;
-		struct socketopt *new = NULL;
+		memcpy(ret, src, sizeof(struct socketopt));
+		if (src->optlen > 0 && src->optval != NULL)
+		{
+			if ((ret->optval = malloc(src->optlen)) == NULL)
+			{
+				fprintf(stderr, "%6d: _muacc_clone_socketopts failed to allocate memory.\n", (int) getpid());
+				return NULL;
+			}
+			memcpy(ret->optval, src->optval, src->optlen);
+		}
 
 		while (srccurrent->next != NULL)
 		{
+			struct socketopt *new = NULL;
 			if ((new = malloc(sizeof(struct socketopt))) == NULL)
 			{
 				fprintf(stderr, "%6d: _muacc_clone_socketopts failed to allocate memory.\n", (int) getpid());
@@ -132,7 +140,7 @@ struct socketopt *_muacc_clone_socketopts(const struct socketopt *src)
 
 			if(srccurrent->next->optlen > 0 && srccurrent->next->optval != NULL)
 			{
-				if ((new->optval = malloc(sizeof(struct socketopt))) == NULL)
+				if ((new->optval = malloc(new->optlen)) == NULL)
 				{
 					fprintf(stderr, "%6d: _muacc_clone_socketopts failed to allocate memory.\n", (int) getpid());
 					return NULL;
