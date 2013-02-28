@@ -114,11 +114,11 @@ void compare_sockopts(const struct socketopt *a, const struct socketopt *b)
 void compare_contexts(const muacc_context_t *a, const muacc_context_t *b)
 {
 	g_assert_cmpint(a->ctx->bind_sa_req_len, ==, b->ctx->bind_sa_req_len);
-	g_assert_cmpint(a->ctx->bind_sa_res_len, ==, b->ctx->bind_sa_res_len);
-	g_assert_cmpint(a->ctx->remote_sa_req_len, ==, b->ctx->remote_sa_req_len);
+	g_assert_cmpint(a->ctx->bind_sa_suggested_len, ==, b->ctx->bind_sa_suggested_len);
+	g_assert_cmpint(a->ctx->remote_sa_len, ==, b->ctx->remote_sa_len);
 	g_assert(0 == memcmp(a->ctx->bind_sa_req, b->ctx->bind_sa_req, a->ctx->bind_sa_req_len));
-	g_assert(0 == memcmp(a->ctx->bind_sa_res, b->ctx->bind_sa_res, a->ctx->bind_sa_res_len));
-	g_assert(0 == memcmp(a->ctx->remote_sa_req, b->ctx->remote_sa_req, a->ctx->remote_sa_req_len));
+	g_assert(0 == memcmp(a->ctx->bind_sa_suggested, b->ctx->bind_sa_suggested, a->ctx->bind_sa_suggested_len));
+	g_assert(0 == memcmp(a->ctx->remote_sa, b->ctx->remote_sa, a->ctx->remote_sa_len));
 	g_assert_cmpstr(a->ctx->remote_hostname, ==, b->ctx->remote_hostname);
 	if (a->ctx->remote_addrinfo_hint != NULL)
 		g_assert(0 == memcmp(a->ctx->remote_addrinfo_hint, b->ctx->remote_addrinfo_hint, sizeof(struct addrinfo)));
