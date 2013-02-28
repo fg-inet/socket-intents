@@ -8,14 +8,8 @@ typedef enum
 {
 	muacc_act_connect_req,					/**< is from a connect */
 	muacc_act_connect_resp,
-	muacc_act_getaddrinfo_preresolve_req,	/**< is from a getaddrinfo, pre resolving */
-	muacc_act_getaddrinfo_preresolve_resp,
-	muacc_act_getaddrinfo_postresolve_req,	/**< is from a getaddrinfo, post resolving,
-	 	 	 	 	 	 	 	 	 	 	  *     only called if muacc_action_getaddrinfo_preresolve did not
-											  *     provide an address after calling getaddrinfo ourselves */
-	muacc_act_getaddrinfo_postresolve_resp,
-	muacc_act_setsocketopt_req,				/**< is from a setsocketopt */
-	muacc_act_setsocketopt_resp
+	muacc_act_getaddrinfo_resolve_req,	    /**< is from a getaddrinfo, pre resolving */
+	muacc_act_getaddrinfo_resolve_resp,
 } muacc_mam_action_t;
 
 /** Linked list of socket options */

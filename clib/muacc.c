@@ -62,7 +62,7 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 	ctx->ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(hints);
 	
 	/* contact mam */
-	_muacc_contact_mam(muacc_act_getaddrinfo_preresolve_req, ctx->ctx);
+	_muacc_contact_mam(muacc_act_getaddrinfo_resolve_req, ctx->ctx);
 	
 	if(ctx->ctx->remote_addrinfo_res != NULL)
 		ret = 0;
@@ -75,8 +75,6 @@ int muacc_getaddrinfo(struct muacc_context *ctx,
 			/* save response */
 			ctx->ctx->remote_addrinfo_res = _muacc_clone_addrinfo(*res);
 
-			/* contact mam again */
-			_muacc_contact_mam(muacc_act_getaddrinfo_postresolve_req, ctx->ctx);
 		}
 	}
 
@@ -153,7 +151,7 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 		memcpy(newopt->optval, option_value, option_len);
 	}
 	else
-		newopt->optval = option_value;
+		newopt->optval = (void *) option_value;
 
 	newopt->next = NULL;
 
@@ -213,7 +211,7 @@ int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int optio
 			return -1;
 		}
 
-		DLOG(CLIB_IF_NOISY_DEBUG2, "Looking for socket option: \n\t\t\t{ { level = %d, optname = %d } }\n", level, option_name, (int *) option_value);
+		DLOG(CLIB_IF_NOISY_DEBUG2, "Looking for socket option: \n\t\t\t{ { level = %d, optname = %d, value %p } }\n", level, option_name, option_value);
 
 		struct socketopt *current = ctx->ctx->sockopts_current;
 		while (current != NULL)
