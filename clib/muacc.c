@@ -31,19 +31,27 @@
 #define CLIB_IF_NOISY_DEBUG2 0
 #endif
 
-int muacc_getaddrinfo(struct muacc_context *ctx,
+int muacc_getaddrinfo(muacc_context_t *ctx,
 		const char *hostname, const char *servname,
 		const struct addrinfo *hints, struct addrinfo **res)
 {
 	
 	int ret;
 	
-	if(ctx->ctx == NULL)
+	/* check context and initalize if neccessary */
+	if(ctx == NULL)
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - fallback to regular connect\n");
+		DLOG(CLIB_IF_NOISY_DEBUG1, "NULL context - fallback to regular connect\n");
 		goto muacc_getaddrinfo_fallback;
 	}
-
+	else if( ctx->ctx == NULL )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - trying to initalize\n");
+		muacc_init_context(ctx);
+		if( ctx->ctx == NULL )
+			goto muacc_getaddrinfo_fallback;			
+	}
+	
 	if( _lock_ctx(ctx->ctx) )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular connect\n");
@@ -89,22 +97,30 @@ muacc_getaddrinfo_fallback:
 }
 
 
-int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int option_name,
+int muacc_setsockopt(muacc_context_t *ctx, int socket, int level, int option_name,
     const void *option_value, socklen_t option_len)
 {	
 	int retval = -2; // Return value; will be set, else structure problem in function
 
-	if( ctx->ctx == 0 )
+	/* check context and initalize if neccessary */
+	if( ctx == NULL )
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - fallback to regular setsockopt\n");
-		return setsockopt(socket, level, option_name, option_value, option_len);
+		DLOG(CLIB_IF_NOISY_DEBUG1, "NULL context - fallback to regular setsockopt\n");
+		goto muacc_setsockopt_fallback;
+	}
+	else if( ctx->ctx == NULL )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - trying to initalize\n");
+		muacc_init_context(ctx);
+		if( ctx->ctx == NULL )
+			goto muacc_setsockopt_fallback;			
 	}
 	
 	if( _lock_ctx(ctx->ctx) )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular setsockopt\n");
 		_unlock_ctx(ctx->ctx);
-		return setsockopt(socket, level, option_name, option_value, option_len);
+		goto muacc_setsockopt_fallback;
 	}
 	
 	#ifdef USE_SO_INTENTS
@@ -178,19 +194,31 @@ int muacc_setsockopt(struct muacc_context *ctx, int socket, int level, int optio
 	_unlock_ctx(ctx->ctx);
 
 	return retval;
+	
+	muacc_setsockopt_fallback:
+	
+	return setsockopt(socket, level, option_name, option_value, option_len);
+	
 }
 
-int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int option_name,
+int muacc_getsockopt(muacc_context_t *ctx, int socket, int level, int option_name,
     void *option_value, socklen_t *option_len)
 {
 	int retval = -2; // Return value, will be set, else structure problem in function
 
-	if( ctx->ctx == 0 )
+	if( ctx == NULL )
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - fallback to regular getsockopt\n");
+		DLOG(CLIB_IF_NOISY_DEBUG1, "NULL context - fallback to regular getsockopt\n");
 		return getsockopt(socket, level, option_name, option_value, option_len);
 	}
-	
+	else if( ctx->ctx == NULL )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - trying to initialize\n");
+		muacc_init_context(ctx);
+		if( ctx->ctx == NULL )
+			return getsockopt(socket, level, option_name, option_value, option_len);
+	}
+		
 	if( _lock_ctx(ctx->ctx) )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular getsockopt\n");
@@ -263,17 +291,32 @@ int muacc_getsockopt(struct muacc_context *ctx, int socket, int level, int optio
 	return retval;
 }
 
-int muacc_connect(struct muacc_context *ctx,
+int muacc_bind(muacc_context_t *ctx, int socket, const struct sockaddr *address, socklen_t address_len)
+{
+	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
+	
+	
+	
+}
+
+int muacc_connect(muacc_context_t *ctx,
 	    int socket, const struct sockaddr *address, socklen_t address_len)
 {	
 	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
 	
-	if( ctx->ctx == 0 )
+	if( ctx == NULL )
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - fallback to regular connect\n");
+		DLOG(CLIB_IF_NOISY_DEBUG1, "NULL context - fallback to regular connect\n");
 		goto muacc_connect_fallback;
 	}
-	
+	else if( ctx->ctx == NULL )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - trying to initialize\n");
+		muacc_init_context(ctx);
+		if( ctx->ctx == NULL )
+			goto muacc_connect_fallback;
+	}
+			
 	if( _lock_ctx(ctx->ctx) )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular connect\n");
