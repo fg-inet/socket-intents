@@ -32,6 +32,7 @@ mamma_SOURCES = $(clib_SOURCES) mam/mam_master.c
 mamma_LDADD = $(LDADD) libmuacc.a
 
 TESTS = testmuacc
+check_PROGRAMS = testmuacc
 
 testintents_SOURCES = tests/testintents.c
 
