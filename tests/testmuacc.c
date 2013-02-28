@@ -43,6 +43,45 @@ void ctx_empty_setup(dfixture *df, const void *test_data)
 	muacc_init_context(df->context);
 }
 
+/** Helper that creates a muacc context and fills it
+ *  with some data
+ */
+void ctx_data_setup(dfixture *df, const void *test_data)
+{
+	DLOG(TESTMUACC_NOISY_DEBUG, "\n===========\n");
+	muacc_context_t *newctx = malloc(sizeof(muacc_context_t));
+	df->context = newctx;
+	muacc_init_context(df->context);
+
+	struct addrinfo hints = { .ai_family = AF_UNSPEC, .ai_socktype = SOCK_DGRAM, .ai_flags = AI_PASSIVE };
+	df->context->ctx->remote_addrinfo_hint = malloc(sizeof(struct addrinfo));
+	memcpy(df->context->ctx->remote_addrinfo_hint, &hints, sizeof(struct addrinfo));
+
+	struct addrinfo *result1 = malloc(sizeof(struct addrinfo));
+	if (getaddrinfo("www.maunz.org", NULL, &hints, &result1) != 0)
+	{
+		printf("Getaddrinfo failed: %s \n", gai_strerror(errno));
+	}
+	else
+	{
+		df->context->ctx->remote_addrinfo_res = result1;
+	}
+
+	struct socketopt testopt = { .level = SOL_SOCKET, .optname = SO_BROADCAST, .optval=malloc(sizeof(int)), .optlen = sizeof(int) };
+	int flag = 1;
+	memcpy(testopt.optval, &flag, sizeof(int));
+
+	df->context->ctx->sockopts_current = malloc(sizeof(struct socketopt));
+	memcpy(df->context->ctx->sockopts_current, &testopt, sizeof(struct socketopt));
+
+	struct socketopt testopt2 = { .level = SOL_INTENTS, .optname = SO_CATEGORY, .optval=malloc(sizeof(enum category)), .optlen = sizeof(enum category) };
+	enum category cat = C_KEEPALIVES;
+	memcpy(testopt2.optval, &cat, sizeof(enum category));
+
+	df->context->ctx->sockopts_current->next = malloc(sizeof(struct socketopt));
+	memcpy(df->context->ctx->sockopts_current->next, &testopt2, sizeof(struct socketopt));
+}
+
 /** Helper that releases a context
  *
  */
@@ -67,6 +106,27 @@ void compare_sockopts(const struct socketopt *a, const struct socketopt *b)
 		a = a->next;
 		b = b->next;
 	}
+}
+
+/** Helper that compares two contexts
+ *
+ */
+void compare_contexts(const muacc_context_t *a, const muacc_context_t *b)
+{
+	g_assert_cmpint(a->ctx->bind_sa_req_len, ==, b->ctx->bind_sa_req_len);
+	g_assert_cmpint(a->ctx->bind_sa_res_len, ==, b->ctx->bind_sa_res_len);
+	g_assert_cmpint(a->ctx->remote_sa_req_len, ==, b->ctx->remote_sa_req_len);
+	g_assert(0 == memcmp(a->ctx->bind_sa_req, b->ctx->bind_sa_req, a->ctx->bind_sa_req_len));
+	g_assert(0 == memcmp(a->ctx->bind_sa_res, b->ctx->bind_sa_res, a->ctx->bind_sa_res_len));
+	g_assert(0 == memcmp(a->ctx->remote_sa_req, b->ctx->remote_sa_req, a->ctx->remote_sa_req_len));
+	g_assert_cmpstr(a->ctx->remote_hostname, ==, b->ctx->remote_hostname);
+	if (a->ctx->remote_addrinfo_hint != NULL)
+		g_assert(0 == memcmp(a->ctx->remote_addrinfo_hint, b->ctx->remote_addrinfo_hint, sizeof(struct addrinfo)));
+	if (a->ctx->remote_addrinfo_res != NULL)
+		g_assert(0 == memcmp(a->ctx->remote_addrinfo_res, b->ctx->remote_addrinfo_res, sizeof(struct addrinfo)));
+
+	compare_sockopts(a->ctx->sockopts_current, b->ctx->sockopts_current);
+	compare_sockopts(a->ctx->sockopts_suggested, b->ctx->sockopts_suggested);
 }
 
 /** Helper to print out the TLV buffer
@@ -114,26 +174,30 @@ void ctx_create_null()
  */
 void ctx_print(dfixture *df, const void *param)
 {
+	printf("\n");
 	muacc_print_context(df->context);
+}
+
+/** Test that copies a context
+ *
+ */
+void ctx_copy(dfixture *df, const void *param)
+{
+	muacc_context_t *targetctx = malloc(sizeof(muacc_context_t));
+	muacc_clone_context(targetctx, df->context);
+
+	if (TESTMUACC_NOISY_DEBUG) muacc_print_context(targetctx);
+	compare_contexts(df->context, targetctx);
 }
 
 /** Test that copies a list of sockopts
  *
  */
-void sockopts_copy_valid()
+void sockopts_copy(dfixture *df, const void *param)
 {
-	struct socketopt testopt = { .level = SOL_SOCKET, .optname = SO_BROADCAST, .optval=malloc(sizeof(int)), .optlen = sizeof(int) };
-	int flag = 1;
-	memcpy(testopt.optval, &flag, sizeof(int));
-
-	struct socketopt testopt2 = { .level = SOL_INTENTS, .optname = SO_CATEGORY, .optval=malloc(sizeof(enum category)), .optlen = sizeof(enum category) };
-	enum category cat = C_KEEPALIVES;
-	memcpy(testopt2.optval, &cat, sizeof(enum category));
-	testopt.next = &testopt2;
-
 	struct socketopt *newopt = NULL;
-	newopt = _muacc_clone_socketopts((const struct socketopt *) &testopt);
-	compare_sockopts(&testopt, newopt);
+	newopt = _muacc_clone_socketopts((const struct socketopt *) df->context->ctx->sockopts_current);
+	compare_sockopts(df->context->ctx->sockopts_current, newopt);
 	if (TESTMUACC_NOISY_DEBUG) _muacc_print_socket_option_list((const struct socketopt *) newopt);
 }
 
@@ -230,9 +294,12 @@ int main(int argc, char *argv[])
 	g_test_init(&argc, &argv, NULL);
 	DLOG(TESTMUACC_NOISY_DEBUG, "Welcome to the muacc testing functions\n");
 	printf("================================================\n");
-//	g_test_add("/ctx/print_empty", dfixture, NULL, ctx_empty_setup, ctx_print, ctx_destroy);
+	//g_test_add("/ctx/print_empty", dfixture, NULL, ctx_empty_setup, ctx_print, ctx_destroy);
+	//g_test_add("/ctx/print_data", dfixture, NULL, ctx_data_setup, ctx_print, ctx_destroy);
+	g_test_add("/ctx/copy_ctx", dfixture, NULL, ctx_empty_setup, ctx_copy, ctx_destroy);
 	g_test_add_func("/ctx/create_null", ctx_create_null);
-	g_test_add_func("/sockopts/copy", sockopts_copy_valid);
+	g_test_add("/sockopts/copy_data", dfixture, NULL, ctx_data_setup, sockopts_copy, ctx_destroy);
+	g_test_add("/sockopts/copy_empty", dfixture, NULL, ctx_empty_setup, sockopts_copy, ctx_destroy);
 	g_test_add_func("/tlv/push_value", tlv_push_value);
 	g_test_add_func("/tlv/push_tag", tlv_push_tag);
 	g_test_add_func("/tlv/push_socketopt", tlv_push_socketopt);
