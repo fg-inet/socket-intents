@@ -254,7 +254,7 @@ void tlv_push_value()
 
 }
 
-void tlv_push_socketopt()
+void tlv_push_socketopt(dfixture *df, const void* param)
 {
 	char buf[MUACC_TLV_MAXLEN];
     size_t writepos = 0;
@@ -262,20 +262,15 @@ void tlv_push_socketopt()
     size_t buflen = 0;
 	size_t valuelen = 0;
 
-	muacc_tlv_t label = 0x01020304;
+	muacc_tlv_t label = sockopts_current;
 
-	const struct socketopt testopt = { .level = SOL_INTENTS, .optname = SO_CATEGORY, .optval=malloc(sizeof(enum category)), .optlen = sizeof(enum category) };
-	enum category cat = C_KEEPALIVES;
-	memcpy(testopt.optval, &cat, sizeof(enum category));
-
-	buflen = _muacc_push_socketopt_tlv(buf, &writepos, sizeof(buf), label, &testopt);
-	valuelen = sizeof(struct socketopt) + testopt.optlen;
+	buflen = _muacc_push_socketopt_tlv(buf, &writepos, sizeof(buf), label, df->context->ctx->sockopts_current);
+	valuelen = writepos - sizeof(muacc_tlv_t) - sizeof(size_t);
 
 	if (TESTMUACC_NOISY_DEBUG)
 	{
 		printf("buflen = %d, valuelen = %d [hex: %08x]\n", buflen, valuelen, valuelen);
-		printf("sizeof(socketopt) = %d, optlen = %d\n", sizeof(struct socketopt), testopt.optlen);
-		printf("{ level = %08x, optname = %08x, optlen = %08x, *optval = %08x, optval = %08x, next = %08x }\n", (unsigned int) testopt.level, (unsigned int) testopt.optname, (unsigned int) testopt.optlen, (unsigned int) testopt.optval, *(unsigned int*) testopt.optval, (unsigned int) testopt.next);
+		_muacc_print_socket_option_list((const struct socketopt *) df->context->ctx->sockopts_current);
 		tlv_print_buffer(buf, buflen);
 	}
 
@@ -283,9 +278,16 @@ void tlv_push_socketopt()
 	readpos += sizeof(muacc_tlv_t);
 	compare_tlv(buf, readpos, buflen, (const void *) &valuelen, sizeof(size_t));
 	readpos += sizeof(size_t);
-	compare_tlv(buf, readpos, buflen, (const void *) &testopt, sizeof(struct socketopt));
-	readpos += sizeof(struct socketopt);
-	compare_tlv(buf, readpos, buflen, (const void *) testopt.optval, testopt.optlen);
+
+	struct socketopt *current = df->context->ctx->sockopts_current;
+	while (current != NULL)
+	{
+		compare_tlv(buf, readpos, buflen, (const void *) current, sizeof(struct socketopt));
+		readpos += sizeof(struct socketopt);
+		compare_tlv(buf, readpos, buflen, (const void *) current->optval, current->optlen);
+		readpos += current->optlen;
+		current = current->next;
+	}
 }
 
 /** Add test cases to the test harness */
@@ -302,6 +304,6 @@ int main(int argc, char *argv[])
 	g_test_add("/sockopts/copy_empty", dfixture, NULL, ctx_empty_setup, sockopts_copy, ctx_destroy);
 	g_test_add_func("/tlv/push_value", tlv_push_value);
 	g_test_add_func("/tlv/push_tag", tlv_push_tag);
-	g_test_add_func("/tlv/push_socketopt", tlv_push_socketopt);
+	g_test_add("/tlv/push_socketopt", dfixture, NULL, ctx_data_setup, tlv_push_socketopt, ctx_destroy);
 	return g_test_run();
 }
