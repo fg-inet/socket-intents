@@ -166,6 +166,11 @@ size_t _muacc_push_socketopt_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 
 	DLOG(CLIB_TLV_NOISY_DEBUG1, "invoked buf_pos=%ld buf_len=%ld ai=%p\n", (long) *buf_pos, (long) buf_len, (void *) so0);
 
+	if (so0 == NULL)
+	{
+		return 0;
+	}
+
 	/* calculate size */
     for (so = so0; so != NULL; so = so->next)
 	{
@@ -204,10 +209,10 @@ size_t _muacc_push_socketopt_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	/* deep copy struct */
     for (so = so0; so != NULL; so = so->next)
 	{
-    	memcpy((buf+ *buf_pos), so0, sizeof(struct socketopt));
-    	*buf_pos += sizeof(struct socketopt);
+		memcpy((buf+ *buf_pos), so, sizeof(struct socketopt));
+		*buf_pos += sizeof(struct socketopt);
 
-    	if (so->optlen != 0 && so->optval != NULL)
+		if (so->optlen != 0 && so->optval != NULL)
     	{
         	memcpy((buf+ *buf_pos), so->optval, so->optlen);
         	*buf_pos += so->optlen;
