@@ -35,9 +35,18 @@ size_t _muacc_push_tlv_tag(
 	muacc_tlv_t tag    /**< [in]    	tag to push */
 );
 
+/** push socketopt in a TLV buffer
+ *
+ *  @return length of the added tlv, -1 if there was an error.
+ */
+size_t _muacc_push_socketopt_tlv(
+	char *buf,					/**< [in]		pointer to buffer to put data */
+	size_t *buf_pos,			/**< [in,out]	pointer to current offset to which the buffer is already used */
+	size_t buf_len,				/**< [in]		length of the buffer */
+	muacc_tlv_t tag,			/**< [in]		tag of the data*/
+	const struct socketopt *so0	/**< [in]		list of socketopts to push */
+);
 
-
-	
 /** make a deep copy of the addrinfo and encode in TLV
  *
  * data is arranged as followed:
