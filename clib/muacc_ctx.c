@@ -115,9 +115,8 @@ int _muacc_free_ctx (struct _muacc_ctx *_ctx)
 		if (_ctx->remote_addrinfo_hint != NULL) freeaddrinfo(_ctx->remote_addrinfo_hint);
 		if (_ctx->remote_addrinfo_res != NULL)  freeaddrinfo(_ctx->remote_addrinfo_res);
 		if (_ctx->bind_sa_req != NULL)          free(_ctx->bind_sa_req);
-		if (_ctx->bind_sa_res != NULL)          free(_ctx->bind_sa_res);
-		if (_ctx->remote_sa_req != NULL)        free(_ctx->remote_sa_req);
-		if (_ctx->remote_sa_res != NULL)        free(_ctx->remote_sa_res);
+		if (_ctx->bind_sa_suggested != NULL)          free(_ctx->bind_sa_suggested);
+		if (_ctx->remote_sa != NULL)        free(_ctx->remote_sa);
 		if (_ctx->remote_hostname != NULL)      free(_ctx->remote_hostname);
 		while (_ctx->sockopts_current != NULL)
 		{
@@ -181,9 +180,7 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	memcpy(_ctx, src->ctx, sizeof(struct _muacc_ctx));
 	
 	_ctx->bind_sa_req   = _muacc_clone_sockaddr(src->ctx->bind_sa_req, src->ctx->bind_sa_req_len);      
-	_ctx->bind_sa_res   = _muacc_clone_sockaddr(src->ctx->bind_sa_res, src->ctx->bind_sa_res_len);      
-	_ctx->remote_sa_req = _muacc_clone_sockaddr(src->ctx->remote_sa_req, src->ctx->remote_sa_req_len);    
-	_ctx->remote_sa_res = _muacc_clone_sockaddr(src->ctx->remote_sa_res, src->ctx->remote_sa_res_len);    
+	_ctx->bind_sa_suggested   = _muacc_clone_sockaddr(src->ctx->bind_sa_suggested, src->ctx->bind_sa_suggested_len);      
 	
 	_ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(src->ctx->remote_addrinfo_hint);	
 	_ctx->remote_addrinfo_res  = _muacc_clone_addrinfo(src->ctx->remote_addrinfo_res);	
@@ -223,16 +220,12 @@ size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, const struct _muacc_c
     	0 > _muacc_push_tlv(buf, pos, len, bind_sa_req,		ctx->bind_sa_req, 		ctx->bind_sa_req_len        ) ) goto _muacc_pack_ctx_err;
 	
 	DLOG(CLIB_CTX_NOISY_DEBUG2,"bind_sa_res pos=%ld\n", (long) *pos);
-	if( ctx->bind_sa_res != NULL &&
-		0 > _muacc_push_tlv(buf, pos, len, bind_sa_res,		ctx->bind_sa_res,		ctx->bind_sa_res_len        ) ) goto _muacc_pack_ctx_err;
-	
-	DLOG(CLIB_CTX_NOISY_DEBUG2,"remote_sa_req pos=%ld\n", (long) *pos);
-	if( ctx->remote_sa_req != NULL &&
-		0 > _muacc_push_tlv(buf, pos, len, remote_sa_req,  	ctx->remote_sa_req, 	ctx->remote_sa_req_len      ) ) goto _muacc_pack_ctx_err;
-	
-	DLOG(CLIB_CTX_NOISY_DEBUG2,"remote_sa_res pos=%ld\n", (long) *pos);
-	if( ctx->remote_sa_res != NULL &&
-		0 > _muacc_push_tlv(buf, pos, len, remote_sa_res,  	ctx->remote_sa_res, 	ctx->remote_sa_res_len      ) ) goto _muacc_pack_ctx_err;
+	if( ctx->bind_sa_suggested != NULL &&
+		0 > _muacc_push_tlv(buf, pos, len, bind_sa_res,		ctx->bind_sa_suggested,		ctx->bind_sa_suggested_len        ) ) goto _muacc_pack_ctx_err;
+
+	DLOG(CLIB_CTX_NOISY_DEBUG2,"remote_sas pos=%zd\n", *pos);
+	if( ctx->remote_sa != NULL &&
+		0 > _muacc_push_tlv(buf, pos, len, remote_sa,  	ctx->remote_sa, 	ctx->remote_sa_len      ) ) goto _muacc_pack_ctx_err;
 	
 	DLOG(CLIB_CTX_NOISY_DEBUG2,"remote_hostname pos=%ld\n", (long) *pos);
 	if( ctx->remote_hostname != NULL && /* strlen(NULL) might have undesired side effects… */
@@ -280,28 +273,18 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking bind_sa_res\n");
 			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
-				free(_ctx->bind_sa_res);
-				_ctx->bind_sa_res = sa;
+				free(_ctx->bind_sa_suggested);
+				_ctx->bind_sa_suggested = sa;
 			}
 			else
 				return(-1);
 			break;
-		case remote_sa_req:
-			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking remote_sa_req\n");
+		case remote_sa:
+			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking remote_sa\n");
 			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
-				free(_ctx->remote_sa_req);
-				_ctx->remote_sa_req = sa;
-			}
-			else
-				return(-1);
-			break;
-		case remote_sa_res:
-			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking remote_sa_res\n");
-			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
-			{
-				free(_ctx->remote_sa_res);
-				_ctx->remote_sa_res = sa;
+				free(_ctx->remote_sa);
+				_ctx->remote_sa = sa;
 			}
 			else
 				return(-1);
@@ -383,11 +366,8 @@ void _muacc_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct _
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tbind_sa_req = ");
 		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->bind_sa_req, _ctx->bind_sa_req_len);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tbind_sa_res = ");
-		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->bind_sa_res, _ctx->bind_sa_res_len);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_sa_req = ");
-		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->remote_sa_req, _ctx->remote_sa_req_len);
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tbind_sa_suggested = ");
+		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->bind_sa_suggested, _ctx->bind_sa_suggested_len);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_hostname = %s,\n", _ctx->remote_hostname);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_addrinfo_hint = ");
@@ -397,7 +377,7 @@ void _muacc_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct _
 		_muacc_print_addrinfo(buf, buf_pos, buf_len, _ctx->remote_addrinfo_res);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_sa_res = ");
-		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->remote_sa_res, _ctx->remote_sa_res_len);
+		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->remote_sa, _ctx->remote_sa_len);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tsockopts_current = ");
 		_muacc_print_socket_options(buf, buf_pos, buf_len, _ctx->sockopts_current);

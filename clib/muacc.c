@@ -281,15 +281,8 @@ int muacc_connect(struct muacc_context *ctx,
 		goto muacc_connect_fallback;
 	}
 	
-	ctx->ctx->remote_sa_req     = _muacc_clone_sockaddr((struct sockaddr *)address, address_len);
-	ctx->ctx->remote_sa_req_len = address_len;
-	
-	if(ctx->ctx->remote_sa_res == NULL)
-	{
-		/* set default request as default */
-		ctx->ctx->remote_sa_res 	= _muacc_clone_sockaddr((struct sockaddr *)address, address_len);
-		ctx->ctx->remote_sa_res_len	= address_len;
-	}
+	ctx->ctx->remote_sa     = _muacc_clone_sockaddr((struct sockaddr *)address, address_len);
+	ctx->ctx->remote_sa_len = address_len;
 	
 	if( _muacc_contact_mam(muacc_act_connect_req, ctx->ctx) <0 ){
 		_unlock_ctx(ctx->ctx);
@@ -299,7 +292,7 @@ int muacc_connect(struct muacc_context *ctx,
 	
 	_unlock_ctx(ctx->ctx);
 	
-	return connect(socket, ctx->ctx->remote_sa_res, ctx->ctx->remote_sa_res_len);
+	return connect(socket, ctx->ctx->remote_sa, ctx->ctx->remote_sa_len);
 	
 	
 muacc_connect_fallback:
