@@ -237,6 +237,12 @@ size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, const struct _muacc_c
 	DLOG(CLIB_CTX_NOISY_DEBUG2,"remote_addrinfo_res pos=%ld\n", (long) *pos);
 	if( 0 > _muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_res,  ctx->remote_addrinfo_res ) ) goto _muacc_pack_ctx_err;
 
+	DLOG(CLIB_CTX_NOISY_DEBUG2,"sockopts_current pos=%ld\n", (long) *pos);
+	if( 0 > _muacc_push_socketopt_tlv(buf, pos, len, sockopts_current,  ctx->sockopts_current ) ) goto _muacc_pack_ctx_err;
+
+	DLOG(CLIB_CTX_NOISY_DEBUG2,"sockopts_suggested pos=%ld\n", (long) *pos);
+	if( 0 > _muacc_push_socketopt_tlv(buf, pos, len, sockopts_suggested,  ctx->sockopts_suggested ) ) goto _muacc_pack_ctx_err;
+
 	return ( *pos - pos0 );
 	
 _muacc_pack_ctx_err:
@@ -250,6 +256,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 {
 	struct addrinfo *ai;
 	struct sockaddr *sa;
+	struct socketopt *so;
 	char *str;
 
 
@@ -320,6 +327,29 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			else
 				return(-1);
 			break;
+
+		case sockopts_current:
+			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking sockopts_current\n");
+			if( _muacc_extract_socketopt_tlv( data, data_len, &so) > 0)
+			{
+				_muacc_free_socketopts(_ctx->sockopts_current);
+				_ctx->sockopts_current = so;
+			}
+			else
+				return(-1);
+			break;
+
+		case sockopts_suggested:
+			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking sockopts_suggested\n");
+			if( _muacc_extract_socketopt_tlv( data, data_len, &so) > 0)
+			{
+				_muacc_free_socketopts(_ctx->sockopts_suggested);
+				_ctx->sockopts_suggested = so;
+			}
+			else
+				return(-1);
+			break;
+
 
 		default:
 			DLOG(CLIB_CTX_NOISY_DEBUG0, "_muacc_unpack_ctx: ignoring unknown tag %x\n", tag);

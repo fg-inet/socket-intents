@@ -53,7 +53,9 @@ typedef enum
 	remote_srvname,	   		/**< remote service name */
 	remote_addrinfo_hint,	/**< candidate remote addresses (sorted by mam preference) */
 	remote_addrinfo_res,	/**< candidate remote addresses (sorted by mam preference) */
-	remote_sa     			/**< remote address choosen */
+	remote_sa,     			/**< remote address choosen */
+	sockopts_current,		/**< list of currently set sockopts */
+	sockopts_suggested		/**< list of sockopts suggested by MAM */
 } muacc_tlv_t;
 
 #endif /* __MUACC_TYPES_H__ */
