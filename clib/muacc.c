@@ -293,10 +293,44 @@ int muacc_getsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 
 int muacc_bind(muacc_context_t *ctx, int socket, const struct sockaddr *address, socklen_t address_len)
 {
+	int ret = -1;
+	
 	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
 	
+	if( ctx == NULL )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "NULL context - fallback to regular connect\n");
+		goto muacc_bind_fallback;
+	}
+	else if( ctx->ctx == NULL )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - trying to initialize\n");
+		muacc_init_context(ctx);
+		if( ctx->ctx == NULL )
+			goto muacc_bind_fallback;
+	}
+			
+	if( _lock_ctx(ctx->ctx) )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular connect\n");
+		_unlock_ctx(ctx->ctx);
+		goto muacc_bind_fallback;
+	}
 	
+	ret = bind(socket, address, address_len);
 	
+	if (ret == 0) 
+	{
+		ctx->ctx->bind_sa_req = _muacc_clone_sockaddr(address, address_len);
+		ctx->ctx->bind_sa_req_len = address_len;	
+	}
+	_unlock_ctx(ctx->ctx);
+	return ret;
+	
+	muacc_bind_fallback:
+	
+	return bind(socket, address, address_len);
+		
 }
 
 int muacc_connect(muacc_context_t *ctx,
@@ -331,6 +365,20 @@ int muacc_connect(muacc_context_t *ctx,
 		_unlock_ctx(ctx->ctx);
 		DLOG(CLIB_IF_NOISY_DEBUG0, "got no response from mam - fallback to regular connect\n");
 		goto muacc_connect_fallback;
+	}
+	
+	/* bind if no request but the mam suggestion exists */
+	if ( ctx->ctx->bind_sa_req == NULL && ctx->ctx->bind_sa_suggested != NULL ) 
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "trying to bind with mam-supplied data\n");
+		if( bind(socket, ctx->ctx->bind_sa_suggested, ctx->ctx->bind_sa_suggested_len) != NULL )
+		{
+			DLOG(CLIB_IF_NOISY_DEBUG0, "error binding with mam-supplied data: %s\n", strerror(errno));
+		}
+		else
+		{
+			DLOG(CLIB_IF_NOISY_DEBUG1, " binding with mam-supplied succeeded\n", strerror(errno));
+		}	
 	}
 	
 	_unlock_ctx(ctx->ctx);

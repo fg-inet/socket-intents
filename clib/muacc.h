@@ -61,6 +61,12 @@ int muacc_getsockopt(muacc_context_t *ctx,
 	int socket, int level, int option_name,
 	void *option_value, socklen_t *option_len);
 
+/** wrapper for bind, calls original bind and records to ctx 
+ *
+ */
+int muacc_bind(muacc_context_t *ctx, int socket, const struct sockaddr *address, socklen_t address_len);
+
+
 /** wrapper for connect using info from ctx
  *
  */
