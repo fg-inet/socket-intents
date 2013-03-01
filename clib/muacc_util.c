@@ -299,8 +299,9 @@ size_t _muacc_print_socket_options(char *buf, size_t *buf_pos, size_t buf_len, c
 			else
 			{
 				int *value = current->optval;
-				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optval = %d ", *value);
+				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optval = %d, ", *value);
 			}
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optlen = %d ", current->optlen);
 			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }");
 			current = current->next;
 		}

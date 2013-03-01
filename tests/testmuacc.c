@@ -30,7 +30,11 @@
 typedef struct
 {
 	muacc_context_t *context;
+	char *tlv_buffer;
+	size_t tlv_buffer_len;
 } dfixture;
+
+uint32_t deadbeef = 0xdeadbeef;
 
 /** Helper that creates an empty muacc context
  *
@@ -92,6 +96,61 @@ void ctx_destroy(dfixture *df, const void *test_data)
 	DLOG(TESTMUACC_NOISY_DEBUG, "\n===========\n");
 }
 
+/** Helper that creates a large tlv buffer with test pattern
+ *
+ */
+void tlv_empty_setup(dfixture *df, const void *test_data)
+{
+	DLOG(TESTMUACC_NOISY_DEBUG, "\n===========\n");
+	df->tlv_buffer_len = MUACC_TLV_MAXLEN;
+	df->tlv_buffer = malloc(df->tlv_buffer_len);
+	DLOG(TESTMUACC_NOISY_DEBUG, "allocated %zd bytes for df->tlv_buffer - got buffer at %p\n", df->tlv_buffer_len, df->tlv_buffer);
+	memset_pattern4(df->tlv_buffer, &deadbeef, df->tlv_buffer_len);
+}
+
+/** Helper that creates a damn small tlv buffer with test pattern
+ *
+ */
+void tlv_evilshort_setup(dfixture *df, const void *test_data)
+{
+	DLOG(TESTMUACC_NOISY_DEBUG, "\n===========\n");
+	df->tlv_buffer_len = sizeof(muacc_tlv_t)+sizeof(size_t)+1;
+	df->tlv_buffer = malloc(df->tlv_buffer_len);
+	DLOG(TESTMUACC_NOISY_DEBUG, "allocated %zd bytes for df->tlv_buffer - got buffer at %p\n", df->tlv_buffer_len, df->tlv_buffer);
+	memset_pattern4(df->tlv_buffer, &deadbeef, df->tlv_buffer_len);
+}
+
+
+/** Helper that releases a the tlv buffer
+ *
+ */
+void tlv_destroy(dfixture *df, const void *test_data)
+{
+	muacc_release_context(df->context);
+	free(df->tlv_buffer);
+	df->tlv_buffer = NULL;
+	df->tlv_buffer_len = 0;
+	DLOG(TESTMUACC_NOISY_DEBUG, "\n===========\n");
+}
+
+void ctx_data_tlv_evilshort_setup(dfixture *df, const void* param)
+{
+	ctx_data_setup(df, param);
+	tlv_evilshort_setup(df, param);
+}
+
+void ctx_data_tlv_empty_setup(dfixture *df, const void* param)
+{
+	ctx_data_setup(df, param);
+	tlv_empty_setup(df, param);
+}
+
+void ctx_tlv_destroy(dfixture *df, const void* param)
+{
+	tlv_destroy(df, param);
+	ctx_destroy(df, param);
+}
+
 /** Helper that compares two lists of sockopts
  *
  */
@@ -150,7 +209,7 @@ void compare_tlv(char *buf, size_t buf_pos, size_t buf_len, const void *value, s
 	const unsigned int *val = value;
 
 	g_assert(buf_pos + value_len <= buf_len);
-	DLOG(TESTMUACC_NOISY_DEBUG, "Comparing buffer with buf_pos %d, buf_len %d, value_len %d\n", buf_pos, buf_len, value_len);
+	DLOG(TESTMUACC_NOISY_DEBUG, "Comparing buffer with buf_pos %zd, buf_len %zd, value_len %zd\n", buf_pos, buf_len, value_len);
 	for (int i = 0; i < value_len; i++)
 	{
 		unsigned int mask = *(val + i/4) & (0xff << 8*i);
@@ -215,7 +274,7 @@ void tlv_push_tag()
     muacc_tlv_t label = 0x12345678;
 	size_t valuelen = 0;
 
-    DLOG(TESTMUACC_NOISY_DEBUG, "Pushing label %x of length %d\n", (unsigned int) label, sizeof(muacc_tlv_t));
+    DLOG(TESTMUACC_NOISY_DEBUG, "Pushing label %x of length %zd\n", (unsigned int) label, sizeof(muacc_tlv_t));
 
     buflen = _muacc_push_tlv_tag(buf, &writepos, sizeof(buf), label);
 
@@ -256,20 +315,23 @@ void tlv_push_value()
 
 void tlv_push_socketopt(dfixture *df, const void* param)
 {
-	char buf[MUACC_TLV_MAXLEN];
+	char *buf;
     size_t writepos = 0;
 	size_t readpos = 0;
     size_t buflen = 0;
 	size_t valuelen = 0;
-
+	
+	
 	muacc_tlv_t label = sockopts_current;
 
-	buflen = _muacc_push_socketopt_tlv(buf, &writepos, sizeof(buf), label, df->context->ctx->sockopts_current);
+	buflen = _muacc_push_socketopt_tlv(df->tlv_buffer, &writepos, df->tlv_buffer_len, label, df->context->ctx->sockopts_current);
 	valuelen = writepos - sizeof(muacc_tlv_t) - sizeof(size_t);
+	buf = df->tlv_buffer;
+	
 
 	if (TESTMUACC_NOISY_DEBUG)
 	{
-		printf("buflen = %d, valuelen = %d [hex: %08x]\n", buflen, valuelen, valuelen);
+		printf("buflen = %zd, valuelen = %zd [hex: %08zx]\n", buflen, valuelen, valuelen);
 		_muacc_print_socket_option_list((const struct socketopt *) df->context->ctx->sockopts_current);
 		tlv_print_buffer(buf, buflen);
 	}
@@ -288,7 +350,38 @@ void tlv_push_socketopt(dfixture *df, const void* param)
 		readpos += current->optlen;
 		current = current->next;
 	}
+
 }
+
+void tlv_unpack_socketopt(dfixture *df, const void* param)
+{
+	struct socketopt *newopt;
+
+	char *buf;
+    size_t writepos = 0;
+	size_t readpos = 0;
+    size_t buflen = 0;
+	size_t valuelen = 0;
+	
+	
+	muacc_tlv_t label = sockopts_current;
+
+	if (TESTMUACC_NOISY_DEBUG) 
+		_muacc_print_socket_option_list(df->context->ctx->sockopts_current);
+
+	buflen = _muacc_push_socketopt_tlv(df->tlv_buffer, &writepos, df->tlv_buffer_len, label, df->context->ctx->sockopts_current);
+	valuelen = writepos - sizeof(muacc_tlv_t) - sizeof(size_t);
+	
+	readpos = sizeof(muacc_tlv_t) + sizeof(size_t);
+	_muacc_extract_socketopt_tlv((df->tlv_buffer)+readpos, valuelen, &newopt);
+	
+	compare_sockopts(df->context->ctx->sockopts_current, newopt);
+	if (TESTMUACC_NOISY_DEBUG) 
+		_muacc_print_socket_option_list((const struct socketopt *) newopt);
+}
+
+
+
 
 /** Add test cases to the test harness */
 int main(int argc, char *argv[])
@@ -296,14 +389,16 @@ int main(int argc, char *argv[])
 	g_test_init(&argc, &argv, NULL);
 	DLOG(TESTMUACC_NOISY_DEBUG, "Welcome to the muacc testing functions\n");
 	printf("================================================\n");
-	//g_test_add("/ctx/print_empty", dfixture, NULL, ctx_empty_setup, ctx_print, ctx_destroy);
-	//g_test_add("/ctx/print_data", dfixture, NULL, ctx_data_setup, ctx_print, ctx_destroy);
+	// g_test_add("/ctx/print_empty", dfixture, NULL, ctx_empty_setup, ctx_print, ctx_destroy);
+	g_test_add("/ctx/print_data", dfixture, NULL, ctx_data_setup, ctx_print, ctx_destroy);
 	g_test_add("/ctx/copy_ctx", dfixture, NULL, ctx_empty_setup, ctx_copy, ctx_destroy);
 	g_test_add_func("/ctx/create_null", ctx_create_null);
 	g_test_add("/sockopts/copy_data", dfixture, NULL, ctx_data_setup, sockopts_copy, ctx_destroy);
 	g_test_add("/sockopts/copy_empty", dfixture, NULL, ctx_empty_setup, sockopts_copy, ctx_destroy);
 	g_test_add_func("/tlv/push_value", tlv_push_value);
 	g_test_add_func("/tlv/push_tag", tlv_push_tag);
-	g_test_add("/tlv/push_socketopt", dfixture, NULL, ctx_data_setup, tlv_push_socketopt, ctx_destroy);
+	g_test_add("/tlv/push_socketopt", dfixture, NULL, ctx_data_tlv_empty_setup, tlv_push_socketopt, ctx_tlv_destroy);
+	// g_test_add("/tlv/push_socketopt/evulshortbuf", dfixture, NULL, ctx_data_tlv_evilshort_setup, tlv_push_socketopt, ctx_tlv_destroy);
+	g_test_add("/tlv/unpack_socketopt", dfixture, NULL, ctx_data_tlv_empty_setup, tlv_unpack_socketopt, ctx_tlv_destroy);
 	return g_test_run();
 }

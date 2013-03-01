@@ -84,7 +84,7 @@ size_t _muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 
     const struct addrinfo *ai;
 	size_t data_len = 0; 
-	size_t tlv_len = -1; 
+	size_t tlv_len = 0; 
 
 	DLOG(CLIB_TLV_NOISY_DEBUG1, "invoked buf_pos=%ld buf_len=%ld ai=%p\n", (long) *buf_pos, (long) buf_len, (void *) ai0);
 
@@ -162,7 +162,7 @@ size_t _muacc_push_socketopt_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 
     const struct socketopt *so;
 	size_t data_len = 0;
-	size_t tlv_len = -1;
+	size_t tlv_len = 0;
 
 	DLOG(CLIB_TLV_NOISY_DEBUG1, "invoked buf_pos=%ld buf_len=%ld ai=%p\n", (long) *buf_pos, (long) buf_len, (void *) so0);
 
@@ -174,9 +174,8 @@ size_t _muacc_push_socketopt_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	/* calculate size */
     for (so = so0; so != NULL; so = so->next)
 	{
-		size_t i = 0;
+		size_t i = sizeof(struct socketopt);
 
-		i += sizeof(struct socketopt);
 		if (so->optlen != 0 && so->optval != NULL)
 			i += so->optlen;
 
@@ -219,7 +218,7 @@ size_t _muacc_push_socketopt_tlv( char *buf, size_t *buf_pos, size_t buf_len,
     	}
 	}
 
-	DLOG(CLIB_TLV_NOISY_DEBUG1, "done total length copied was %ld - returning\n", (long) tlv_len);
+	DLOG(CLIB_TLV_NOISY_DEBUG1, "done total length used was %ld - returning\n", (long) tlv_len);
 	return(tlv_len);
 
 }
@@ -391,7 +390,7 @@ size_t _muacc_extract_socketopt_tlv( const char *data, size_t data_len, struct s
 			goto _muacc_extract_socketopt_tlv_malloc_failed;
 		allocated += sizeof(struct socketopt);
 		memcpy( so, (void *) (data + data_pos),sizeof(struct socketopt));
-		data_pos += sizeof(struct addrinfo);
+		data_pos += sizeof(struct socketopt);
 
 		DLOG(CLIB_TLV_NOISY_DEBUG2, "copied socketaddr to %p\n", (void *) so);
 
@@ -409,6 +408,9 @@ size_t _muacc_extract_socketopt_tlv( const char *data, size_t data_len, struct s
 				goto _muacc_extract_socketopt_tlv_malloc_failed;
 
 			memcpy(so->optval, (void *) (data + data_pos), so->optlen );
+			data_pos += so->optlen;
+			
+			DLOG(CLIB_TLV_NOISY_DEBUG2, "copied %zd bytes of data to %p\n", so->optlen, (void *) so->optval);
 		}
 
 		/* weave pointer magic */
