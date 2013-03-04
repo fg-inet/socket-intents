@@ -56,6 +56,7 @@ struct _muacc_ctx *_muacc_create_ctx()
 	}
 	memset(_ctx, 0x00, sizeof(struct _muacc_ctx));
 	_ctx->usage = 1;
+	_ctx->mamsock = -1;
 
 	DLOG(CLIB_CTX_NOISY_DEBUG1,"created new _ctx=%p successfully  \n", (void *) _ctx);
 
@@ -68,19 +69,6 @@ int muacc_init_context(struct muacc_context *ctx)
 
 	if(_ctx == NULL || ctx == NULL)
 		return(-1);
-
-	/* connect to MAM */
-	if(_muacc_connect_ctx_to_mam(_ctx))
-	{
-		DLOG(CLIB_CTX_NOISY_DEBUG0,"warning: could not connect to MAM\n");
-
-		/* free context backing struct */
-		free(_ctx);
-
-		/* declare interface struct invalid */
-		ctx->ctx = NULL;
-		return(-1);
-	}
 
 	DLOG(CLIB_CTX_NOISY_DEBUG1,"connected & context successfully initalized\n");
 
@@ -111,7 +99,7 @@ int _muacc_free_ctx (struct _muacc_ctx *_ctx)
 	{
 		DLOG(CLIB_CTX_NOISY_DEBUG2, "trying to free data fields\n");
 		
-		if (_ctx->mamsock != 0) 				close(_ctx->mamsock);
+		if (_ctx->mamsock != -1) 				close(_ctx->mamsock);
 		if (_ctx->remote_addrinfo_hint != NULL) freeaddrinfo(_ctx->remote_addrinfo_hint);
 		if (_ctx->remote_addrinfo_res != NULL)  freeaddrinfo(_ctx->remote_addrinfo_res);
 		if (_ctx->bind_sa_req != NULL)          free(_ctx->bind_sa_req);
@@ -191,18 +179,12 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	_ctx->sockopts_suggested = _muacc_clone_socketopts(src->ctx->sockopts_suggested);
 
 	_ctx->usage = 1;
+	
+	_ctx->mamsock = -1;
+	
 	dst->ctx = _ctx;
 	
-	/* connect to MAM */
-	if(_muacc_connect_ctx_to_mam(_ctx))
-	{
-		/* free context backing struct */
-		muacc_release_context(dst);
 	
-		/* declare interface struct invalid */
-		dst->ctx = NULL;
-		return(-1);	
-	}
 	
 	return(0);	
 }

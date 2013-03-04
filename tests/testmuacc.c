@@ -20,6 +20,17 @@
 #include "../libintents/libintents.h"
 #include "../clib/dlog.h"
 
+#ifndef memset_pattern4
+void memset_pattern4 (void *dst, const void *pat, size_t len)
+{
+ 	char *pos = (char *) dst;
+	while(len > 0){
+		memcpy(pos, pat, len>4?4:len);
+		pos+=4; len -=4;
+	} 
+}
+#endif
+
 #ifndef TESTMUACC_NOISY_DEBUG
 #define TESTMUACC_NOISY_DEBUG 0
 #endif

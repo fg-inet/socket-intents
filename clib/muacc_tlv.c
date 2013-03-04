@@ -638,14 +638,16 @@ muacc_read_tlv_err:
 
 int _muacc_connect_ctx_to_mam(struct _muacc_ctx *_ctx)
 {
-
 	struct sockaddr_un mams;
 	mams.sun_family = AF_UNIX;
 	#ifdef HAVE_SOCKADDR_LEN
 	mams.sun_len = sizeof(struct sockaddr_un);
 	#endif
+	
+	if(	_ctx->mamsock != -1 )
+		return 0;
+	
 	strncpy( mams.sun_path, MUACC_SOCKET, sizeof(mams.sun_path));
-
 	_ctx->mamsock = socket(PF_UNIX, SOCK_STREAM, 0);
 	if(_ctx->mamsock == -1)
 	{
@@ -656,6 +658,8 @@ int _muacc_connect_ctx_to_mam(struct _muacc_ctx *_ctx)
 	if(connect(_ctx->mamsock, (struct sockaddr*) &mams, sizeof(mams)) < 0)
 	{
 		DLOG(CLIB_TLV_NOISY_DEBUG0, "WARNING: connect to mam via %s failed: %s\n",  mams.sun_path, strerror(errno));
+		close(_ctx->mamsock);
+		_ctx->mamsock = -1;
 		return(-errno);
 	}
 
@@ -672,6 +676,13 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 	muacc_tlv_t tag;
 	void *data;
 	size_t data_len;
+	
+	/* connect to MAM */
+	if(	_muacc_connect_ctx_to_mam(_ctx) != 0 )
+	{
+		DLOG(CLIB_TLV_NOISY_DEBUG0, "WARNING: failed to contact MAM\n");
+		goto _muacc_contact_mam_connect_err;
+	}
 
 	DLOG(CLIB_TLV_NOISY_DEBUG1, "packing request\n");
 
@@ -686,7 +697,7 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 	if( 0 > (ret = send(_ctx->mamsock, buf, pos, 0)) )
 	{
 		DLOG(CLIB_TLV_NOISY_DEBUG0, "WARNING: error sending request: %s\n", strerror(errno));
-		return(-1);
+		goto _muacc_contact_mam_connect_err;
 	}
 	else
  	{
@@ -707,6 +718,8 @@ int _muacc_contact_mam (muacc_mam_action_t reason, struct _muacc_ctx *_ctx)
 	DLOG(CLIB_TLV_NOISY_DEBUG2, "processing response done: pos=%li last_res=%li done\n", (long int) pos, (long int) ret);
 	return(0);
 
+_muacc_contact_mam_connect_err:
+	return(-1);
 
 _muacc_contact_mam_pack_err:
 
