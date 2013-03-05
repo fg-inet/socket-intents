@@ -271,6 +271,62 @@ void sockopts_copy(dfixture *df, const void *param)
 	if (TESTMUACC_NOISY_DEBUG) _muacc_print_socket_option_list((const struct socketopt *) newopt);
 }
 
+void socketcalls(dfixture *df, const void *param)
+{
+	struct addrinfo *hints = malloc(sizeof(struct addrinfo));
+	memset(hints, 0, sizeof(struct addrinfo));
+	hints->ai_family = AF_UNSPEC;
+	hints->ai_socktype = SOCK_DGRAM;
+	hints->ai_flags = AI_PASSIVE;
+	hints->ai_protocol = 0;
+
+	struct addrinfo *result = NULL;
+	struct addrinfo *candidate = NULL;
+	int ret = -2;
+	int sfd;
+
+	ret = muacc_getaddrinfo(df->context, NULL, "1338", hints, &result);
+	g_assert_cmpint(ret, ==, 0);
+	g_assert(result != NULL);
+
+	for (candidate = result; candidate != NULL; candidate = candidate->ai_next) {
+		printf("trying out\n");
+		sfd = socket(candidate->ai_family, candidate->ai_socktype, candidate->ai_protocol);
+		if (sfd == -1)
+			continue;
+		if (muacc_bind(df->context, sfd, candidate->ai_addr, candidate->ai_addrlen) == 0)
+			break;
+
+		close (sfd);
+	}
+
+	g_assert_cmpint(sfd, >, 0);
+
+	hints->ai_flags = 0;
+	result = NULL;
+
+	ret = muacc_getaddrinfo(df->context, "www.maunz.org", "1337", hints, &result);
+	g_assert_cmpint(ret, ==, 0);
+	g_assert(result != NULL);
+
+	for (candidate = result; candidate != NULL; candidate = candidate->ai_next) {
+		if (muacc_connect(df->context, sfd, candidate->ai_addr, candidate->ai_addrlen) == 0)
+			break;
+	}
+	freeaddrinfo(result);
+
+	ctx_print(df, NULL);
+
+	/* test if socket is writeable, i.e. we have connected successfully */
+	char buf[MUACC_TLV_MAXLEN];
+	strncpy(buf, "ohai", 5);
+	ret = send(sfd, buf, 5, 0);
+	g_assert_cmpint(ret, >, 0);
+
+	ret = close(sfd);
+	g_assert_cmpint(ret, ==, 0);
+}
+
 /** Test that checks if a tag is pushed correctly to the buffer
  *  Buffer should then contain the tag in host byte order,
  *  a length of 0 and no data
@@ -404,6 +460,7 @@ int main(int argc, char *argv[])
 	g_test_add("/ctx/print_data", dfixture, NULL, ctx_data_setup, ctx_print, ctx_destroy);
 	g_test_add("/ctx/copy_ctx", dfixture, NULL, ctx_empty_setup, ctx_copy, ctx_destroy);
 	g_test_add_func("/ctx/create_null", ctx_create_null);
+	g_test_add("/ctx/socketcalls", dfixture, NULL, ctx_empty_setup, socketcalls, ctx_destroy);
 	g_test_add("/sockopts/copy_data", dfixture, NULL, ctx_data_setup, sockopts_copy, ctx_destroy);
 	g_test_add("/sockopts/copy_empty", dfixture, NULL, ctx_empty_setup, sockopts_copy, ctx_destroy);
 	g_test_add_func("/tlv/push_value", tlv_push_value);
