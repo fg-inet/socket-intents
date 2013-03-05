@@ -423,7 +423,7 @@ void _muacc_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct _
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_addrinfo_res = ");
 		_muacc_print_addrinfo(buf, buf_pos, buf_len, _ctx->remote_addrinfo_res);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_sa_res = ");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_sa = ");
 		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->remote_sa, _ctx->remote_sa_len);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tsockopts_current = ");
