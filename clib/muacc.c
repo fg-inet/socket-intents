@@ -70,11 +70,20 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 		freeaddrinfo(ctx->ctx->remote_addrinfo_hint);
 	ctx->ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(hints);
 	
+	/* clear result from previous calls */
+	if (ctx->ctx->remote_addrinfo_res != NULL)
+	{
+		ctx->ctx->remote_addrinfo_res = NULL;
+	}
+
 	/* contact mam */
 	_muacc_contact_mam(muacc_act_getaddrinfo_resolve_req, ctx->ctx);
 	
 	if(ctx->ctx->remote_addrinfo_res != NULL)
+	{
+		*res = _muacc_clone_addrinfo(ctx->ctx->remote_addrinfo_res);
 		ret = 0;
+	}
 	else
 	{
 		/* do query on our own */
