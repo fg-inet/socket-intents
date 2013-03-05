@@ -21,6 +21,7 @@ typedef struct socketopt {
 	struct socketopt 	*next;				/**< Pointer to the next socket option */
 } socketopt_t;
 
+typedef uint64_t muacc_ctxid_t;
 /** Internal muacc context struct */
 struct _muacc_ctx {
 	int 				usage;                  /**< reference counter */
@@ -30,6 +31,7 @@ struct _muacc_ctx {
 	struct evbuffer 	*in;					/**< input buffer when used with libevent2 */
 	muacc_mam_action_t	state;					/**< state machine state */
 	/* fields below will be serialized */
+	muacc_ctxid_t		ctxid;					/**< identifyer for the context if sharing mamsock */
 	struct sockaddr 	*bind_sa_req;       	/**< local address requested by bind call */
 	socklen_t 			 bind_sa_req_len;      	/**< length of bind_sa_req*/
 	struct sockaddr 	*bind_sa_suggested;     /**< local address suggested by MAM */
@@ -47,6 +49,7 @@ typedef enum
 {
 	eof = 0x00,		    	/**< end of TLV data – always 0 bytes */
 	action,					/**< action triggering request */
+	ctxid = 0x08,			/**< identifyer for the context if sharing mamsock */
 	bind_sa_req = 0x12, 	/**< local address requested */
 	bind_sa_res,        	/**< local address choosen by mam */
 	remote_hostname = 0x20,	/**< remote host name */
