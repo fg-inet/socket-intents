@@ -32,6 +32,7 @@ struct _muacc_ctx {
 	muacc_mam_action_t	state;					/**< state machine state */
 	/* fields below will be serialized */
 	muacc_ctxid_t		ctxid;					/**< identifyer for the context if sharing mamsock */
+	unsigned int		calls_performed;		/**< contains flags of which socket call have been performed*/
 	struct sockaddr 	*bind_sa_req;       	/**< local address requested by bind call */
 	socklen_t 			 bind_sa_req_len;      	/**< length of bind_sa_req*/
 	struct sockaddr 	*bind_sa_suggested;     /**< local address suggested by MAM */
@@ -49,6 +50,7 @@ typedef enum
 {
 	eof = 0x00,		    	/**< end of TLV data – always 0 bytes */
 	action,					/**< action triggering request */
+	calls_performed,		/**< flags of which socket calls have already been performed */
 	ctxid = 0x08,			/**< identifyer for the context if sharing mamsock */
 	bind_sa_req = 0x12, 	/**< local address requested */
 	bind_sa_res,        	/**< local address choosen by mam */
@@ -60,5 +62,10 @@ typedef enum
 	sockopts_current,		/**< list of currently set sockopts */
 	sockopts_suggested		/**< list of sockopts suggested by MAM */
 } muacc_tlv_t;
+
+/** Flags for storing which socketcalls have been performed */
+#define MUACC_GETADDRINFO_CALLED 0x0004
+#define MUACC_BIND_CALLED 0x0008
+#define MUACC_CONNECT_CALLED 0x0010
 
 #endif /* __MUACC_TYPES_H__ */

@@ -208,6 +208,9 @@ size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, const struct _muacc_c
 	DLOG(CLIB_CTX_NOISY_DEBUG2,"ctxid pos=%ld\n", *pos);
     if(	0 > _muacc_push_tlv(buf, pos, len, ctxid, &(ctx->ctxid), sizeof(ctx->ctxid) ) ) goto _muacc_pack_ctx_err;
 
+	DLOG(CLIB_CTX_NOISY_DEBUG2,"calls_performed=%x pos=%ld\n", ctx->calls_performed, (long) *pos);
+	if ( 0 > _muacc_push_tlv(buf, pos, len, calls_performed, &ctx->calls_performed, sizeof(int))) goto _muacc_pack_ctx_err;
+
 	DLOG(CLIB_CTX_NOISY_DEBUG2,"bind_sa_req pos=%zd\n", *pos);
     if( ctx->bind_sa_req != NULL &&
     	0 > _muacc_push_tlv(buf, pos, len, bind_sa_req,		ctx->bind_sa_req, 		ctx->bind_sa_req_len        ) ) goto _muacc_pack_ctx_err;
@@ -275,6 +278,10 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				return(-1);
 			}
 			break;
+		case calls_performed:
+				DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking calls_performed\n");
+				_ctx->calls_performed = *(int *) data;
+				break;
 		case bind_sa_req:
 			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking bind_sa_req\n");
 			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
@@ -402,6 +409,7 @@ void _muacc_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct _
 
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\t// exported values\n");
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tctxid = (%6d,%6d ),\n", (uint32_t) (_ctx->ctxid>>32), (uint32_t) _ctx->ctxid & (0x00000000ffffffff));
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tcalls_performed = %x,\n", _ctx->calls_performed);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tbind_sa_req = ");
 		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->bind_sa_req, _ctx->bind_sa_req_len);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");

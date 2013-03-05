@@ -37,6 +37,7 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 {
 	
 	int ret;
+	ctx->ctx->calls_performed |= MUACC_GETADDRINFO_CALLED;
 	
 	/* check context and initalize if neccessary */
 	if(ctx == NULL)
@@ -294,6 +295,7 @@ int muacc_getsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 int muacc_bind(muacc_context_t *ctx, int socket, const struct sockaddr *address, socklen_t address_len)
 {
 	int ret = -1;
+	ctx->ctx->calls_performed |= MUACC_BIND_CALLED;
 	
 	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
 	
@@ -337,6 +339,7 @@ int muacc_connect(muacc_context_t *ctx,
 	    int socket, const struct sockaddr *address, socklen_t address_len)
 {	
 	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
+	ctx->ctx->calls_performed |= MUACC_CONNECT_CALLED;
 	
 	if( ctx == NULL )
 	{
