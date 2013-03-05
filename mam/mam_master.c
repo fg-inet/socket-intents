@@ -45,15 +45,26 @@
 #define MAM_IF_NOISY_DEBUG2 0
 #endif
 
-void process_mam_request(struct _muacc_ctx *_ctx)
+void process_mam_request(struct _muacc_ctx **_ctx)
 {
 	char buf[4096] = {0};
 	size_t buf_len = 4096;
 	size_t buf_pos = 0;
+	struct _muacc_ctx *_new_ctx;
 
-	_muacc_print_ctx(buf, &buf_pos, buf_len, _ctx);
-	printf("/**************************************/\n%s\n/**************************************/\n", buf);
-	_muacc_send_ctx_event(_ctx, _ctx->state);
+	_muacc_print_ctx(buf, &buf_pos, buf_len, *_ctx);
+	printf("/**************************************/\n%s\n", buf);
+	_muacc_send_ctx_event(*_ctx, (*_ctx)->state);
+	
+	/* re-initalize muacc context to back up further communication */
+	_new_ctx = _muacc_create_ctx();
+	_new_ctx->in  = (*_ctx)->in;
+	_new_ctx->out = (*_ctx)->out;
+	
+	/* clean up old one without closing socket */
+	_muacc_free_ctx(*_ctx);
+
+	*_ctx = _new_ctx;
 }
 
 /** read next tlvs on one of mam's client sockets
@@ -61,7 +72,7 @@ void process_mam_request(struct _muacc_ctx *_ctx)
  */
 void mamsock_readcb(struct bufferevent *bev, void *ctx)
 {
-	struct _muacc_ctx *_ctx = (struct _muacc_ctx *) ctx;
+	struct _muacc_ctx **_ctx = (struct _muacc_ctx **) ctx;
 
     struct evbuffer *input, *output;
 
@@ -69,7 +80,7 @@ void mamsock_readcb(struct bufferevent *bev, void *ctx)
     output = bufferevent_get_output(bev);
 
     for(;;)
-    switch( _muacc_proc_tlv_event(input, output, _ctx) )
+    switch( _muacc_proc_tlv_event(input, output, *_ctx) )
     {
     	case _muacc_proc_tlv_event_too_short:
     		/* need more data - wait for next read event */
@@ -122,11 +133,11 @@ void do_accept(evutil_socket_t listener, short event, void *arg)
 
 		DLOG(MAM_IF_NOISY_DEBUG2, "Accepted client %d\n", fd);
     	struct bufferevent *bev;
-    	struct _muacc_ctx *_ctx;
+    	struct _muacc_ctx **_ctx;
 
     	/* initalize muacc context to back up communication */
-    	_ctx = _muacc_create_ctx();
-    	_ctx->mamsock = fd;
+		_ctx = malloc(sizeof(struct _muacc_ctx *));
+    	*_ctx = _muacc_create_ctx();
 
     	/* set up bufferevent magic */
         evutil_make_socket_nonblocking(fd);
