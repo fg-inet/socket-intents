@@ -225,7 +225,7 @@ size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, const struct _muacc_c
 	
 	DLOG(CLIB_CTX_NOISY_DEBUG2,"remote_hostname pos=%zd\n", *pos);
 	if( ctx->remote_hostname != NULL && /* strlen(NULL) might have undesired side effects… */
-		0 > _muacc_push_tlv(buf, pos, len, remote_hostname,	ctx->remote_hostname, strlen(ctx->remote_hostname)) ) goto _muacc_pack_ctx_err;
+		0 > _muacc_push_tlv(buf, pos, len, remote_hostname,	ctx->remote_hostname, strlen(ctx->remote_hostname)+1) ) goto _muacc_pack_ctx_err;
     
 	DLOG(CLIB_CTX_NOISY_DEBUG2,"remote_addrinfo_hint pos=%zd\n", *pos);
 	if( 0 > _muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_hint, ctx->remote_addrinfo_hint) ) goto _muacc_pack_ctx_err;
@@ -316,6 +316,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking remote_hostname\n");
 			if((str = malloc(data_len)) != NULL)
 			{
+				strncpy(str, data, data_len);
 				str[data_len-1] = 0x00;
 				_ctx->remote_hostname = str;
 			}
