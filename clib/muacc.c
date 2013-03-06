@@ -347,6 +347,9 @@ int muacc_bind(muacc_context_t *ctx, int socket, const struct sockaddr *address,
 int muacc_connect(muacc_context_t *ctx,
 	    int socket, const struct sockaddr *address, socklen_t address_len)
 {	
+	struct socketopt *so = NULL;
+	int retval;
+		
 	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
 	ctx->ctx->calls_performed |= MUACC_CONNECT_CALLED;
 	
@@ -383,16 +386,47 @@ int muacc_connect(muacc_context_t *ctx,
 	if ( ctx->ctx->bind_sa_req == NULL && ctx->ctx->bind_sa_suggested != NULL ) 
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG1, "trying to bind with mam-supplied data\n");
-		if( bind(socket, ctx->ctx->bind_sa_suggested, ctx->ctx->bind_sa_suggested_len) != NULL )
+		if( bind(socket, ctx->ctx->bind_sa_suggested, ctx->ctx->bind_sa_suggested_len) != 0 )
 		{
 			DLOG(CLIB_IF_NOISY_DEBUG0, "error binding with mam-supplied data: %s\n", strerror(errno));
 		}
 		else
 		{
-			DLOG(CLIB_IF_NOISY_DEBUG1, " binding with mam-supplied succeeded\n", strerror(errno));
+			DLOG(CLIB_IF_NOISY_DEBUG1, "binding with mam-supplied data succeeded\n");
 		}	
 	}
 	
+	/* set socketopts */
+	for(so = ctx->ctx->sockopts_suggested; so != NULL; so = so->next)
+	{
+		char print_buf[255];
+		size_t print_pos;
+		
+		#ifdef USE_SO_INTENTS
+		if (so->level == SOL_INTENTS)
+		{
+			/* skip option */
+			DLOG(CLIB_IF_NOISY_DEBUG1, "skipping suggested SOL_INTENTS socketopt\n");	
+			continue;
+		}
+		#endif
+		
+		#ifdef CLIB_IF_NOISY_DEBUG1
+		print_pos = 0; _muacc_print_socket_option(print_buf, &print_pos, sizeof(print_buf), so);
+		DLOG(CLIB_IF_NOISY_DEBUG1, "trying to setting suggested socketopt %s\n", print_buf);	
+		#endif
+		
+		if ( (retval = setsockopt(socket, so->level, so->optname, so->optval, so->optlen)) == -1 )
+		{
+			print_pos = 0; _muacc_print_socket_option(print_buf, &print_pos, sizeof(print_buf), so);
+			DLOG(CLIB_IF_NOISY_DEBUG0, "setting suggested socketopt %s failed: %s\n", print_buf, strerror(errno));
+		}
+			
+	}
+	
+	
+	
+	/* unlock context and do request */
 	_unlock_ctx(ctx->ctx);
 	
 	return connect(socket, ctx->ctx->remote_sa, ctx->ctx->remote_sa_len);

@@ -277,6 +277,28 @@ void _muacc_print_socket_option_list(const struct socketopt *opts)
 	printf("%s\n", buf);
 }
 
+size_t _muacc_print_socket_option(char *buf, size_t *buf_pos, size_t buf_len, const struct socketopt *current)
+{
+	size_t old_pos = *buf_pos;
+	
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "level = %d (%s), ", current->level, _muacc_get_socket_level(current->level));
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optname = %d, ", current->optname);
+	if (current-> optval == NULL)
+	{
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optval = NULL, ");
+	}
+	else
+	{
+		int *value = current->optval;
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optval = %d, ", *value);
+	}
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optlen = %d ", current->optlen);
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }");
+	
+	return(*buf_pos - old_pos);
+}
+
 size_t _muacc_print_socket_options(char *buf, size_t *buf_pos, size_t buf_len, const struct socketopt *opts)
 {
 	size_t old_pos = *buf_pos;
@@ -289,20 +311,7 @@ size_t _muacc_print_socket_options(char *buf, size_t *buf_pos, size_t buf_len, c
 		const struct socketopt *current = opts;
 		while (current != NULL)
 		{
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "level = %d (%s), ", current->level, _muacc_get_socket_level(current->level));
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optname = %d, ", current->optname);
-			if (current-> optval == NULL)
-			{
-				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optval = NULL, ");
-			}
-			else
-			{
-				int *value = current->optval;
-				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optval = %d, ", *value);
-			}
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optlen = %d ", current->optlen);
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }");
+			_muacc_print_socket_option(buf, buf_pos, buf_len, current);
 			current = current->next;
 		}
 	}

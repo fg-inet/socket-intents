@@ -54,5 +54,9 @@ void _muacc_print_socket_option_list(const struct socketopt *opts);
  */
 size_t _muacc_print_socket_options(char *buf, size_t *buf_pos, size_t buf_len, const struct socketopt *opts);
 
+/** helper to print a socket option into a string
+ *
+ */
+size_t _muacc_print_socket_option(char *buf, size_t *buf_pos, size_t buf_len, const struct socketopt *current);
 
 #endif /* __MUACC_UTIL_H__ */
