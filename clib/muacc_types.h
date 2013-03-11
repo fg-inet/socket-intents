@@ -64,8 +64,10 @@ typedef enum
 } muacc_tlv_t;
 
 /** Flags for storing which socketcalls have been performed */
+#define MUACC_SOCKET_CALLED 0x0001
 #define MUACC_GETADDRINFO_CALLED 0x0004
 #define MUACC_BIND_CALLED 0x0008
 #define MUACC_CONNECT_CALLED 0x0010
+#define MUACC_CLOSE_CALLED 0x0020
 
 #endif /* __MUACC_TYPES_H__ */

@@ -40,6 +40,12 @@ void muacc_print_context(muacc_context_t *ctx);
   */
 int muacc_release_context(muacc_context_t *ctx);
 
+/** wrapper for socket, initializes an uninitialized context
+ *
+ */
+int muacc_socket(muacc_context_t *ctx,
+		int domain, int type, int protocol);
+
 /** wrapper for getaddrinfo using mam instead of resolver library and updating ctx
  *
  */
@@ -72,5 +78,11 @@ int muacc_bind(muacc_context_t *ctx, int socket, const struct sockaddr *address,
  */
 int muacc_connect(muacc_context_t *ctx,
 	    int socket, const struct sockaddr *address, socklen_t address_len);
+
+/* wrapper for close, releases muacc context if it is no longer used
+ *
+ */
+int muacc_close(muacc_context_t *ctx,
+		int socket);
 
 #endif

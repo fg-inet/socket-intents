@@ -31,6 +31,44 @@
 #define CLIB_IF_NOISY_DEBUG2 0
 #endif
 
+int muacc_socket(muacc_context_t *ctx,
+        int domain, int type, int protocol)
+{
+	int ret = -2;
+	ctx->ctx->calls_performed |= MUACC_SOCKET_CALLED;
+
+	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
+
+	if( ctx == NULL )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "NULL context - fallback to regular socket\n");
+		goto muacc_socket_fallback;
+	}
+	else if( ctx->ctx == NULL )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - trying to initialize\n");
+		muacc_init_context(ctx);
+		if( ctx->ctx == NULL )
+			goto muacc_socket_fallback;
+	}
+
+	if( _lock_ctx(ctx->ctx) )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular socket\n");
+		_unlock_ctx(ctx->ctx);
+		goto muacc_socket_fallback;
+	}
+
+	ret = socket(domain, type, protocol);
+
+	_unlock_ctx(ctx->ctx);
+	return ret;
+
+	muacc_socket_fallback:
+
+	return socket(domain, type, protocol);
+}
+
 int muacc_getaddrinfo(muacc_context_t *ctx,
 		const char *hostname, const char *servname,
 		const struct addrinfo *hints, struct addrinfo **res)
@@ -437,3 +475,45 @@ muacc_connect_fallback:
 	return connect(socket, address, address_len);
 		
 }			
+
+int muacc_close(muacc_context_t *ctx,
+        int socket)
+{
+	int ret = -2;
+	ctx->ctx->calls_performed |= MUACC_CLOSE_CALLED;
+
+	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
+
+	if( ctx == NULL )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "NULL context - fallback to regular close\n");
+		goto muacc_close_fallback;
+	}
+	else if( ctx->ctx == NULL )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized\n");
+		goto muacc_close_fallback;
+	}
+
+	if( _lock_ctx(ctx->ctx) )
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular close\n");
+		_unlock_ctx(ctx->ctx);
+		goto muacc_close_fallback;
+	}
+
+	ret = close(socket);
+
+	if (ret == 0)
+	{
+		/* Release and deinitialize context */
+		if (0 == muacc_release_context(ctx))
+			ctx->ctx = NULL;
+	}
+
+	return ret;
+
+	muacc_close_fallback:
+
+	return close(socket);
+}

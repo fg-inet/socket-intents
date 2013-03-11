@@ -291,7 +291,7 @@ void socketcalls(dfixture *df, const void *param)
 
 	for (candidate = result; candidate != NULL; candidate = candidate->ai_next) {
 		printf("trying out\n");
-		sfd = socket(candidate->ai_family, candidate->ai_socktype, candidate->ai_protocol);
+		sfd = muacc_socket(df->context, candidate->ai_family, candidate->ai_socktype, candidate->ai_protocol);
 		if (sfd == -1)
 			continue;
 		if (muacc_bind(df->context, sfd, candidate->ai_addr, candidate->ai_addrlen) == 0)
@@ -323,7 +323,7 @@ void socketcalls(dfixture *df, const void *param)
 	ret = send(sfd, buf, 5, 0);
 	g_assert_cmpint(ret, >, 0);
 
-	ret = close(sfd);
+	ret = muacc_close(df->context, sfd);
 	g_assert_cmpint(ret, ==, 0);
 }
 
