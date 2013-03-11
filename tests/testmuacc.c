@@ -380,6 +380,32 @@ void tlv_push_value()
 
 }
 
+void tlv_push_hostname()
+{
+    char buf[MUACC_TLV_MAXLEN];
+    size_t writepos = 0;
+    size_t buflen = 0;
+	size_t readpos = 0;
+
+	muacc_tlv_t label = remote_hostname;
+	char *hostname;
+	asprintf(&hostname, "www.maunz.org");
+	size_t valuelen = strlen(hostname)+1;
+
+    DLOG(TESTMUACC_NOISY_DEBUG, "Pushing label %x value %s length %x\n", (unsigned int) action, hostname, valuelen);
+
+    buflen = _muacc_push_tlv(buf, &writepos, sizeof(buf), label, hostname, valuelen);
+
+    if (TESTMUACC_NOISY_DEBUG) tlv_print_buffer(buf, buflen);
+
+	compare_tlv(buf, readpos, buflen, (const void *) &label, sizeof(muacc_tlv_t));
+	readpos += sizeof(muacc_tlv_t);
+	compare_tlv(buf, readpos, buflen, (const void *) &valuelen, sizeof(size_t));
+	readpos += sizeof(size_t);
+	compare_tlv(buf, readpos, buflen, (const void *) hostname, valuelen);
+
+}
+
 void tlv_push_socketopt(dfixture *df, const void* param)
 {
 	char *buf;
@@ -465,6 +491,7 @@ int main(int argc, char *argv[])
 	g_test_add("/sockopts/copy_empty", dfixture, NULL, ctx_empty_setup, sockopts_copy, ctx_destroy);
 	g_test_add_func("/tlv/push_value", tlv_push_value);
 	g_test_add_func("/tlv/push_tag", tlv_push_tag);
+	g_test_add_func("/tlv/push_hostname", tlv_push_hostname);
 	g_test_add("/tlv/push_socketopt", dfixture, NULL, ctx_data_tlv_empty_setup, tlv_push_socketopt, ctx_tlv_destroy);
 	// g_test_add("/tlv/push_socketopt/evulshortbuf", dfixture, NULL, ctx_data_tlv_evilshort_setup, tlv_push_socketopt, ctx_tlv_destroy);
 	g_test_add("/tlv/unpack_socketopt", dfixture, NULL, ctx_data_tlv_empty_setup, tlv_unpack_socketopt, ctx_tlv_destroy);
