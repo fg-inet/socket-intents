@@ -33,6 +33,9 @@ struct _muacc_ctx {
 	/* fields below will be serialized */
 	muacc_ctxid_t		ctxid;					/**< identifyer for the context if sharing mamsock */
 	unsigned int		calls_performed;		/**< contains flags of which socket call have been performed*/
+	int					domain;					/**< communication domain of the socket (e.g. AF_INET) */
+	int					type;					/**< communication semantics, e.g. SOCK_STREAM or SOCK_DGRAM */
+	int					protocol;				/**< may specify a particular protocol in this family */
 	struct sockaddr 	*bind_sa_req;       	/**< local address requested by bind call */
 	socklen_t 			 bind_sa_req_len;      	/**< length of bind_sa_req*/
 	struct sockaddr 	*bind_sa_suggested;     /**< local address suggested by MAM */
@@ -52,6 +55,9 @@ typedef enum
 	action,					/**< action triggering request */
 	calls_performed,		/**< flags of which socket calls have already been performed */
 	ctxid = 0x08,			/**< identifyer for the context if sharing mamsock */
+	domain,					/**< protocol family */
+	type,					/**< socket type */
+	protocol,				/**< specific protocol in the given family */
 	bind_sa_req = 0x12, 	/**< local address requested */
 	bind_sa_res,        	/**< local address choosen by mam */
 	remote_hostname = 0x20,	/**< remote host name */

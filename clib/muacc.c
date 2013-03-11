@@ -59,6 +59,10 @@ int muacc_socket(muacc_context_t *ctx,
 		goto muacc_socket_fallback;
 	}
 
+	ctx->ctx->domain = domain;
+	ctx->ctx->type = type;
+	ctx->ctx->protocol = protocol;
+
 	ret = socket(domain, type, protocol);
 
 	_unlock_ctx(ctx->ctx);
