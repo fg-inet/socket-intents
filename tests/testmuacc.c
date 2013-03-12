@@ -164,39 +164,54 @@ void ctx_tlv_destroy(dfixture *df, const void* param)
 
 /** Helper that compares two lists of sockopts
  *
+ *  \return 0 if equal, 1 otherwise
  */
-void compare_sockopts(const struct socketopt *a, const struct socketopt *b)
+int compare_sockopts(const struct socketopt *a, const struct socketopt *b)
 {
+	if (a == NULL)
+	{
+		if (b == NULL) return 0;
+		else return 1;
+	}
+	if (b == NULL)
+		return 1;
+
 	while (a != NULL && b != NULL)
 	{
+		if (a-> level != b->level) return 1;
 		g_assert_cmpint(a->level, ==, b->level);
-		g_assert_cmpint(a->optname, ==, b->optname);
-		g_assert_cmpint(a->optlen, ==, b->optlen);
-		g_assert( 0 == memcmp(a->optval, b->optval, a->optlen));
+		if (a->optname != b->optname) return 1;
+		if (a->optlen != b->optlen) return 1;
+		if ( 0 != memcmp(a->optval, b->optval, a->optlen)) return 1;
 		a = a->next;
 		b = b->next;
 	}
+	return 0;
 }
 
 /** Helper that compares two contexts
  *
+ *  \return 0 if equal, 1 otherwise
  */
-void compare_contexts(const muacc_context_t *a, const muacc_context_t *b)
+int compare_contexts(const muacc_context_t *a, const muacc_context_t *b)
 {
-	g_assert_cmpint(a->ctx->bind_sa_req_len, ==, b->ctx->bind_sa_req_len);
-	g_assert_cmpint(a->ctx->bind_sa_suggested_len, ==, b->ctx->bind_sa_suggested_len);
-	g_assert_cmpint(a->ctx->remote_sa_len, ==, b->ctx->remote_sa_len);
-	g_assert(0 == memcmp(a->ctx->bind_sa_req, b->ctx->bind_sa_req, a->ctx->bind_sa_req_len));
-	g_assert(0 == memcmp(a->ctx->bind_sa_suggested, b->ctx->bind_sa_suggested, a->ctx->bind_sa_suggested_len));
-	g_assert(0 == memcmp(a->ctx->remote_sa, b->ctx->remote_sa, a->ctx->remote_sa_len));
-	g_assert_cmpstr(a->ctx->remote_hostname, ==, b->ctx->remote_hostname);
-	if (a->ctx->remote_addrinfo_hint != NULL)
-		g_assert(0 == memcmp(a->ctx->remote_addrinfo_hint, b->ctx->remote_addrinfo_hint, sizeof(struct addrinfo)));
-	if (a->ctx->remote_addrinfo_res != NULL)
-		g_assert(0 == memcmp(a->ctx->remote_addrinfo_res, b->ctx->remote_addrinfo_res, sizeof(struct addrinfo)));
+	if (a->ctx->bind_sa_req_len != b->ctx->bind_sa_req_len) return 1;
+	if (a->ctx->bind_sa_suggested_len != b->ctx->bind_sa_suggested_len) return 1;
+	if (a->ctx->remote_sa_len != b->ctx->remote_sa_len) return 1;
+	if (0 != memcmp(a->ctx->bind_sa_req, b->ctx->bind_sa_req, a->ctx->bind_sa_req_len)) return 1;
+	if (0 != memcmp(a->ctx->bind_sa_suggested, b->ctx->bind_sa_suggested, a->ctx->bind_sa_suggested_len)) return 1;
+	if (0 != memcmp(a->ctx->remote_sa, b->ctx->remote_sa, a->ctx->remote_sa_len)) return 1;
+	if (a->ctx->remote_hostname != NULL && b->ctx->remote_hostname != NULL)
+		if(0 != strncmp(a->ctx->remote_hostname, b->ctx->remote_hostname, strlen(a->ctx->remote_hostname+1))) return 1;
+	if (a->ctx->remote_addrinfo_hint != NULL && b->ctx->remote_addrinfo_hint != NULL)
+		if (0 != memcmp(a->ctx->remote_addrinfo_hint, b->ctx->remote_addrinfo_hint, sizeof(struct addrinfo))) return 1;
+	if (a->ctx->remote_addrinfo_res != NULL && b->ctx->remote_addrinfo_res != NULL)
+		if (0 != memcmp(a->ctx->remote_addrinfo_res, b->ctx->remote_addrinfo_res, sizeof(struct addrinfo))) return 1;
 
-	compare_sockopts(a->ctx->sockopts_current, b->ctx->sockopts_current);
-	compare_sockopts(a->ctx->sockopts_suggested, b->ctx->sockopts_suggested);
+	if (0 != compare_sockopts(a->ctx->sockopts_current, b->ctx->sockopts_current)) return 1;
+	if (0 != compare_sockopts(a->ctx->sockopts_suggested, b->ctx->sockopts_suggested)) return 1;
+
+	return 0;
 }
 
 /** Helper to print out the TLV buffer
@@ -214,19 +229,23 @@ void tlv_print_buffer(char buf[], size_t buflen)
 
 /** Compare tlv buffer with a value that was supposed to be written into it
  *  in host byte order
+ *
+ *  \return 0 if correctly written, 1 otherwise
  */
-void compare_tlv(char *buf, size_t buf_pos, size_t buf_len, const void *value, size_t value_len)
+int compare_tlv(char *buf, size_t buf_pos, size_t buf_len, const void *value, size_t value_len)
 {
 	const unsigned int *val = value;
 
-	g_assert(buf_pos + value_len <= buf_len);
+	if (buf_pos + value_len > buf_len) return 1;
 	DLOG(TESTMUACC_NOISY_DEBUG, "Comparing buffer with buf_pos %zd, buf_len %zd, value_len %zd\n", buf_pos, buf_len, value_len);
 	for (int i = 0; i < value_len; i++)
 	{
 		unsigned int mask = *(val + i/4) & (0xff << 8*i);
 		DLOG(TESTMUACC_NOISY_DEBUG, "%08x %02x %08x %08x\n", (unsigned int) 0xff << 8*i, (unsigned char) buf[buf_pos+i], mask, mask >> 8*i);
-		g_assert_cmphex((unsigned char) buf[buf_pos+i], ==, mask >> 8*i);
+		//g_assert_cmphex((unsigned char) buf[buf_pos+i], ==, mask >> 8*i);
+		if ((unsigned char) buf[buf_pos+i] != (unsigned char) (mask >> 8*i) ) return 1;
 	}
+	return 0;
 }
 
 /** Trying to create a context with a NULL pointer
@@ -257,7 +276,7 @@ void ctx_copy(dfixture *df, const void *param)
 	muacc_clone_context(targetctx, df->context);
 
 	if (TESTMUACC_NOISY_DEBUG) muacc_print_context(targetctx);
-	compare_contexts(df->context, targetctx);
+	g_assert_cmpint(0, ==, compare_contexts(df->context, targetctx));
 }
 
 /** Test that copies a list of sockopts
@@ -267,7 +286,7 @@ void sockopts_copy(dfixture *df, const void *param)
 {
 	struct socketopt *newopt = NULL;
 	newopt = _muacc_clone_socketopts((const struct socketopt *) df->context->ctx->sockopts_current);
-	compare_sockopts(df->context->ctx->sockopts_current, newopt);
+	g_assert_cmpint(0, ==, compare_sockopts(df->context->ctx->sockopts_current, newopt));
 	if (TESTMUACC_NOISY_DEBUG) _muacc_print_socket_option_list((const struct socketopt *) newopt);
 }
 
@@ -346,9 +365,9 @@ void tlv_push_tag()
     buflen = _muacc_push_tlv_tag(buf, &writepos, sizeof(buf), label);
 
     if (TESTMUACC_NOISY_DEBUG) tlv_print_buffer(buf, buflen);
-    compare_tlv(buf, readpos, buflen, (const void *) &label, sizeof(muacc_tlv_t));
+    g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &label, sizeof(muacc_tlv_t)));
 	readpos += sizeof(muacc_tlv_t);
-	compare_tlv(buf, readpos, buflen, (const void *) &valuelen, sizeof(size_t));
+	g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &valuelen, sizeof(size_t)));
 }
 
 /** Test that checks if a value is pushed correctly to the buffer
@@ -372,11 +391,11 @@ void tlv_push_value()
 
     if (TESTMUACC_NOISY_DEBUG) tlv_print_buffer(buf, buflen);
 
-	compare_tlv(buf, readpos, buflen, (const void *) &label, sizeof(muacc_tlv_t));
+	g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &label, sizeof(muacc_tlv_t)));
 	readpos += sizeof(muacc_tlv_t);
-	compare_tlv(buf, readpos, buflen, (const void *) &valuelen, sizeof(size_t));
+	g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &valuelen, sizeof(size_t)));
 	readpos += sizeof(size_t);
-	compare_tlv(buf, readpos, buflen, (const void *) &reason, sizeof(muacc_mam_action_t));
+	g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &reason, sizeof(muacc_mam_action_t)));
 
 }
 
@@ -398,11 +417,11 @@ void tlv_push_hostname()
 
     if (TESTMUACC_NOISY_DEBUG) tlv_print_buffer(buf, buflen);
 
-	compare_tlv(buf, readpos, buflen, (const void *) &label, sizeof(muacc_tlv_t));
+	g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &label, sizeof(muacc_tlv_t)));
 	readpos += sizeof(muacc_tlv_t);
-	compare_tlv(buf, readpos, buflen, (const void *) &valuelen, sizeof(size_t));
+	g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &valuelen, sizeof(size_t)));
 	readpos += sizeof(size_t);
-	compare_tlv(buf, readpos, buflen, (const void *) hostname, valuelen);
+	g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) hostname, valuelen));
 
 }
 
@@ -429,17 +448,17 @@ void tlv_push_socketopt(dfixture *df, const void* param)
 		tlv_print_buffer(buf, buflen);
 	}
 
-	compare_tlv(buf, readpos, buflen, (const void *) &label, sizeof(muacc_tlv_t));
+	g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &label, sizeof(muacc_tlv_t)));
 	readpos += sizeof(muacc_tlv_t);
-	compare_tlv(buf, readpos, buflen, (const void *) &valuelen, sizeof(size_t));
+	g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &valuelen, sizeof(size_t)));
 	readpos += sizeof(size_t);
 
 	struct socketopt *current = df->context->ctx->sockopts_current;
 	while (current != NULL)
 	{
-		compare_tlv(buf, readpos, buflen, (const void *) current, sizeof(struct socketopt));
+		g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) current, sizeof(struct socketopt)));
 		readpos += sizeof(struct socketopt);
-		compare_tlv(buf, readpos, buflen, (const void *) current->optval, current->optlen);
+		g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) current->optval, current->optlen));
 		readpos += current->optlen;
 		current = current->next;
 	}
@@ -468,7 +487,7 @@ void tlv_unpack_socketopt(dfixture *df, const void* param)
 	readpos = sizeof(muacc_tlv_t) + sizeof(size_t);
 	_muacc_extract_socketopt_tlv((df->tlv_buffer)+readpos, valuelen, &newopt);
 	
-	compare_sockopts(df->context->ctx->sockopts_current, newopt);
+	g_assert_cmpint(0, ==, compare_sockopts(df->context->ctx->sockopts_current, newopt));
 	if (TESTMUACC_NOISY_DEBUG) 
 		_muacc_print_socket_option_list((const struct socketopt *) newopt);
 }
