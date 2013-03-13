@@ -31,8 +31,16 @@ void memset_pattern4 (void *dst, const void *pat, size_t len)
 }
 #endif
 
-#ifndef TESTMUACC_NOISY_DEBUG
-#define TESTMUACC_NOISY_DEBUG 0
+#ifndef TESTMUACC_NOISY_DEBUG0
+#define TESTMUACC_NOISY_DEBUG0 0
+#endif
+
+#ifndef TESTMUACC_NOISY_DEBUG1
+#define TESTMUACC_NOISY_DEBUG1 0
+#endif
+
+#ifndef TESTMUACC_NOISY_DEBUG2
+#define TESTMUACC_NOISY_DEBUG2 0
 #endif
 
 /** Fixture = Element used in a set of tests
@@ -52,7 +60,7 @@ uint32_t deadbeef = 0xdeadbeef;
  */
 void ctx_empty_setup(dfixture *df, const void *test_data)
 {
-	DLOG(TESTMUACC_NOISY_DEBUG, "\n===========\n");
+	DLOG(TESTMUACC_NOISY_DEBUG0, "\n===========\n");
 	muacc_context_t *newctx = malloc(sizeof(muacc_context_t));
 	df->context = newctx;
 	muacc_init_context(df->context);
@@ -63,7 +71,7 @@ void ctx_empty_setup(dfixture *df, const void *test_data)
  */
 void ctx_data_setup(dfixture *df, const void *test_data)
 {
-	DLOG(TESTMUACC_NOISY_DEBUG, "\n===========\n");
+	DLOG(TESTMUACC_NOISY_DEBUG0, "\n===========\n");
 	muacc_context_t *newctx = malloc(sizeof(muacc_context_t));
 	df->context = newctx;
 	muacc_init_context(df->context);
@@ -104,7 +112,7 @@ void ctx_destroy(dfixture *df, const void *test_data)
 {
 	muacc_release_context(df->context);
 	free(df->context);
-	DLOG(TESTMUACC_NOISY_DEBUG, "\n===========\n");
+	DLOG(TESTMUACC_NOISY_DEBUG0, "\n===========\n");
 }
 
 /** Helper that creates a large tlv buffer with test pattern
@@ -112,10 +120,10 @@ void ctx_destroy(dfixture *df, const void *test_data)
  */
 void tlv_empty_setup(dfixture *df, const void *test_data)
 {
-	DLOG(TESTMUACC_NOISY_DEBUG, "\n===========\n");
+	DLOG(TESTMUACC_NOISY_DEBUG0, "\n===========\n");
 	df->tlv_buffer_len = MUACC_TLV_MAXLEN;
 	df->tlv_buffer = malloc(df->tlv_buffer_len);
-	DLOG(TESTMUACC_NOISY_DEBUG, "allocated %zd bytes for df->tlv_buffer - got buffer at %p\n", df->tlv_buffer_len, df->tlv_buffer);
+	DLOG(TESTMUACC_NOISY_DEBUG2, "allocated %zd bytes for df->tlv_buffer - got buffer at %p\n", df->tlv_buffer_len, df->tlv_buffer);
 	memset_pattern4(df->tlv_buffer, &deadbeef, df->tlv_buffer_len);
 }
 
@@ -124,10 +132,10 @@ void tlv_empty_setup(dfixture *df, const void *test_data)
  */
 void tlv_evilshort_setup(dfixture *df, const void *test_data)
 {
-	DLOG(TESTMUACC_NOISY_DEBUG, "\n===========\n");
+	DLOG(TESTMUACC_NOISY_DEBUG0, "\n===========\n");
 	df->tlv_buffer_len = sizeof(muacc_tlv_t)+sizeof(size_t)+1;
 	df->tlv_buffer = malloc(df->tlv_buffer_len);
-	DLOG(TESTMUACC_NOISY_DEBUG, "allocated %zd bytes for df->tlv_buffer - got buffer at %p\n", df->tlv_buffer_len, df->tlv_buffer);
+	DLOG(TESTMUACC_NOISY_DEBUG2, "allocated %zd bytes for df->tlv_buffer - got buffer at %p\n", df->tlv_buffer_len, df->tlv_buffer);
 	memset_pattern4(df->tlv_buffer, &deadbeef, df->tlv_buffer_len);
 }
 
@@ -141,7 +149,7 @@ void tlv_destroy(dfixture *df, const void *test_data)
 	free(df->tlv_buffer);
 	df->tlv_buffer = NULL;
 	df->tlv_buffer_len = 0;
-	DLOG(TESTMUACC_NOISY_DEBUG, "\n===========\n");
+	DLOG(TESTMUACC_NOISY_DEBUG0, "\n===========\n");
 }
 
 void ctx_data_tlv_evilshort_setup(dfixture *df, const void* param)
@@ -237,11 +245,11 @@ int compare_tlv(char *buf, size_t buf_pos, size_t buf_len, const void *value, si
 	const unsigned int *val = value;
 
 	if (buf_pos + value_len > buf_len) return 1;
-	DLOG(TESTMUACC_NOISY_DEBUG, "Comparing buffer with buf_pos %zd, buf_len %zd, value_len %zd\n", buf_pos, buf_len, value_len);
+	DLOG(TESTMUACC_NOISY_DEBUG2, "Comparing buffer with buf_pos %zd, buf_len %zd, value_len %zd\n", buf_pos, buf_len, value_len);
 	for (int i = 0; i < value_len; i++)
 	{
 		unsigned int mask = *(val + i/4) & (0xff << 8*i);
-		DLOG(TESTMUACC_NOISY_DEBUG, "%08x %02x %08x %08x\n", (unsigned int) 0xff << 8*i, (unsigned char) buf[buf_pos+i], mask, mask >> 8*i);
+		DLOG(TESTMUACC_NOISY_DEBUG2, "%08x %02x %08x %08x\n", (unsigned int) 0xff << 8*i, (unsigned char) buf[buf_pos+i], mask, mask >> 8*i);
 		//g_assert_cmphex((unsigned char) buf[buf_pos+i], ==, mask >> 8*i);
 		if ((unsigned char) buf[buf_pos+i] != (unsigned char) (mask >> 8*i) ) return 1;
 	}
@@ -275,7 +283,7 @@ void ctx_copy(dfixture *df, const void *param)
 	muacc_context_t *targetctx = malloc(sizeof(muacc_context_t));
 	muacc_clone_context(targetctx, df->context);
 
-	if (TESTMUACC_NOISY_DEBUG) muacc_print_context(targetctx);
+	if (TESTMUACC_NOISY_DEBUG1) muacc_print_context(targetctx);
 	g_assert_cmpint(0, ==, compare_contexts(df->context, targetctx));
 }
 
@@ -287,7 +295,7 @@ void sockopts_copy(dfixture *df, const void *param)
 	struct socketopt *newopt = NULL;
 	newopt = _muacc_clone_socketopts((const struct socketopt *) df->context->ctx->sockopts_current);
 	g_assert_cmpint(0, ==, compare_sockopts(df->context->ctx->sockopts_current, newopt));
-	if (TESTMUACC_NOISY_DEBUG) _muacc_print_socket_option_list((const struct socketopt *) newopt);
+	if (TESTMUACC_NOISY_DEBUG1) _muacc_print_socket_option_list((const struct socketopt *) newopt);
 }
 
 void socketcalls(dfixture *df, const void *param)
@@ -334,7 +342,7 @@ void socketcalls(dfixture *df, const void *param)
 	}
 	freeaddrinfo(result);
 
-	ctx_print(df, NULL);
+	if (TESTMUACC_NOISY_DEBUG1) ctx_print(df, NULL);
 
 	/* test if socket is writeable, i.e. we have connected successfully */
 	char buf[MUACC_TLV_MAXLEN];
@@ -360,11 +368,11 @@ void tlv_push_tag()
     muacc_tlv_t label = 0x12345678;
 	size_t valuelen = 0;
 
-    DLOG(TESTMUACC_NOISY_DEBUG, "Pushing label %x of length %zd\n", (unsigned int) label, sizeof(muacc_tlv_t));
+    DLOG(TESTMUACC_NOISY_DEBUG2, "Pushing label %x of length %zd\n", (unsigned int) label, sizeof(muacc_tlv_t));
 
     buflen = _muacc_push_tlv_tag(buf, &writepos, sizeof(buf), label);
 
-    if (TESTMUACC_NOISY_DEBUG) tlv_print_buffer(buf, buflen);
+    if (TESTMUACC_NOISY_DEBUG2) tlv_print_buffer(buf, buflen);
     g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &label, sizeof(muacc_tlv_t)));
 	readpos += sizeof(muacc_tlv_t);
 	g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &valuelen, sizeof(size_t)));
@@ -385,11 +393,11 @@ void tlv_push_value()
     muacc_mam_action_t reason = 0xcaffe007;
 	size_t valuelen = sizeof(muacc_mam_action_t);
 
-    DLOG(TESTMUACC_NOISY_DEBUG, "Pushing label %x value %x length %x\n", (unsigned int) action, (unsigned int) reason, (unsigned int) sizeof(muacc_mam_action_t));
+    DLOG(TESTMUACC_NOISY_DEBUG2, "Pushing label %x value %x length %x\n", (unsigned int) action, (unsigned int) reason, (unsigned int) sizeof(muacc_mam_action_t));
 
     buflen = _muacc_push_tlv(buf, &writepos, sizeof(buf), label, &reason, sizeof(muacc_mam_action_t));
 
-    if (TESTMUACC_NOISY_DEBUG) tlv_print_buffer(buf, buflen);
+    if (TESTMUACC_NOISY_DEBUG2) tlv_print_buffer(buf, buflen);
 
 	g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &label, sizeof(muacc_tlv_t)));
 	readpos += sizeof(muacc_tlv_t);
@@ -411,11 +419,11 @@ void tlv_push_hostname()
 	asprintf(&hostname, "www.maunz.org");
 	size_t valuelen = strlen(hostname)+1;
 
-    DLOG(TESTMUACC_NOISY_DEBUG, "Pushing label %x value %s length %x\n", (unsigned int) action, hostname, valuelen);
+    DLOG(TESTMUACC_NOISY_DEBUG2, "Pushing label %x value %s length %x\n", (unsigned int) action, hostname, valuelen);
 
     buflen = _muacc_push_tlv(buf, &writepos, sizeof(buf), label, hostname, valuelen);
 
-    if (TESTMUACC_NOISY_DEBUG) tlv_print_buffer(buf, buflen);
+    if (TESTMUACC_NOISY_DEBUG2) tlv_print_buffer(buf, buflen);
 
 	g_assert_cmpint(0, ==, compare_tlv(buf, readpos, buflen, (const void *) &label, sizeof(muacc_tlv_t)));
 	readpos += sizeof(muacc_tlv_t);
@@ -441,7 +449,7 @@ void tlv_push_socketopt(dfixture *df, const void* param)
 	buf = df->tlv_buffer;
 	
 
-	if (TESTMUACC_NOISY_DEBUG)
+	if (TESTMUACC_NOISY_DEBUG2)
 	{
 		printf("buflen = %zd, valuelen = %zd [hex: %08zx]\n", buflen, valuelen, valuelen);
 		_muacc_print_socket_option_list((const struct socketopt *) df->context->ctx->sockopts_current);
@@ -478,7 +486,7 @@ void tlv_unpack_socketopt(dfixture *df, const void* param)
 	
 	muacc_tlv_t label = sockopts_current;
 
-	if (TESTMUACC_NOISY_DEBUG) 
+	if (TESTMUACC_NOISY_DEBUG2)
 		_muacc_print_socket_option_list(df->context->ctx->sockopts_current);
 
 	buflen = _muacc_push_socketopt_tlv(df->tlv_buffer, &writepos, df->tlv_buffer_len, label, df->context->ctx->sockopts_current);
@@ -488,7 +496,7 @@ void tlv_unpack_socketopt(dfixture *df, const void* param)
 	_muacc_extract_socketopt_tlv((df->tlv_buffer)+readpos, valuelen, &newopt);
 	
 	g_assert_cmpint(0, ==, compare_sockopts(df->context->ctx->sockopts_current, newopt));
-	if (TESTMUACC_NOISY_DEBUG) 
+	if (TESTMUACC_NOISY_DEBUG2)
 		_muacc_print_socket_option_list((const struct socketopt *) newopt);
 }
 
@@ -499,7 +507,7 @@ void tlv_unpack_socketopt(dfixture *df, const void* param)
 int main(int argc, char *argv[])
 {
 	g_test_init(&argc, &argv, NULL);
-	DLOG(TESTMUACC_NOISY_DEBUG, "Welcome to the muacc testing functions\n");
+	DLOG(TESTMUACC_NOISY_DEBUG0, "Welcome to the muacc testing functions\n");
 	printf("================================================\n");
 	// g_test_add("/ctx/print_empty", dfixture, NULL, ctx_empty_setup, ctx_print, ctx_destroy);
 	g_test_add("/ctx/print_data", dfixture, NULL, ctx_data_setup, ctx_print, ctx_destroy);

@@ -55,6 +55,7 @@ then
 	AC_DEFINE(CLIB_TLV_NOISY_DEBUG0, 1, "Print a lot of debugging messages")
 	AC_DEFINE(CLIB_CTX_NOISY_DEBUG0, 1, "Print a lot of debugging messages")
 	AC_DEFINE(CLIB_IF_NOISY_DEBUG0, 1, "Print a lot of debugging messages")
+	AC_DEFINE(TESTMUACC_NOISY_DEBUG0, 1, "Print a lot of debugging messages")
 fi
 if echo "$NOISY_DEBUG" | egrep -q "1"
 then
@@ -64,6 +65,7 @@ then
 	AC_DEFINE(CLIB_TLV_NOISY_DEBUG1, 1, "Print a lot of debugging messages")
 	AC_DEFINE(CLIB_CTX_NOISY_DEBUG1, 1, "Print a lot of debugging messages")
 	AC_DEFINE(CLIB_IF_NOISY_DEBUG1, 1, "Print a lot of debugging messages")
+	AC_DEFINE(TESTMUACC_NOISY_DEBUG1, 1, "Print a lot of debugging messages")
 fi
 if echo "$NOISY_DEBUG" | egrep -q "2"
 then
@@ -73,6 +75,7 @@ then
 	AC_DEFINE(CLIB_TLV_NOISY_DEBUG2, 1, "Print a lot of debugging messages")
 	AC_DEFINE(CLIB_CTX_NOISY_DEBUG2, 1, "Print a lot of debugging messages")
 	AC_DEFINE(CLIB_IF_NOISY_DEBUG2, 1, "Print a lot of debugging messages")
+	AC_DEFINE(TESTMUACC_NOISY_DEBUG2, 1, "Print a lot of debugging messages")
 fi
 if echo "$NOISY_DEBUG" | egrep -q "off"
 then
@@ -82,16 +85,19 @@ then
 	AC_DEFINE(CLIB_TLV_NOISY_DEBUG0, 0, "Print no debugging messages")
 	AC_DEFINE(CLIB_CTX_NOISY_DEBUG0, 0, "Print no debugging messages")
 	AC_DEFINE(CLIB_IF_NOISY_DEBUG0, 0, "Print no debugging messages")
+	AC_DEFINE(TESTMUACC_NOISY_DEBUG0, 0, "Print no debugging messages")
 	AC_DEFINE(LIBINTENTS_NOISY_DEBUG1, 0, "Print no debugging messages")
 	AC_DEFINE(MAM_IF_NOISY_DEBUG1, 0, "Print no debugging messages")
 	AC_DEFINE(CLIB_TLV_NOISY_DEBUG1, 0, "Print no debugging messages")
 	AC_DEFINE(CLIB_CTX_NOISY_DEBUG1, 0, "Print no debugging messages")
 	AC_DEFINE(CLIB_IF_NOISY_DEBUG1, 0, "Print no debugging messages")
+	AC_DEFINE(TESTMUACC_NOISY_DEBUG1, 0, "Print no debugging messages")
 	AC_DEFINE(LIBINTENTS_NOISY_DEBUG2, 0, "Print no debugging messages")
 	AC_DEFINE(MAM_IF_NOISY_DEBUG2, 0, "Print no debugging messages")
 	AC_DEFINE(CLIB_TLV_NOISY_DEBUG2, 0, "Print no debugging messages")
 	AC_DEFINE(CLIB_CTX_NOISY_DEBUG2, 0, "Print no debugging messages")
 	AC_DEFINE(CLIB_IF_NOISY_DEBUG2, 0, "Print no debugging messages")
+	AC_DEFINE(TESTMUACC_NOISY_DEBUG2, 0, "Print no debugging messages")
 fi
 
 AC_OUTPUT
