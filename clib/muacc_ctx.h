@@ -14,7 +14,7 @@
 
 
 
-/** Helper to allocate and initalize _muacc_ctx
+/** Helper to allocate and initialize _muacc_ctx
  *
  */
 struct _muacc_ctx *_muacc_create_ctx();
@@ -35,14 +35,14 @@ int _muacc_free_ctx (struct _muacc_ctx *_ctx);
  * just to make sure that we have no
  * interleaving requests on a single socket
  */
-int _lock_ctx (struct _muacc_ctx *_ctx);
+int _lock_ctx (muacc_context_t *ctx);
 
 /** Helper doing locking simulation - unlock part
  *
  * just to make sure that we have no
  * interleaving requests on a single socket
  */
-int _unlock_ctx (struct _muacc_ctx *_ctx);
+int _unlock_ctx (muacc_context_t *ctx);
 
 /** Serialize the _ctx packing struct in a series of TLVs
  *

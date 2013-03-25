@@ -134,13 +134,13 @@ int _muacc_send_ctx_event(struct _muacc_ctx *_ctx, muacc_mam_action_t reason);
  */
 int _muacc_contact_mam (
 	muacc_mam_action_t reason,	/**< [in]	reason for contacting */
-	struct _muacc_ctx *_ctx		/**< [in]	context to be updated */
+	muacc_context_t *ctx		/**< [in]	context to be updated */
 );
 
 /** make the TLV client ready by establishing a connection to MAM
  *
  * @return 0 on success, a negative number otherwise
  */
-int _muacc_connect_ctx_to_mam(struct _muacc_ctx *_ctx) ;
+int _muacc_connect_ctx_to_mam(muacc_context_t *ctx) ;
 
 #endif

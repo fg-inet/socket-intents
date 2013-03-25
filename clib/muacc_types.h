@@ -21,17 +21,15 @@ typedef struct socketopt {
 	struct socketopt 	*next;				/**< Pointer to the next socket option */
 } socketopt_t;
 
+/** Context identifier that is unique per MAM socket in a client */
 typedef uint64_t muacc_ctxid_t;
-/** Internal muacc context struct */
+
+/** Internal muacc context struct
+	All data will be serialized and sent to MAM */
 struct _muacc_ctx {
-	int 				usage;                  /**< reference counter */
-	uint8_t 			locks;                  /**< lock to avoid multiple concurrent requests to MAM */
-	int 				mamsock;                /**< socket to talk to/in MAM */
 	struct evbuffer 	*out;					/**< output buffer when used with libevent2 */
 	struct evbuffer 	*in;					/**< input buffer when used with libevent2 */
-	muacc_mam_action_t	state;					/**< state machine state */
-	/* fields below will be serialized */
-	muacc_ctxid_t		ctxid;					/**< identifyer for the context if sharing mamsock */
+	muacc_ctxid_t		ctxid;					/**< identifier for the context if sharing mamsock */
 	unsigned int		calls_performed;		/**< contains flags of which socket call have been performed*/
 	int					domain;					/**< communication domain of the socket (e.g. AF_INET) */
 	int					type;					/**< communication semantics, e.g. SOCK_STREAM or SOCK_DGRAM */
@@ -54,7 +52,7 @@ typedef enum
 	eof = 0x00,		    	/**< end of TLV data – always 0 bytes */
 	action,					/**< action triggering request */
 	calls_performed,		/**< flags of which socket calls have already been performed */
-	ctxid = 0x08,			/**< identifyer for the context if sharing mamsock */
+	ctxid = 0x08,			/**< identifier for the context if sharing mamsock */
 	domain,					/**< protocol family */
 	type,					/**< socket type */
 	protocol,				/**< specific protocol in the given family */

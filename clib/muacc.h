@@ -5,10 +5,13 @@
 #ifndef __MUACC_H__
 #define __MUACC_H__
 
-
+/** Context of a socket on the client side */
 typedef struct muacc_context 
 {
-	struct _muacc_ctx *ctx;
+	int		usage;				/**< reference counter */
+	uint8_t	locks;				/**< lock to avoid multiple concurrent requests */
+	int		mamsock;			/**< socket to talk to MAM */
+	struct _muacc_ctx *ctx;		/**< internal struct with relevant socket context data */
 } muacc_context_t;
 
 /** initialize background structures for muacc_context

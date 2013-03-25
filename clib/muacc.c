@@ -52,10 +52,10 @@ int muacc_socket(muacc_context_t *ctx,
 			goto muacc_socket_fallback;
 	}
 
-	if( _lock_ctx(ctx->ctx) )
+	if( _lock_ctx(ctx) )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular socket\n");
-		_unlock_ctx(ctx->ctx);
+		_unlock_ctx(ctx);
 		goto muacc_socket_fallback;
 	}
 
@@ -65,7 +65,7 @@ int muacc_socket(muacc_context_t *ctx,
 
 	ret = socket(domain, type, protocol);
 
-	_unlock_ctx(ctx->ctx);
+	_unlock_ctx(ctx);
 	return ret;
 
 	muacc_socket_fallback:
@@ -81,7 +81,7 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 	int ret;
 	ctx->ctx->calls_performed |= MUACC_GETADDRINFO_CALLED;
 	
-	/* check context and initalize if neccessary */
+	/* check context and initialize if neccessary */
 	if(ctx == NULL)
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG1, "NULL context - fallback to regular connect\n");
@@ -89,16 +89,16 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 	}
 	else if( ctx->ctx == NULL )
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - trying to initalize\n");
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - trying to initialize\n");
 		muacc_init_context(ctx);
 		if( ctx->ctx == NULL )
 			goto muacc_getaddrinfo_fallback;			
 	}
 	
-	if( _lock_ctx(ctx->ctx) )
+	if( _lock_ctx(ctx) )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular connect\n");
-		_unlock_ctx(ctx->ctx);
+		_unlock_ctx(ctx);
 		goto muacc_getaddrinfo_fallback;
 	}
 
@@ -119,7 +119,7 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 	}
 
 	/* contact mam */
-	_muacc_contact_mam(muacc_act_getaddrinfo_resolve_req, ctx->ctx);
+	_muacc_contact_mam(muacc_act_getaddrinfo_resolve_req, ctx);
 	
 	if(ctx->ctx->remote_addrinfo_res != NULL)
 	{
@@ -138,7 +138,7 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 		}
 	}
 
-	_unlock_ctx(ctx->ctx);
+	_unlock_ctx(ctx);
 	
 	return ret;
 
@@ -154,7 +154,7 @@ int muacc_setsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 {	
 	int retval = -2; // Return value; will be set, else structure problem in function
 
-	/* check context and initalize if neccessary */
+	/* check context and initialize if neccessary */
 	if( ctx == NULL )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG1, "NULL context - fallback to regular setsockopt\n");
@@ -162,16 +162,16 @@ int muacc_setsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 	}
 	else if( ctx->ctx == NULL )
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - trying to initalize\n");
+		DLOG(CLIB_IF_NOISY_DEBUG1, "context uninitialized - trying to initialize\n");
 		muacc_init_context(ctx);
 		if( ctx->ctx == NULL )
 			goto muacc_setsockopt_fallback;			
 	}
 	
-	if( _lock_ctx(ctx->ctx) )
+	if( _lock_ctx(ctx) )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular setsockopt\n");
-		_unlock_ctx(ctx->ctx);
+		_unlock_ctx(ctx);
 		goto muacc_setsockopt_fallback;
 	}
 	
@@ -183,7 +183,7 @@ int muacc_setsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 		{
 			// Invalid buffer
 			errno = EFAULT;
-			_unlock_ctx(ctx->ctx);
+			_unlock_ctx(ctx);
 			return -1;
 		}
 	}
@@ -193,7 +193,7 @@ int muacc_setsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 		// Socket option not an intent: Call original setsockopt function
 		if ((retval = setsockopt(socket, level, option_name, option_value, option_len)) < 0)
 		{
-			_unlock_ctx(ctx->ctx);
+			_unlock_ctx(ctx);
 			return retval;
 		}
 
@@ -213,7 +213,7 @@ int muacc_setsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 		if (newopt->optval == NULL)
 		{
 			perror("__function__ malloc failed");
-			_unlock_ctx(ctx->ctx);
+			_unlock_ctx(ctx);
 			return retval;
 		}
 		memcpy(newopt->optval, option_value, option_len);
@@ -243,7 +243,7 @@ int muacc_setsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 
 	retval = 0;
 
-	_unlock_ctx(ctx->ctx);
+	_unlock_ctx(ctx);
 
 	return retval;
 	
@@ -271,10 +271,10 @@ int muacc_getsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 			return getsockopt(socket, level, option_name, option_value, option_len);
 	}
 		
-	if( _lock_ctx(ctx->ctx) )
+	if( _lock_ctx(ctx) )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular getsockopt\n");
-		_unlock_ctx(ctx->ctx);
+		_unlock_ctx(ctx);
 		return getsockopt(socket, level, option_name, option_value, option_len);
 	}
 
@@ -287,7 +287,7 @@ int muacc_getsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 		{
 			// Invalid buffer
 			errno = EFAULT;
-			_unlock_ctx(ctx->ctx);
+			_unlock_ctx(ctx);
 			return -1;
 		}
 
@@ -331,14 +331,14 @@ int muacc_getsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 		// Requested socket option is not on 'intents' layer
 		if ((retval = getsockopt(socket, level, option_name, option_value, option_len)) < 0)
 		{
-			_unlock_ctx(ctx->ctx);
+			_unlock_ctx(ctx);
 			return retval;
 		}
 	}
 
 	// If we arrive here, we have successfully gotten the option (intent or other)
 
-	_unlock_ctx(ctx->ctx);
+	_unlock_ctx(ctx);
 
 	return retval;
 }
@@ -363,10 +363,10 @@ int muacc_bind(muacc_context_t *ctx, int socket, const struct sockaddr *address,
 			goto muacc_bind_fallback;
 	}
 			
-	if( _lock_ctx(ctx->ctx) )
+	if( _lock_ctx(ctx) )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular connect\n");
-		_unlock_ctx(ctx->ctx);
+		_unlock_ctx(ctx);
 		goto muacc_bind_fallback;
 	}
 	
@@ -377,7 +377,7 @@ int muacc_bind(muacc_context_t *ctx, int socket, const struct sockaddr *address,
 		ctx->ctx->bind_sa_req = _muacc_clone_sockaddr(address, address_len);
 		ctx->ctx->bind_sa_req_len = address_len;	
 	}
-	_unlock_ctx(ctx->ctx);
+	_unlock_ctx(ctx);
 	return ret;
 	
 	muacc_bind_fallback:
@@ -408,18 +408,18 @@ int muacc_connect(muacc_context_t *ctx,
 			goto muacc_connect_fallback;
 	}
 			
-	if( _lock_ctx(ctx->ctx) )
+	if( _lock_ctx(ctx) )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular connect\n");
-		_unlock_ctx(ctx->ctx);
+		_unlock_ctx(ctx);
 		goto muacc_connect_fallback;
 	}
 	
 	ctx->ctx->remote_sa     = _muacc_clone_sockaddr((struct sockaddr *)address, address_len);
 	ctx->ctx->remote_sa_len = address_len;
 	
-	if( _muacc_contact_mam(muacc_act_connect_req, ctx->ctx) <0 ){
-		_unlock_ctx(ctx->ctx);
+	if( _muacc_contact_mam(muacc_act_connect_req, ctx) <0 ){
+		_unlock_ctx(ctx);
 		DLOG(CLIB_IF_NOISY_DEBUG0, "got no response from mam - fallback to regular connect\n");
 		goto muacc_connect_fallback;
 	}
@@ -469,7 +469,7 @@ int muacc_connect(muacc_context_t *ctx,
 	
 	
 	/* unlock context and do request */
-	_unlock_ctx(ctx->ctx);
+	_unlock_ctx(ctx);
 	
 	return connect(socket, ctx->ctx->remote_sa, ctx->ctx->remote_sa_len);
 	
@@ -499,10 +499,10 @@ int muacc_close(muacc_context_t *ctx,
 		goto muacc_close_fallback;
 	}
 
-	if( _lock_ctx(ctx->ctx) )
+	if( _lock_ctx(ctx) )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG0, "WARNING: context already in use - fallback to regular close\n");
-		_unlock_ctx(ctx->ctx);
+		_unlock_ctx(ctx);
 		goto muacc_close_fallback;
 	}
 

@@ -31,15 +31,15 @@
 #endif
 
 
-int _lock_ctx (struct _muacc_ctx *_ctx)
+int _lock_ctx (muacc_context_t *ctx)
 {
-	return( -(_ctx->locks++) );
+	return( -(ctx->locks++) );
 }
 
 
-int _unlock_ctx (struct _muacc_ctx *_ctx)
+int _unlock_ctx (muacc_context_t *ctx)
 {
-	return( -(--(_ctx->locks)) );
+	return( -(--(ctx->locks)) );
 }
 
 muacc_ctxid_t _get_ctxid()
@@ -53,17 +53,14 @@ struct _muacc_ctx *_muacc_create_ctx()
 
 	struct _muacc_ctx *_ctx;
 
-
-	/* initalize context backing struct */
+	/* initialize context backing struct */
 	if( ( _ctx = malloc( sizeof(struct _muacc_ctx) )) == NULL )
 	{
 		perror("_muacc_ctx malloc failed");
 		return(NULL);
 	}
 	memset(_ctx, 0x00, sizeof(struct _muacc_ctx));
-	_ctx->usage = 1;
 	_ctx->ctxid = -1;
-	_ctx->mamsock = -1;
 
 	DLOG(CLIB_CTX_NOISY_DEBUG1,"created new _ctx=%p successfully  \n", (void *) _ctx);
 
@@ -78,15 +75,14 @@ int muacc_init_context(struct muacc_context *ctx)
 		return(-1);
 	_ctx->ctxid = _get_ctxid(); 
 
-	DLOG(CLIB_CTX_NOISY_DEBUG1,"connected & context successfully initalized\n");
+	DLOG(CLIB_CTX_NOISY_DEBUG1,"context successfully initialized\n");
+
+	ctx->usage = 1;
+	ctx->locks = 0;
+	ctx->mamsock = -1;
 
 	ctx->ctx = _ctx;
 	return(0);
-}
-
-int _muacc_retain_ctx(struct _muacc_ctx *_ctx)
-{
-	return(++(_ctx->usage));
 }
 
 
@@ -97,43 +93,36 @@ int muacc_retain_context(struct muacc_context *ctx)
 		return(-1);
 	}
 
-	return(_muacc_retain_ctx(ctx->ctx));
+	return(++(ctx->usage));
 }
 
 
 int _muacc_free_ctx (struct _muacc_ctx *_ctx)
 {
-	if( --(_ctx->usage) == 0 )
-	{
-		DLOG(CLIB_CTX_NOISY_DEBUG2, "trying to free data fields\n");
-		
-		if (_ctx->mamsock != -1) 				close(_ctx->mamsock);
-		if (_ctx->remote_addrinfo_hint != NULL) freeaddrinfo(_ctx->remote_addrinfo_hint);
-		if (_ctx->remote_addrinfo_res != NULL)  freeaddrinfo(_ctx->remote_addrinfo_res);
-		if (_ctx->bind_sa_req != NULL)          free(_ctx->bind_sa_req);
-		if (_ctx->bind_sa_suggested != NULL)          free(_ctx->bind_sa_suggested);
-		if (_ctx->remote_sa != NULL)        free(_ctx->remote_sa);
-		if (_ctx->remote_hostname != NULL)      free(_ctx->remote_hostname);
-		while (_ctx->sockopts_current != NULL)
-		{
-			socketopt_t *current = _ctx->sockopts_current;
-			_ctx->sockopts_current = current->next;
-			free(current);
-		}
-		while (_ctx->sockopts_suggested != NULL)
-		{
-			socketopt_t *current = _ctx->sockopts_suggested;
-			_ctx->sockopts_suggested = current->next;
-			free(current);
-		}
-		free(_ctx);
-		DLOG(CLIB_CTX_NOISY_DEBUG1, "context successfully freed\n");
+	DLOG(CLIB_CTX_NOISY_DEBUG2, "trying to free data fields\n");
 
-		return(0);
-	} else {
-		DLOG(CLIB_CTX_NOISY_DEBUG1, "context has still %d references\n", _ctx->usage);
-		return(_ctx->usage);
+	if (_ctx->remote_addrinfo_hint != NULL) freeaddrinfo(_ctx->remote_addrinfo_hint);
+	if (_ctx->remote_addrinfo_res != NULL)  freeaddrinfo(_ctx->remote_addrinfo_res);
+	if (_ctx->bind_sa_req != NULL)          free(_ctx->bind_sa_req);
+	if (_ctx->bind_sa_suggested != NULL)          free(_ctx->bind_sa_suggested);
+	if (_ctx->remote_sa != NULL)        free(_ctx->remote_sa);
+	if (_ctx->remote_hostname != NULL)      free(_ctx->remote_hostname);
+	while (_ctx->sockopts_current != NULL)
+	{
+		socketopt_t *current = _ctx->sockopts_current;
+		_ctx->sockopts_current = current->next;
+		free(current);
 	}
+	while (_ctx->sockopts_suggested != NULL)
+	{
+		socketopt_t *current = _ctx->sockopts_suggested;
+		_ctx->sockopts_suggested = current->next;
+		free(current);
+	}
+	free(_ctx);
+	DLOG(CLIB_CTX_NOISY_DEBUG1, "context successfully freed\n");
+
+	return(0);
 }
 
 
@@ -151,7 +140,14 @@ int muacc_release_context(struct muacc_context *ctx)
 	}
 	else
 	{
-		return _muacc_free_ctx(ctx->ctx);
+		if( --(ctx->usage) == 0 )
+		{
+			if (ctx->mamsock != -1) 				close(ctx->mamsock);
+			return _muacc_free_ctx(ctx->ctx);
+		} else {
+			DLOG(CLIB_CTX_NOISY_DEBUG1, "context has still %d references\n", ctx->usage);
+			return(ctx->usage);
+		}
 	}
 }
 
@@ -162,7 +158,7 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	
 	if(src->ctx == NULL)
 	{
-		DLOG(CLIB_CTX_NOISY_DEBUG0,"WARNING: cloning uninitalized context\n");
+		DLOG(CLIB_CTX_NOISY_DEBUG0,"WARNING: cloning uninitialized context\n");
 		dst->ctx = NULL;
 		return(0);
 	}
@@ -186,10 +182,11 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	_ctx->sockopts_current = _muacc_clone_socketopts(src->ctx->sockopts_current);
 	_ctx->sockopts_suggested = _muacc_clone_socketopts(src->ctx->sockopts_suggested);
 
-	_ctx->usage = 1;
 	_ctx->ctxid = _get_ctxid();
-	_ctx->mamsock = -1;
 	
+	dst->usage = 1;
+	dst->locks = 0;
+	dst->mamsock = -1;
 	dst->ctx = _ctx;
 	
 	
@@ -205,7 +202,7 @@ size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, const struct _muacc_c
 
 	DLOG(CLIB_CTX_NOISY_DEBUG1,"packing _ctx=%p pos=%zd\n", (void *) ctx, *pos);
 
-	DLOG(CLIB_CTX_NOISY_DEBUG2,"ctxid pos=%ld\n", *pos);
+	DLOG(CLIB_CTX_NOISY_DEBUG2,"ctxid pos=%ld\n", (long) *pos);
     if(	0 > _muacc_push_tlv(buf, pos, len, ctxid, &(ctx->ctxid), sizeof(ctx->ctxid) ) ) goto _muacc_pack_ctx_err;
 
 	DLOG(CLIB_CTX_NOISY_DEBUG2,"calls_performed=%x pos=%ld\n", ctx->calls_performed, (long) *pos);
@@ -267,10 +264,6 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 
 	switch(tag) 
 	{
-		case action:
-			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking action\n");
-			_ctx->state = *((muacc_mam_action_t *) data);
-			break;
 		case ctxid:
 			if(_ctx->ctxid == -1)
 			{
@@ -424,12 +417,6 @@ void _muacc_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct _
 
 
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "_ctx = {\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\t// internal values\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tusage = %d,\n", _ctx->usage);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tlocks = %d,\n", (int) _ctx->locks);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tmamsock = %d,\n", _ctx->mamsock);
-
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\t// exported values\n");
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tctxid = (%6d,%6d ),\n", (uint32_t) (_ctx->ctxid>>32), (uint32_t) _ctx->ctxid & (0x00000000ffffffff));
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tcalls_performed = %x,\n", _ctx->calls_performed);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tdomain = %d,\n", _ctx->domain);
