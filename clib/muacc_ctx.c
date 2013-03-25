@@ -298,7 +298,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				break;
 		case bind_sa_req:
 			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking bind_sa_req\n");
-			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
+			if ((int) _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->bind_sa_req);
 				_ctx->bind_sa_req = sa;
@@ -308,7 +308,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			break;
 		case bind_sa_res:
 			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking bind_sa_res\n");
-			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
+			if((int) _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->bind_sa_suggested);
 				_ctx->bind_sa_suggested = sa;
@@ -318,7 +318,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			break;
 		case remote_sa:
 			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking remote_sa\n");
-			if( _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
+			if((int) _muacc_extract_socketaddr_tlv(data, data_len, &sa) > 0)
 			{
 				free(_ctx->remote_sa);
 				_ctx->remote_sa = sa;
@@ -339,7 +339,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			break;
 		case remote_addrinfo_hint:
 			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking remote_addrinfo_hint\n");
-			if( _muacc_extract_addrinfo_tlv( data, data_len, &ai) > 0)
+			if((int) _muacc_extract_addrinfo_tlv( data, data_len, &ai) > 0)
 			{
 				freeaddrinfo(_ctx->remote_addrinfo_hint);
 				_ctx->remote_addrinfo_hint = ai;
@@ -350,7 +350,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 
 		case remote_addrinfo_res:
 			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking remote_addrinfo_res\n");
-			if( _muacc_extract_addrinfo_tlv( data, data_len, &ai) > 0)
+			if((int) _muacc_extract_addrinfo_tlv( data, data_len, &ai) > 0)
 			{
 				freeaddrinfo(_ctx->remote_addrinfo_res);
 				_ctx->remote_addrinfo_res = ai;
@@ -361,7 +361,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 
 		case sockopts_current:
 			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking sockopts_current\n");
-			if( _muacc_extract_socketopt_tlv( data, data_len, &so) > 0)
+			if((int) _muacc_extract_socketopt_tlv( data, data_len, &so) > 0)
 			{
 				_muacc_free_socketopts(_ctx->sockopts_current);
 				_ctx->sockopts_current = so;
@@ -372,7 +372,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 
 		case sockopts_suggested:
 			DLOG(CLIB_CTX_NOISY_DEBUG2, "unpacking sockopts_suggested\n");
-			if( _muacc_extract_socketopt_tlv( data, data_len, &so) > 0)
+			if((int) _muacc_extract_socketopt_tlv( data, data_len, &so) > 0)
 			{
 				_muacc_free_socketopts(_ctx->sockopts_suggested);
 				_ctx->sockopts_suggested = so;
