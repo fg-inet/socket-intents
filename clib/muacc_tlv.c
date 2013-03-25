@@ -528,15 +528,24 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
 	assert(evbuffer_get_length(ctx->in) >= tlv_len );
 	data = ((void *) (buf + buf_pos));
 
-	/* process tlv */
-	switch( _muacc_unpack_ctx(*tag, data, *data_len, ctx->ctx) )
+	/* check action */
+	if(*tag == action)
 	{
-		case 0:
-			DLOG(CLIB_TLV_NOISY_DEBUG1, "parsing TLV successful\n");
-			break;
-		default:
-			DLOG(CLIB_TLV_NOISY_DEBUG0, "WARNING: parsing TLV failed: tag=%d data_len=%ld\n", (int) *tag, (long) *data_len);
-			break;
+		DLOG(CLIB_TLV_NOISY_DEBUG2, "unpacking action: %d \n" , *((muacc_mam_action_t *) data));
+		ctx->action = *((muacc_mam_action_t *) data);
+	}
+	else
+	{
+		/* process tlv */
+		switch( _muacc_unpack_ctx(*tag, data, *data_len, ctx->ctx) )
+		{
+			case 0:
+				DLOG(CLIB_TLV_NOISY_DEBUG1, "parsing TLV successful\n");
+				break;
+			default:
+				DLOG(CLIB_TLV_NOISY_DEBUG0, "WARNING: parsing TLV failed: tag=%d data_len=%ld\n", (int) *tag, (long) *data_len);
+				break;
+		}
 	}
 
     evbuffer_drain(ctx->in, tlv_len);

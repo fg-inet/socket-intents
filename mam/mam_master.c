@@ -55,7 +55,24 @@ void process_mam_request(struct request_context *ctx)
 
 	_muacc_print_ctx(buf, &buf_pos, buf_len, ctx->ctx);
 	printf("/**************************************/\n%s\n", buf);
-	_muacc_send_ctx_event(ctx, ctx->action);
+
+	if (ctx->action == muacc_act_getaddrinfo_resolve_req)
+	{
+		/* Respond to a getaddrinfo resolve request */
+		DLOG(MAM_IF_NOISY_DEBUG2, "received getaddrinfo resolve request\n");
+		_muacc_send_ctx_event(ctx, muacc_act_getaddrinfo_resolve_resp);
+	}
+	else if (ctx->action == muacc_act_connect_req)
+	{
+		/* Respond to a connect request */
+		DLOG(MAM_IF_NOISY_DEBUG2, "received connect request\n");
+		_muacc_send_ctx_event(ctx, muacc_act_connect_resp);
+	}
+	else
+	{
+		/* Unknown request */
+		DLOG(MAM_IF_NOISY_DEBUG1, "received unknown request (action id: %d\n", ctx->action);
+	}
 	
 	/* re-initialize muacc context to back up further communication */
 	_new_ctx = _muacc_create_ctx();
