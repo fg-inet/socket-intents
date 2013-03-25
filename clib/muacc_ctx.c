@@ -302,6 +302,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			{
 				free(_ctx->bind_sa_req);
 				_ctx->bind_sa_req = sa;
+				_ctx->bind_sa_req_len = data_len;
 			}
 			else
 				return(-1);
@@ -312,6 +313,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			{
 				free(_ctx->bind_sa_suggested);
 				_ctx->bind_sa_suggested = sa;
+				_ctx->bind_sa_suggested_len = data_len;
 			}
 			else
 				return(-1);
@@ -322,6 +324,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			{
 				free(_ctx->remote_sa);
 				_ctx->remote_sa = sa;
+				_ctx->remote_sa_len = data_len;
 			}
 			else
 				return(-1);
