@@ -29,6 +29,7 @@
 #include "../clib/muacc_tlv.h"
 #include "../clib/dlog.h"
 
+#include "mam.h"
 
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))
 #define MAX_BUF 0
@@ -45,26 +46,25 @@
 #define MAM_IF_NOISY_DEBUG2 0
 #endif
 
-void process_mam_request(struct _muacc_ctx **_ctx)
+void process_mam_request(struct request_context *ctx)
 {
 	char buf[4096] = {0};
 	size_t buf_len = 4096;
 	size_t buf_pos = 0;
 	struct _muacc_ctx *_new_ctx;
 
-	_muacc_print_ctx(buf, &buf_pos, buf_len, *_ctx);
+	_muacc_print_ctx(buf, &buf_pos, buf_len, ctx->ctx);
 	printf("/**************************************/\n%s\n", buf);
-	_muacc_send_ctx_event(*_ctx, (*_ctx)->state);
+	_muacc_send_ctx_event(ctx, ctx->action);
 	
-	/* re-initalize muacc context to back up further communication */
+	/* re-initialize muacc context to back up further communication */
 	_new_ctx = _muacc_create_ctx();
-	_new_ctx->in  = (*_ctx)->in;
-	_new_ctx->out = (*_ctx)->out;
-	
-	/* clean up old one without closing socket */
-	_muacc_free_ctx(*_ctx);
 
-	*_ctx = _new_ctx;
+	/* clean up old _muacc_ctx */
+	_muacc_free_ctx(ctx->ctx);
+
+	ctx->ctx = _new_ctx;
+
 }
 
 /** read next tlvs on one of mam's client sockets
@@ -72,22 +72,20 @@ void process_mam_request(struct _muacc_ctx **_ctx)
  */
 void mamsock_readcb(struct bufferevent *bev, void *ctx)
 {
-	struct _muacc_ctx **_ctx = (struct _muacc_ctx **) ctx;
+	struct request_context *rctx = (struct request_context *) ctx;
 
-    struct evbuffer *input, *output;
-
-    input = bufferevent_get_input(bev);
-    output = bufferevent_get_output(bev);
+    rctx->in = bufferevent_get_input(bev);
+    rctx->out = bufferevent_get_output(bev);
 
     for(;;)
-    switch( _muacc_proc_tlv_event(input, output, *_ctx) )
+    switch( _muacc_proc_tlv_event(rctx) )
     {
     	case _muacc_proc_tlv_event_too_short:
     		/* need more data - wait for next read event */
     		return;
     	case _muacc_proc_tlv_event_eof:
     		/* done processing - do MAM's magic */
-    		process_mam_request(_ctx);
+			process_mam_request(rctx);
     		continue;
     	default:
     		/* read a TLV - are there more out there? */
@@ -100,7 +98,7 @@ void mamsock_readcb(struct bufferevent *bev, void *ctx)
  */
 void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
 {
-	struct _muacc_ctx *_ctx = (struct _muacc_ctx *) ctx;
+	struct request_context *rctx = (struct request_context *) ctx;
 
     if (error & BEV_EVENT_EOF) {
         /* connection has been closed, do any clean up here */
@@ -112,7 +110,8 @@ void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
         /* must be a timeout event handle, handle it */
         /* ... */
     }
-	_muacc_free_ctx(_ctx);
+	if (rctx->ctx != NULL)		_muacc_free_ctx(rctx->ctx);
+	if (rctx != NULL)			free(rctx);
     bufferevent_free(bev);
 }
 
@@ -133,16 +132,16 @@ void do_accept(evutil_socket_t listener, short event, void *arg)
 
 		DLOG(MAM_IF_NOISY_DEBUG2, "Accepted client %d\n", fd);
     	struct bufferevent *bev;
-    	struct _muacc_ctx **_ctx;
+		request_context_t *ctx;
 
-    	/* initalize muacc context to back up communication */
-		_ctx = malloc(sizeof(struct _muacc_ctx *));
-    	*_ctx = _muacc_create_ctx();
+		/* initialize request context to back up communication */
+		ctx = malloc(sizeof(struct request_context));
+		ctx->ctx = _muacc_create_ctx();
 
     	/* set up bufferevent magic */
         evutil_make_socket_nonblocking(fd);
         bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
-        bufferevent_setcb(bev, mamsock_readcb, NULL, mamsock_errorcb, (void *) _ctx);
+        bufferevent_setcb(bev, mamsock_readcb, NULL, mamsock_errorcb, (void *) ctx);
         bufferevent_setwatermark(bev, EV_READ, MIN_BUF, MAX_BUF);
         bufferevent_enable(bev, EV_READ|EV_WRITE);
 

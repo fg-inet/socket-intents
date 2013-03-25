@@ -434,7 +434,7 @@ size_t _muacc_extract_socketopt_tlv( const char *data, size_t data_len, struct s
 
 }
 
-int _muacc_send_ctx_event(struct _muacc_ctx *_ctx, muacc_mam_action_t reason)
+int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
 {
 
 	struct evbuffer_iovec v[1];
@@ -444,7 +444,7 @@ int _muacc_send_ctx_event(struct _muacc_ctx *_ctx, muacc_mam_action_t reason)
 	/* Reserve space */
 	DLOG(CLIB_TLV_NOISY_DEBUG2,"reserving buffer\n");
 
-	ret = evbuffer_reserve_space(_ctx->out, MUACC_TLV_MAXLEN, v, 1);
+	ret = evbuffer_reserve_space(ctx->out, MUACC_TLV_MAXLEN, v, 1);
 	if(ret <= 0)
 	{
 		DLOG(CLIB_TLV_NOISY_DEBUG0,"ERROR reserving buffer\n");
@@ -455,7 +455,7 @@ int _muacc_send_ctx_event(struct _muacc_ctx *_ctx, muacc_mam_action_t reason)
 
 	/* pack request */
 	if( 0 > _muacc_push_tlv(v[0].iov_base, &pos, v[0].iov_len, action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_send_ctx_event_pack_err;
-	if( 0 > _muacc_pack_ctx(v[0].iov_base, &pos, v[0].iov_len, _ctx) ) goto  _muacc_send_ctx_event_pack_err;
+	if( 0 > _muacc_pack_ctx(v[0].iov_base, &pos, v[0].iov_len, ctx->ctx) ) goto  _muacc_send_ctx_event_pack_err;
 	if( 0 > _muacc_push_tlv_tag(v[0].iov_base, &pos, v[0].iov_len, eof) ) goto  _muacc_send_ctx_event_pack_err;
 	DLOG(CLIB_TLV_NOISY_DEBUG2,"packing request done\n");
 
@@ -463,7 +463,7 @@ int _muacc_send_ctx_event(struct _muacc_ctx *_ctx, muacc_mam_action_t reason)
 
 
 	DLOG(CLIB_TLV_NOISY_DEBUG1,"committing buffer\n");
-	if (evbuffer_commit_space(_ctx->out, v, 1) < 0)
+	if (evbuffer_commit_space(ctx->out, v, 1) < 0)
 	{
 		DLOG(CLIB_TLV_NOISY_DEBUG0,"ERROR committing buffer\n");
 	    return(-1); /* Error committing */
@@ -479,7 +479,7 @@ int _muacc_send_ctx_event(struct _muacc_ctx *_ctx, muacc_mam_action_t reason)
 }
 
 
-int _muacc_proc_tlv_event(struct evbuffer *input, struct evbuffer *output, struct _muacc_ctx *_ctx )
+int _muacc_proc_tlv_event(request_context_t *ctx)
 {
 
 	unsigned char *buf;
@@ -492,13 +492,13 @@ int _muacc_proc_tlv_event(struct evbuffer *input, struct evbuffer *output, struc
 
 	/* check header */
 	tlv_len = sizeof(muacc_tlv_t) + sizeof(size_t);
-    buf = evbuffer_pullup(input, tlv_len);
+    buf = evbuffer_pullup(ctx->in, tlv_len);
 	if(buf == NULL)
 	{
 		DLOG(CLIB_TLV_NOISY_DEBUG1, "header read failed: buffer too small - please try again later\n");
 		return(_muacc_proc_tlv_event_too_short);
 	}
-	assert(evbuffer_get_length(input) >= tlv_len );
+	assert(evbuffer_get_length(ctx->in) >= tlv_len );
 
 	/* parse tag and length */
 	tag = ((muacc_tlv_t *) (buf + buf_pos));
@@ -513,27 +513,23 @@ int _muacc_proc_tlv_event(struct evbuffer *input, struct evbuffer *output, struc
 	if(*tag == eof)
 	{
 		DLOG(CLIB_TLV_NOISY_DEBUG2, "found eof - returning\n");
-        evbuffer_drain(input, tlv_len);
+        evbuffer_drain(ctx->in, tlv_len);
 		return(_muacc_proc_tlv_event_eof);
 	}
 
 	/* check data */
 	tlv_len += *data_len;
-    buf = evbuffer_pullup(input, tlv_len);
+    buf = evbuffer_pullup(ctx->in, tlv_len);
 	if(buf == NULL)
 	{
 		DLOG(CLIB_TLV_NOISY_DEBUG1, "header read failed: buffer too small - please try again later\n");
 		return(_muacc_proc_tlv_event_too_short);
 	}
-	assert(evbuffer_get_length(input) >= tlv_len );
+	assert(evbuffer_get_length(ctx->in) >= tlv_len );
 	data = ((void *) (buf + buf_pos));
 
-	/* set context input/output buffer */
-	_ctx->in  = input;
-	_ctx->out = output;
-
 	/* process tlv */
-	switch( _muacc_unpack_ctx(*tag, data, *data_len, _ctx) )
+	switch( _muacc_unpack_ctx(*tag, data, *data_len, ctx->ctx) )
 	{
 		case 0:
 			DLOG(CLIB_TLV_NOISY_DEBUG1, "parsing TLV successful\n");
@@ -543,7 +539,7 @@ int _muacc_proc_tlv_event(struct evbuffer *input, struct evbuffer *output, struc
 			break;
 	}
 
-    evbuffer_drain(input, tlv_len);
+    evbuffer_drain(ctx->in, tlv_len);
 	return(tlv_len);
 
 }

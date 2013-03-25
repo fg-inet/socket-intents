@@ -6,6 +6,7 @@
 
 #include <netdb.h>
 #include "muacc_types.h"
+#include "../mam/mam.h"
 
 
 #define MUACC_TLV_MAXLEN 2048
@@ -103,9 +104,7 @@ size_t _muacc_extract_socketopt_tlv(
  * @return number of bytes processed, 0 if last TLV was EOF, -1 if buffer was too short
  */
 int _muacc_proc_tlv_event(
-	struct evbuffer *input,		/**< [in]	  evbuffer to read from */
-	struct evbuffer *output,	/**< [in]	  evbuffer to write to  */
-	struct _muacc_ctx *_ctx		/**< [in]	  ctx to extract data to */
+	request_context_t *ctx		/**< [in]	  ctx to extract data to */
 );
 
 /** read a TLV from a file descriptor
@@ -126,7 +125,7 @@ size_t _muacc_read_tlv(
  *
  * @return 0 on success, -1 if there was an error.
  */
-int _muacc_send_ctx_event(struct _muacc_ctx *_ctx, muacc_mam_action_t reason);
+int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason);
 
 /** speak the TLV protocol as a client to make MAM update _ctx with her wisdom
  *

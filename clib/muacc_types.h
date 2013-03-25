@@ -27,8 +27,6 @@ typedef uint64_t muacc_ctxid_t;
 /** Internal muacc context struct
 	All data will be serialized and sent to MAM */
 struct _muacc_ctx {
-	struct evbuffer 	*out;					/**< output buffer when used with libevent2 */
-	struct evbuffer 	*in;					/**< input buffer when used with libevent2 */
 	muacc_ctxid_t		ctxid;					/**< identifier for the context if sharing mamsock */
 	unsigned int		calls_performed;		/**< contains flags of which socket call have been performed*/
 	int					domain;					/**< communication domain of the socket (e.g. AF_INET) */
