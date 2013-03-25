@@ -341,9 +341,9 @@ size_t _muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct 
 	size_t data_pos = 0;
 
 	/* check length */
-	if (data_len-data_pos < sizeof(struct addrinfo))
+	if (data_len-data_pos < sizeof(struct sockaddr))
 	{
-		DLOG(CLIB_TLV_NOISY_DEBUG0, "WARNING: ata_len too short - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
+		DLOG(CLIB_TLV_NOISY_DEBUG0, "WARNING: data_len too short - data_pos=%ld data_len=%ld sizeof(struct sockaddr)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct sockaddr));
 		return(-1);
 	}
 
