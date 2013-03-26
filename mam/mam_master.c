@@ -202,8 +202,12 @@ main(int c, char **v)
     struct event *term_event, *int_event;
     struct sockaddr_un sun;
     struct event_base *base;
+	struct mam_context *ctx = NULL;
 
     setvbuf(stderr, NULL, _IONBF, 0);
+
+	DLOG(MAM_IF_NOISY_DEBUG2, "creating and initializing mam context...\n");
+	ctx = mam_create_context();
 
 	DLOG(MAM_IF_NOISY_DEBUG2, "setting up event base...\n");
 	/* set up libevent */
@@ -245,6 +249,7 @@ main(int c, char **v)
     /* clean up */
     close(listener);
     unlink(MUACC_SOCKET);
+	mam_release_context(ctx);
 
     return 0;
 }
