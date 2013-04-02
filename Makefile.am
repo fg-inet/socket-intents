@@ -39,8 +39,6 @@ mamma_LDFLAGS = -export-dynamic -lltdl
 TESTS = testmuacc
 check_PROGRAMS = testmuacc
 
-testintents_SOURCES = tests/testintents.c
-
 testmuacc_SOURCES = tests/testmuacc.c
 testmuacc_LDADD = $(LDADD) libmuacc_intents.la
 
