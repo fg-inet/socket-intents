@@ -15,9 +15,12 @@ noinst_LTLIBRARIES = libmuacc_intents.la
 libmuacc_intents_la_SOURCES = clib/muacc.c clib/muacc_util.c clib/muacc_ctx.c clib/muacc_tlv.c clib/muacc.h clib/muacc_util.h clib/muacc_ctx.h clib/muacc_tlv.h
 libmuacc_intents_la_CFLAGS = -DUSE_SO_INTENTS $(AM_CFLAGS)
 
-lib_LTLIBRARIES = libintents.la
+lib_LTLIBRARIES = libintents.la policy_sample.la
 libintents_la_SOURCES = libintents/libintents.c
 libintents_la_LIBADD = $(glib2_LIBS) -ldl libmuacc_intents.la
+
+policy_sample_la_SOURCES = mam/policy_sample.c
+policy_sample_la_LDFLAGS = -module -avoid-version
 
 bin_PROGRAMS = mamma muacsocksd addrinfo 
 
