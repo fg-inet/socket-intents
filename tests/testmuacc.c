@@ -145,7 +145,6 @@ void tlv_evilshort_setup(dfixture *df, const void *test_data)
  */
 void tlv_destroy(dfixture *df, const void *test_data)
 {
-	muacc_release_context(df->context);
 	free(df->tlv_buffer);
 	df->tlv_buffer = NULL;
 	df->tlv_buffer_len = 0;
@@ -477,10 +476,8 @@ void tlv_unpack_socketopt(dfixture *df, const void* param)
 {
 	struct socketopt *newopt;
 
-	char *buf;
     size_t writepos = 0;
 	size_t readpos = 0;
-    size_t buflen = 0;
 	size_t valuelen = 0;
 	
 	
@@ -489,7 +486,7 @@ void tlv_unpack_socketopt(dfixture *df, const void* param)
 	if (TESTMUACC_NOISY_DEBUG2)
 		_muacc_print_socket_option_list(df->context->ctx->sockopts_current);
 
-	buflen = _muacc_push_socketopt_tlv(df->tlv_buffer, &writepos, df->tlv_buffer_len, label, df->context->ctx->sockopts_current);
+	_muacc_push_socketopt_tlv(df->tlv_buffer, &writepos, df->tlv_buffer_len, label, df->context->ctx->sockopts_current);
 	valuelen = writepos - sizeof(muacc_tlv_t) - sizeof(size_t);
 	
 	readpos = sizeof(muacc_tlv_t) + sizeof(size_t);
