@@ -4,7 +4,8 @@ AM_INIT_AUTOMAKE([1.10 no-define subdir-objects])
 AC_PROG_CC
 AM_PROG_CC_C_O
 AM_PROG_AR
-LT_INIT
+LT_INIT([dlopen])
+LTDL_INIT
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile])
 PKG_PROG_PKG_CONFIG

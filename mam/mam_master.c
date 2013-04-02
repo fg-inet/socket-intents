@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <signal.h>
+#include <ltdl.h>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -189,6 +190,62 @@ int do_listen(struct event_base *base, evutil_socket_t listener, struct sockaddr
 
 }
 
+/** Initialize the dynamic loader using libltdl,
+ *  load the policy module from a file given by filename
+ *  and call its init() function
+ */
+int setup_policy_module(const char *filename)
+{
+	DLOG(MAM_IF_NOISY_DEBUG2, "setting up policy module %s \n", filename);
+
+	int ret = -1;
+	const char *ltdl_error = NULL;
+
+	lt_dlhandle mam_policy;
+	int (*init_function)() = NULL;
+
+	if (0 != (ret = lt_dlinit()))
+	{
+		DLOG(MAM_IF_NOISY_DEBUG1, "Initializing dynamic module loader failed with %d errors\n", ret);
+		return -1;
+	}
+
+	lt_dladdsearchdir(".");
+	if (NULL != (mam_policy = lt_dlopen(filename)))
+	{
+		DLOG(MAM_IF_NOISY_DEBUG2, "policy module has been loaded successfully\n");
+	}
+	else
+	{
+		ltdl_error = lt_dlerror();
+		DLOG(MAM_IF_NOISY_DEBUG1, "loading of module failed");
+		if (MAM_IF_NOISY_DEBUG1)
+		{
+			if (ltdl_error != NULL)
+			{
+				printf(": %s", ltdl_error);
+			}
+			printf("\n");
+		}
+		return -1;
+	}
+
+	lt_dlerror();
+	*(void **) (&init_function) = lt_dlsym(mam_policy, "init");
+
+	if (NULL == (ltdl_error = lt_dlerror()))
+	{
+		/* No error occured when looking for the init function */
+		(*init_function)();
+	}
+	else
+	{
+		DLOG(MAM_IF_NOISY_DEBUG1, "init function of policy module not found:\n\t %s\n", ltdl_error);
+	}
+
+	return 0;
+}
+
 static void do_graceful_shutdown(evutil_socket_t _, short what, void* ctx) {
     struct event_base *evb = (struct event_base*) ctx;
 	DLOG(MAM_IF_NOISY_DEBUG0, "got signal - terminating...\n");
@@ -242,6 +299,12 @@ main(int c, char **v)
 	int_event = evsignal_new(base, SIGINT, do_graceful_shutdown, base);
 	event_add(int_event, NULL);
 
+	if (c > 1)
+	{
+		/* if we have command line arguments, initialize dynamic loader and load policy module */
+		setup_policy_module(v[1]);
+	}
+
 	/* run libevent */
 	DLOG(MAM_IF_NOISY_DEBUG2, "running event loop...\n");
     event_base_dispatch(base);
@@ -250,6 +313,7 @@ main(int c, char **v)
     close(listener);
     unlink(MUACC_SOCKET);
 	mam_release_context(ctx);
+	lt_dlexit();
 
     return 0;
 }
