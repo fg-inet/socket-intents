@@ -55,4 +55,7 @@ void mam_print_context(mam_context_t *ctx);
 /** Print contents of a request context: associated _muacc_ctx and mam_context */
 void mam_print_request_context(request_context_t *ctx);
 
+/** update the source prefix list within the mam_context using getifaddrs()*/
+int update_src_prefix_list (mam_context_t *ctx);
+
 #endif /* __MAM_H__ */

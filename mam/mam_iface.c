@@ -26,6 +26,7 @@
 #include "../config.h"
 
 #include "mam.h"
+#include "mam_util.h"
 #include "../clib/dlog.h"
 #include "../clib/muacc_util.h"
 
@@ -72,7 +73,7 @@ int _append_sockaddr_list (
 	socklen_t addr_len )
 {
 	*dst = malloc(sizeof(struct sockaddr_list));
-	if(*dst == NULL) { DLOG(MAM_IF_NOISY_DEBUG0, "malloc failed"); return(-1); } 
+	if(*dst == NULL) { DLOG(1, "malloc failed"); return(-1); } 
 	memset(*dst, 0, sizeof(struct sockaddr_list));
 	(*dst)->addr = _muacc_clone_sockaddr(addr, addr_len);
 	(*dst)->addr_len = addr_len;
@@ -128,7 +129,7 @@ void _scan_update_prefix (
 	/* allocate memory */
 	new = malloc(sizeof(struct src_prefix_list));
 	if(new == NULL)
-		{ DLOG(MAM_IF_NOISY_DEBUG0, "malloc failed"); return; } 
+		{ DLOG(1, "malloc failed"); return; } 
 	memset(new, 0, sizeof(struct src_prefix_list));
 	
 	/* copy data */
@@ -144,9 +145,9 @@ void _scan_update_prefix (
 	return;
 }
 
-int update_src_prefix_list (
-	struct src_prefix_list **spfxl
-){
+int update_src_prefix_list (mam_context_t *ctx ){
+
+	struct src_prefix_list **spfxl = &(ctx->prefixes);
     struct ifaddrs *ifaddr, *ifa;
     int family;
 
@@ -154,6 +155,12 @@ int update_src_prefix_list (
         perror("getifaddrs");
         return(-1);
     }
+	
+	if(*spfxl != NULL) 
+	{
+		_free_src_prefix_list(*spfxl);
+		*spfxl = NULL;		
+	}
 	
     /* Walk through linked list, maintaining head pointer so we
        can free list later */
@@ -195,6 +202,43 @@ int update_src_prefix_list (
     }
 
     freeifaddrs(ifaddr);
-    exit(EXIT_SUCCESS);
+    return(0);
+}
+
+int _free_src_prefix_list (struct src_prefix_list *spfxl) 
+{
+	struct src_prefix_list *nextp = NULL;
+	struct src_prefix_list *currp = NULL;
+	struct sockaddr_list *nexta = NULL;
+	struct sockaddr_list *curra = NULL;
+	
+	nextp = spfxl;
+	while (nextp != NULL)
+	{
+		currp = nextp;
+		nextp = currp->next;
+		
+		if (currp->if_name != NULL)		
+			free(currp->if_name);
+		
+		nexta = currp->if_addrs;
+		while (nexta != NULL)
+		{
+			curra = nexta;
+			nexta = curra->next;
+			
+			if (curra->addr != NULL)	
+				free(curra->addr);
+			
+			free(curra);
+		}
+		
+		if (currp->if_netmask != NULL)
+			free(currp->if_netmask);
+		
+		free(currp);
+	}
+	
+	return(0);
 }
 

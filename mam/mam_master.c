@@ -315,9 +315,13 @@ main(int c, char **v)
 	int_event = evsignal_new(base, SIGINT, do_graceful_shutdown, base);
 	event_add(int_event, NULL);
 
+ 	/* get interface config from system */
+	update_src_prefix_list(ctx);
+
+	/* load policy module if we have command line arguments */
 	if (c > 1)
 	{
-		/* if we have command line arguments, initialize dynamic loader and load policy module */
+		/* initialize dynamic loader and load policy module */
 		setup_policy_module(ctx, v[1]);
 	}
 

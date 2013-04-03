@@ -3,6 +3,7 @@
 #include <ltdl.h>
 
 #include "mam.h"
+#include "mam_util.h"
 #include "../clib/muacc_util.h"
 #include "../clib/dlog.h"
 
@@ -111,24 +112,7 @@ int _mam_free_ctx(struct mam_context *ctx)
 		return -1;
 	}
 
-	struct src_prefix_list *curitem = NULL;
-	struct sockaddr_list *current = NULL;
-	while (ctx->prefixes != NULL)
-	{
-		curitem = ctx->prefixes;
-		if (curitem->if_name != NULL)		free(curitem->if_name);
-		while (curitem->if_addrs != NULL)
-		{
-			current = curitem->if_addrs;
-			if (current != NULL)	free(current);
-			curitem->if_addrs = current->next;
-			free(current);
-		}
-		if (curitem->if_netmask != NULL)	free(curitem->if_netmask);
-		ctx->prefixes = curitem->next;
-		free(curitem);
-	}
-
+	_free_src_prefix_list(ctx->prefixes);
 	free(ctx);
 
 	return 0;
