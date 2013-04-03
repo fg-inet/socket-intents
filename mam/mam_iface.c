@@ -30,7 +30,18 @@
 #include "../clib/muacc_util.h"
 
 
-#define MAM_IF_NOISY_DEBUG0 1
+#ifndef MAM_IF_NOISY_DEBUG0
+#define MAM_IF_NOISY_DEBUG0 0
+#endif
+
+#ifndef MAM_IF_NOISY_DEBUG1
+#define MAM_IF_NOISY_DEBUG1 0
+#endif
+
+#ifndef MAM_IF_NOISY_DEBUG2
+#define MAM_IF_NOISY_DEBUG2 0
+#endif
+
 
 /** check wheather two ipv4 addresses are in the same subnet */
 int _cmp_in_addr_with_mask(
@@ -161,14 +172,14 @@ int update_src_prefix_list (
                form of the latter for the common families) */
 		    char addr[NI_MAXHOST];
 		    char mask[NI_MAXHOST];
-			int s
+			int s;
             s = getnameinfo(ifa->ifa_addr,
                 (family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6),
                 addr, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
-	        s = getnameinfo(ifa->mask,
+	        s = getnameinfo(ifa->ifa_netmask,
 	            (family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6),
 	            mask, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
-         	DLOG(MAM_IF_NOISY_DEBUG1("scanning for family: %d%s, address: %s mask: %s",
+         	DLOG(MAM_IF_NOISY_DEBUG1, "scanning for family: %d%s, address: %s mask: %s\n",
                  family,
                  (family == AF_INET) ?   " (AF_INET)" :
                  (family == AF_INET6) ?  " (AF_INET6)" : "",

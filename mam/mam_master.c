@@ -36,16 +36,16 @@
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))
 #define MAX_BUF 0
 
-#ifndef MAM_IF_NOISY_DEBUG0
-#define MAM_IF_NOISY_DEBUG0 0
+#ifndef MAM_MASTER_NOISY_DEBUG0
+#define MAM_MASTER_NOISY_DEBUG0 0
 #endif
 
-#ifndef MAM_IF_NOISY_DEBUG1
-#define MAM_IF_NOISY_DEBUG1 0
+#ifndef MAM_MASTER_NOISY_DEBUG1
+#define MAM_MASTER_NOISY_DEBUG1 0
 #endif
 
-#ifndef MAM_IF_NOISY_DEBUG2
-#define MAM_IF_NOISY_DEBUG2 0
+#ifndef MAM_MASTER_NOISY_DEBUG2
+#define MAM_MASTER_NOISY_DEBUG2 0
 #endif
 
 struct event_base *base = NULL;
@@ -64,27 +64,27 @@ void process_mam_request(struct request_context *ctx)
 	if (ctx->action == muacc_act_getaddrinfo_resolve_req)
 	{
 		/* Respond to a getaddrinfo resolve request */
-		DLOG(MAM_IF_NOISY_DEBUG2, "received getaddrinfo resolve request\n");
+		DLOG(MAM_MASTER_NOISY_DEBUG2, "received getaddrinfo resolve request\n");
 		if (_mam_fetch_policy_function(ctx->mctx->policy, "on_resolve_request", (void **) &callback_function) == 0)
 		{
-			DLOG(MAM_IF_NOISY_DEBUG2, "Got getaddrinfo callback\n");
+			DLOG(MAM_MASTER_NOISY_DEBUG2, "Got getaddrinfo callback\n");
 		}
 		_muacc_send_ctx_event(ctx, muacc_act_getaddrinfo_resolve_resp);
 	}
 	else if (ctx->action == muacc_act_connect_req)
 	{
 		/* Respond to a connect request */
-		DLOG(MAM_IF_NOISY_DEBUG2, "received connect request\n");
+		DLOG(MAM_MASTER_NOISY_DEBUG2, "received connect request\n");
 		if (_mam_fetch_policy_function(ctx->mctx->policy, "on_connect_request", (void **) &callback_function) == 0)
 		{
-			DLOG(MAM_IF_NOISY_DEBUG2, "Got connect callback\n");
+			DLOG(MAM_MASTER_NOISY_DEBUG2, "Got connect callback\n");
 		}
 		_muacc_send_ctx_event(ctx, muacc_act_connect_resp);
 	}
 	else
 	{
 		/* Unknown request */
-		DLOG(MAM_IF_NOISY_DEBUG1, "received unknown request (action id: %d\n", ctx->action);
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "received unknown request (action id: %d\n", ctx->action);
 	}
 	
 	/* re-initialize muacc context to back up further communication */
@@ -160,7 +160,7 @@ void do_accept(evutil_socket_t listener, short event, void *arg)
         close(fd);
     } else {
 
-		DLOG(MAM_IF_NOISY_DEBUG2, "Accepted client %d\n", fd);
+		DLOG(MAM_MASTER_NOISY_DEBUG2, "Accepted client %d\n", fd);
     	struct bufferevent *bev;
 		request_context_t *ctx;
 
@@ -209,7 +209,7 @@ int do_listen(mam_context_t *ctx, evutil_socket_t listener, struct sockaddr *sin
  */
 int setup_policy_module(mam_context_t *ctx, const char *filename)
 {
-	DLOG(MAM_IF_NOISY_DEBUG2, "setting up policy module %s \n", filename);
+	DLOG(MAM_MASTER_NOISY_DEBUG2, "setting up policy module %s \n", filename);
 
 	int ret = -1;
 	const char *ltdl_error = NULL;
@@ -219,21 +219,21 @@ int setup_policy_module(mam_context_t *ctx, const char *filename)
 
 	if (0 != (ret = lt_dlinit()))
 	{
-		DLOG(MAM_IF_NOISY_DEBUG1, "Initializing dynamic module loader failed with %d errors\n", ret);
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "Initializing dynamic module loader failed with %d errors\n", ret);
 		return -1;
 	}
 
 	lt_dladdsearchdir(".");
 	if (NULL != (mam_policy = lt_dlopen(filename)))
 	{
-		DLOG(MAM_IF_NOISY_DEBUG2, "policy module has been loaded successfully\n");
+		DLOG(MAM_MASTER_NOISY_DEBUG2, "policy module has been loaded successfully\n");
 		ctx->policy = mam_policy;
 	}
 	else
 	{
 		ltdl_error = lt_dlerror();
-		DLOG(MAM_IF_NOISY_DEBUG1, "loading of module failed");
-		if (MAM_IF_NOISY_DEBUG1)
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "loading of module failed");
+		if (MAM_MASTER_NOISY_DEBUG1)
 		{
 			if (ltdl_error != NULL)
 			{
@@ -250,16 +250,18 @@ int setup_policy_module(mam_context_t *ctx, const char *filename)
 	}
 	else
 	{
-		DLOG(MAM_IF_NOISY_DEBUG1, "module %s could not be initialized", filename);
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "module %s could not be initialized", filename);
 		return -1;
 	}
 
 	return 0;
 }
 
+/** signal handler the libevent-way 
+ */
 static void do_graceful_shutdown(evutil_socket_t _, short what, void* ctx) {
     struct event_base *evb = (struct event_base*) ctx;
-	DLOG(MAM_IF_NOISY_DEBUG0, "got signal - terminating...\n");
+	DLOG(MAM_MASTER_NOISY_DEBUG0, "got signal - terminating...\n");
     event_base_loopexit(evb, NULL);
 }
 
@@ -273,14 +275,14 @@ main(int c, char **v)
 
     setvbuf(stderr, NULL, _IONBF, 0);
 
-	DLOG(MAM_IF_NOISY_DEBUG2, "creating and initializing mam context...\n");
+	DLOG(MAM_MASTER_NOISY_DEBUG2, "creating and initializing mam context...\n");
 	ctx = mam_create_context();
     if (ctx == NULL) {
-		DLOG(MAM_IF_NOISY_DEBUG0, "failed to create mam context\n");
+		DLOG(MAM_MASTER_NOISY_DEBUG0, "failed to create mam context\n");
         exit(1);
     }
 
-	DLOG(MAM_IF_NOISY_DEBUG2, "setting up event base...\n");
+	DLOG(MAM_MASTER_NOISY_DEBUG2, "setting up event base...\n");
 	/* set up libevent */
     base = event_base_new();
     if (!base) {
@@ -289,7 +291,7 @@ main(int c, char **v)
     }
 
 	/* set mam socket */
-	DLOG(MAM_IF_NOISY_DEBUG0, "setting up mamma's socket %s ...\n", MUACC_SOCKET);
+	DLOG(MAM_MASTER_NOISY_DEBUG0, "setting up mamma's socket %s ...\n", MUACC_SOCKET);
 	sun.sun_family = AF_UNIX;
 	#ifdef HAVE_SOCKADDR_LEN
 	sun.sun_len = sizeof(struct sockaddr_un);
@@ -300,10 +302,10 @@ main(int c, char **v)
     int one = 1;
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 
-	DLOG(MAM_IF_NOISY_DEBUG2, "setting up listener...\n");
+	DLOG(MAM_MASTER_NOISY_DEBUG2, "setting up listener...\n");
 	if( 0 > do_listen(ctx, listener, (struct sockaddr *)&sun, sizeof(sun)))
 	{
-		DLOG(MAM_IF_NOISY_DEBUG1, "listen failed\n");
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "listen failed\n");
 		return 1;
 	}
 
@@ -320,7 +322,7 @@ main(int c, char **v)
 	}
 
 	/* run libevent */
-	DLOG(MAM_IF_NOISY_DEBUG2, "running event loop...\n");
+	DLOG(MAM_MASTER_NOISY_DEBUG2, "running event loop...\n");
     event_base_dispatch(base);
 
     /* clean up */

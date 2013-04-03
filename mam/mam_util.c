@@ -104,7 +104,7 @@ size_t _mam_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct m
 
 int _mam_free_ctx(struct mam_context *ctx)
 {
-	DLOG(MAM_UTIL_NOISY_DEBUG2, "freeing data fields");
+	DLOG(MAM_UTIL_NOISY_DEBUG2, "freeing mam_context %p\n",(void *) ctx);
 	if (ctx == NULL)
 	{
 		DLOG(MAM_UTIL_NOISY_DEBUG1, "tried to free NULL context\n");
