@@ -51,4 +51,7 @@ int mam_release_context(struct mam_context *ctx);
 /** Print contents of a mam context structure */
 void mam_print_context(mam_context_t *ctx);
 
+/** Print contents of a request context: associated _muacc_ctx and mam_context */
+void mam_print_request_context(request_context_t *ctx);
+
 #endif /* __MAM_H__ */
