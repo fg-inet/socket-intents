@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <signal.h>
+#include <ltdl.h>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -30,6 +31,7 @@
 #include "../clib/dlog.h"
 
 #include "mam.h"
+#include "mam_util.h"
 
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))
 #define MAX_BUF 0
@@ -46,6 +48,8 @@
 #define MAM_IF_NOISY_DEBUG2 0
 #endif
 
+struct event_base *base = NULL;
+
 void process_mam_request(struct request_context *ctx)
 {
 	char buf[4096] = {0};
@@ -55,17 +59,26 @@ void process_mam_request(struct request_context *ctx)
 
 	_muacc_print_ctx(buf, &buf_pos, buf_len, ctx->ctx);
 	printf("/**************************************/\n%s\n", buf);
+	int (*callback_function)(request_context_t *ctx) = NULL;
 
 	if (ctx->action == muacc_act_getaddrinfo_resolve_req)
 	{
 		/* Respond to a getaddrinfo resolve request */
 		DLOG(MAM_IF_NOISY_DEBUG2, "received getaddrinfo resolve request\n");
+		if (_mam_fetch_policy_function(ctx->mctx->policy, "on_resolve_request", (void **) &callback_function) == 0)
+		{
+			DLOG(MAM_IF_NOISY_DEBUG2, "Got getaddrinfo callback\n");
+		}
 		_muacc_send_ctx_event(ctx, muacc_act_getaddrinfo_resolve_resp);
 	}
 	else if (ctx->action == muacc_act_connect_req)
 	{
 		/* Respond to a connect request */
 		DLOG(MAM_IF_NOISY_DEBUG2, "received connect request\n");
+		if (_mam_fetch_policy_function(ctx->mctx->policy, "on_connect_request", (void **) &callback_function) == 0)
+		{
+			DLOG(MAM_IF_NOISY_DEBUG2, "Got connect callback\n");
+		}
 		_muacc_send_ctx_event(ctx, muacc_act_connect_resp);
 	}
 	else
@@ -137,7 +150,7 @@ void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
  */
 void do_accept(evutil_socket_t listener, short event, void *arg)
 {
-    struct event_base *base = arg;
+    mam_context_t *mctx = arg;
     struct sockaddr_storage ss;
     socklen_t slen = sizeof(ss);
     int fd = accept(listener, (struct sockaddr*)&ss, &slen);
@@ -154,6 +167,7 @@ void do_accept(evutil_socket_t listener, short event, void *arg)
 		/* initialize request context to back up communication */
 		ctx = malloc(sizeof(struct request_context));
 		ctx->ctx = _muacc_create_ctx();
+		ctx->mctx = mctx;
 
     	/* set up bufferevent magic */
         evutil_make_socket_nonblocking(fd);
@@ -166,7 +180,7 @@ void do_accept(evutil_socket_t listener, short event, void *arg)
 }
 
 
-int do_listen(struct event_base *base, evutil_socket_t listener, struct sockaddr *sin, size_t sin_z)
+int do_listen(mam_context_t *ctx, evutil_socket_t listener, struct sockaddr *sin, size_t sin_z)
 {
     struct event *listener_event;
 
@@ -182,11 +196,65 @@ int do_listen(struct event_base *base, evutil_socket_t listener, struct sockaddr
         return -1;
     }
 
-    listener_event = event_new(base, listener, EV_READ|EV_PERSIST, do_accept, (void*)base);
+    listener_event = event_new(base, listener, EV_READ|EV_PERSIST, do_accept, (void*) ctx);
     event_add(listener_event, NULL);
 
 	return 0;
 
+}
+
+/** Initialize the dynamic loader using libltdl,
+ *  load the policy module from a file given by filename
+ *  and call its init() function
+ */
+int setup_policy_module(mam_context_t *ctx, const char *filename)
+{
+	DLOG(MAM_IF_NOISY_DEBUG2, "setting up policy module %s \n", filename);
+
+	int ret = -1;
+	const char *ltdl_error = NULL;
+
+	lt_dlhandle mam_policy;
+	int (*init_function)() = NULL;
+
+	if (0 != (ret = lt_dlinit()))
+	{
+		DLOG(MAM_IF_NOISY_DEBUG1, "Initializing dynamic module loader failed with %d errors\n", ret);
+		return -1;
+	}
+
+	lt_dladdsearchdir(".");
+	if (NULL != (mam_policy = lt_dlopen(filename)))
+	{
+		DLOG(MAM_IF_NOISY_DEBUG2, "policy module has been loaded successfully\n");
+		ctx->policy = mam_policy;
+	}
+	else
+	{
+		ltdl_error = lt_dlerror();
+		DLOG(MAM_IF_NOISY_DEBUG1, "loading of module failed");
+		if (MAM_IF_NOISY_DEBUG1)
+		{
+			if (ltdl_error != NULL)
+			{
+				printf(": %s", ltdl_error);
+			}
+			printf("\n");
+		}
+		return -1;
+	}
+
+	if (_mam_fetch_policy_function(ctx->policy, "init", (void **)&init_function) == 0)
+	{
+		init_function(ctx);
+	}
+	else
+	{
+		DLOG(MAM_IF_NOISY_DEBUG1, "module %s could not be initialized", filename);
+		return -1;
+	}
+
+	return 0;
 }
 
 static void do_graceful_shutdown(evutil_socket_t _, short what, void* ctx) {
@@ -201,7 +269,6 @@ main(int c, char **v)
     evutil_socket_t listener;
     struct event *term_event, *int_event;
     struct sockaddr_un sun;
-    struct event_base *base;
 	struct mam_context *ctx = NULL;
 
     setvbuf(stderr, NULL, _IONBF, 0);
@@ -234,7 +301,7 @@ main(int c, char **v)
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 
 	DLOG(MAM_IF_NOISY_DEBUG2, "setting up listener...\n");
-	if( 0 > do_listen(base, listener, (struct sockaddr *)&sun, sizeof(sun)))
+	if( 0 > do_listen(ctx, listener, (struct sockaddr *)&sun, sizeof(sun)))
 	{
 		DLOG(MAM_IF_NOISY_DEBUG1, "listen failed\n");
 		return 1;
@@ -246,6 +313,12 @@ main(int c, char **v)
 	int_event = evsignal_new(base, SIGINT, do_graceful_shutdown, base);
 	event_add(int_event, NULL);
 
+	if (c > 1)
+	{
+		/* if we have command line arguments, initialize dynamic loader and load policy module */
+		setup_policy_module(ctx, v[1]);
+	}
+
 	/* run libevent */
 	DLOG(MAM_IF_NOISY_DEBUG2, "running event loop...\n");
     event_base_dispatch(base);
@@ -254,6 +327,7 @@ main(int c, char **v)
     close(listener);
     unlink(MUACC_SOCKET);
 	mam_release_context(ctx);
+	lt_dlexit();
 
     return 0;
 }

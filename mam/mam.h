@@ -2,6 +2,7 @@
 #define __MAM_H__
 
 #include <event2/buffer.h>
+#include <ltdl.h>
 
 #include "../clib/muacc_types.h"
 
@@ -11,6 +12,7 @@ typedef struct request_context {
 	struct evbuffer 	*in;		/**< input buffer for libevent2 */
 	muacc_mam_action_t	action;		/**< socket call that this request is associated to */
 	struct _muacc_ctx	*ctx;		/**< internal struct with relevant socket context data */
+	struct mam_context	*mctx;		/**< pointer to current mam context */
 } request_context_t;
 
 /** List of sockaddrs */
@@ -35,6 +37,7 @@ typedef struct src_prefix_list {
 typedef struct mam_context {
 	int						usage;			/**< Reference counter */
 	struct src_prefix_list	*prefixes;		/**< Possible source prefixes on this system */
+	lt_dlhandle				policy;			/**< Handle of policy module */
 } mam_context_t;
 
 /** Create and initialize the MAM context */
@@ -48,5 +51,8 @@ int mam_release_context(struct mam_context *ctx);
 
 /** Print contents of a mam context structure */
 void mam_print_context(mam_context_t *ctx);
+
+/** Print contents of a request context: associated _muacc_ctx and mam_context */
+void mam_print_request_context(request_context_t *ctx);
 
 #endif /* __MAM_H__ */

@@ -2,8 +2,6 @@
 #ifndef __MUACC_TYPES_H__
 #define __MUACC_TYPES_H__ 1
 
-#include <event2/buffer.h>
-
 typedef enum
 {
 	muacc_act_connect_req,					/**< is from a connect */

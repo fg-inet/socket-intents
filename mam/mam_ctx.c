@@ -3,6 +3,7 @@
 
 #include "../clib/dlog.h"
 #include "../clib/muacc_util.h"
+#include "../clib/muacc_ctx.h"
 #include "mam.h"
 #include "mam_util.h"
 
@@ -79,4 +80,36 @@ void mam_print_context(mam_context_t *ctx)
 		_mam_print_ctx(buf, &buf_pos, buf_len, ctx);
 		printf("/**************************************/\n%s\n/**************************************/\n", buf);
 	}
+}
+
+void mam_print_request_context(request_context_t *ctx)
+{
+	char buf[BUF_LEN] = {0};
+	size_t buf_len = BUF_LEN;
+	size_t buf_pos = 0;
+	printf("/**************************************/\n");
+	if (ctx == NULL)
+	{
+		printf("ctx == NULL\n");
+		return;
+	}
+
+	if (ctx->ctx == NULL)
+	{
+		printf("ctx->ctx == NULL\n");
+	}
+	else
+	{
+		_muacc_print_ctx(buf, &buf_pos, buf_len, ctx->ctx);
+	}
+
+	if (ctx->mctx == NULL)
+	{
+		printf("ctx->mctx == NULL\n");
+	}
+	else
+	{
+		_mam_print_ctx(buf, &buf_pos, buf_len, ctx->mctx);
+	}
+	printf("%s\n/**************************************/\n", buf);
 }
