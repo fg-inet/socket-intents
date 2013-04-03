@@ -194,7 +194,7 @@ int do_listen(struct event_base *base, evutil_socket_t listener, struct sockaddr
  *  load the policy module from a file given by filename
  *  and call its init() function
  */
-int setup_policy_module(const char *filename)
+int setup_policy_module(mam_context_t *ctx, const char *filename)
 {
 	DLOG(MAM_IF_NOISY_DEBUG2, "setting up policy module %s \n", filename);
 
@@ -214,6 +214,7 @@ int setup_policy_module(const char *filename)
 	if (NULL != (mam_policy = lt_dlopen(filename)))
 	{
 		DLOG(MAM_IF_NOISY_DEBUG2, "policy module has been loaded successfully\n");
+		ctx->policy = mam_policy;
 	}
 	else
 	{
@@ -231,16 +232,17 @@ int setup_policy_module(const char *filename)
 	}
 
 	lt_dlerror();
-	*(void **) (&init_function) = lt_dlsym(mam_policy, "init");
+	*(void **) (&init_function) = lt_dlsym(ctx->policy, "init");
 
 	if (NULL == (ltdl_error = lt_dlerror()))
 	{
 		/* No error occured when looking for the init function */
-		(*init_function)();
+		(*init_function)(ctx);
 	}
 	else
 	{
 		DLOG(MAM_IF_NOISY_DEBUG1, "init function of policy module not found:\n\t %s\n", ltdl_error);
+		return -1;
 	}
 
 	return 0;
@@ -302,7 +304,7 @@ main(int c, char **v)
 	if (c > 1)
 	{
 		/* if we have command line arguments, initialize dynamic loader and load policy module */
-		setup_policy_module(v[1]);
+		setup_policy_module(ctx, v[1]);
 	}
 
 	/* run libevent */

@@ -2,6 +2,7 @@
 #define __MAM_H__
 
 #include <event2/buffer.h>
+#include <ltdl.h>
 
 #include "../clib/muacc_types.h"
 
@@ -34,6 +35,7 @@ typedef struct src_prefix_list {
 typedef struct mam_context {
 	int						usage;			/**< Reference counter */
 	struct src_prefix_list	*prefixes;		/**< Possible source prefixes on this system */
+	lt_dlhandle				policy;			/**< Handle of policy module */
 } mam_context_t;
 
 /** Create and initialize the MAM context */

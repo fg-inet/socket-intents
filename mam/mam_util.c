@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ltdl.h>
 
 #include "mam.h"
 #include "../clib/muacc_util.h"
@@ -50,10 +51,40 @@ size_t _mam_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct m
 	size_t old_pos = *buf_pos;
 
 	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "ctx = {\n");
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\tusage = %d", ctx->usage);
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\tusage = %d\n", ctx->usage);
 	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\tsrc_prefix_list = ");
 	_mam_print_prefix_list(buf, buf_pos, buf_len, ctx->prefixes);
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\n}\n");
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\n");
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\tpolicy = ");
+	if (ctx->policy != 0)
+	{
+		const lt_dlinfo *policy_info = lt_dlgetinfo(ctx->policy);
+		if (policy_info != NULL )
+		{
+			if (policy_info->name != NULL && policy_info->filename != NULL)
+			{
+				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "%s (%s)", policy_info->name, policy_info->filename);
+			}
+			else if (policy_info->filename != NULL)
+			{
+				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "%s", policy_info->filename);
+			}
+			else
+			{
+				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "(Cannot display module name)");
+			}
+		}
+		else
+		{
+			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "(Error fetching module information)");
+		}
+	}
+	else
+	{
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "0");
+	}
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\n");
+	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "}\n");
 
 	return *buf_pos - old_pos;
 }
