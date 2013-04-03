@@ -28,7 +28,7 @@ size_t _mam_print_sockaddr_list(char *buf, size_t *buf_pos, size_t buf_len, cons
 
 	while (current != NULL)
 	{
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "{ ");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\n\t\t{ ");
 		_muacc_print_sockaddr(buf, buf_pos, buf_len, current->addr, current->addr_len);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), " }, ");
 		current = current->next;
@@ -46,10 +46,11 @@ size_t _mam_print_prefix_list(char *buf, size_t *buf_pos, size_t buf_len, const 
 
 	while (current != NULL)
 	{
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "{ ");
+		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\n\t{ ");
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "if_name = %s, ", current->if_name);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "if_flags = %d, ", current->if_flags);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "if_addrs = ");
+		_mam_print_sockaddr_list(buf, buf_pos, buf_len, current->if_addrs);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "if_netmask = ");
 		_muacc_print_sockaddr(buf, buf_pos, buf_len, current->if_netmask, current->if_netmask_len);
 		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "}, ");
