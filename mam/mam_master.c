@@ -47,6 +47,8 @@
 #define MAM_IF_NOISY_DEBUG2 0
 #endif
 
+struct event_base *base = NULL;
+
 void process_mam_request(struct request_context *ctx)
 {
 	char buf[4096] = {0};
@@ -138,7 +140,7 @@ void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
  */
 void do_accept(evutil_socket_t listener, short event, void *arg)
 {
-    struct event_base *base = arg;
+    mam_context_t *mctx = arg;
     struct sockaddr_storage ss;
     socklen_t slen = sizeof(ss);
     int fd = accept(listener, (struct sockaddr*)&ss, &slen);
@@ -155,6 +157,7 @@ void do_accept(evutil_socket_t listener, short event, void *arg)
 		/* initialize request context to back up communication */
 		ctx = malloc(sizeof(struct request_context));
 		ctx->ctx = _muacc_create_ctx();
+		ctx->mctx = mctx;
 
     	/* set up bufferevent magic */
         evutil_make_socket_nonblocking(fd);
@@ -167,7 +170,7 @@ void do_accept(evutil_socket_t listener, short event, void *arg)
 }
 
 
-int do_listen(struct event_base *base, evutil_socket_t listener, struct sockaddr *sin, size_t sin_z)
+int do_listen(mam_context_t *ctx, evutil_socket_t listener, struct sockaddr *sin, size_t sin_z)
 {
     struct event *listener_event;
 
@@ -183,7 +186,7 @@ int do_listen(struct event_base *base, evutil_socket_t listener, struct sockaddr
         return -1;
     }
 
-    listener_event = event_new(base, listener, EV_READ|EV_PERSIST, do_accept, (void*)base);
+    listener_event = event_new(base, listener, EV_READ|EV_PERSIST, do_accept, (void*) ctx);
     event_add(listener_event, NULL);
 
 	return 0;
@@ -260,7 +263,6 @@ main(int c, char **v)
     evutil_socket_t listener;
     struct event *term_event, *int_event;
     struct sockaddr_un sun;
-    struct event_base *base;
 	struct mam_context *ctx = NULL;
 
     setvbuf(stderr, NULL, _IONBF, 0);
@@ -289,7 +291,7 @@ main(int c, char **v)
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 
 	DLOG(MAM_IF_NOISY_DEBUG2, "setting up listener...\n");
-	if( 0 > do_listen(base, listener, (struct sockaddr *)&sun, sizeof(sun)))
+	if( 0 > do_listen(ctx, listener, (struct sockaddr *)&sun, sizeof(sun)))
 	{
 		DLOG(MAM_IF_NOISY_DEBUG1, "listen failed\n");
 		return 1;

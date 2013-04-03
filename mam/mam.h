@@ -12,6 +12,7 @@ typedef struct request_context {
 	struct evbuffer 	*in;		/**< input buffer for libevent2 */
 	muacc_mam_action_t	action;		/**< socket call that this request is associated to */
 	struct _muacc_ctx	*ctx;		/**< internal struct with relevant socket context data */
+	struct mam_context	*mctx;		/**< pointer to current mam context */
 } request_context_t;
 
 /** List of sockaddrs */
