@@ -31,6 +31,7 @@
 #include "../clib/dlog.h"
 
 #include "mam.h"
+#include "mam_util.h"
 
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))
 #define MAX_BUF 0
@@ -58,17 +59,26 @@ void process_mam_request(struct request_context *ctx)
 
 	_muacc_print_ctx(buf, &buf_pos, buf_len, ctx->ctx);
 	printf("/**************************************/\n%s\n", buf);
+	int (*callback_function)(request_context_t *ctx) = NULL;
 
 	if (ctx->action == muacc_act_getaddrinfo_resolve_req)
 	{
 		/* Respond to a getaddrinfo resolve request */
 		DLOG(MAM_IF_NOISY_DEBUG2, "received getaddrinfo resolve request\n");
+		if (_mam_fetch_policy_function(ctx->mctx->policy, "on_resolve_request", (void **) &callback_function) == 0)
+		{
+			DLOG(MAM_IF_NOISY_DEBUG2, "Got getaddrinfo callback\n");
+		}
 		_muacc_send_ctx_event(ctx, muacc_act_getaddrinfo_resolve_resp);
 	}
 	else if (ctx->action == muacc_act_connect_req)
 	{
 		/* Respond to a connect request */
 		DLOG(MAM_IF_NOISY_DEBUG2, "received connect request\n");
+		if (_mam_fetch_policy_function(ctx->mctx->policy, "on_connect_request", (void **) &callback_function) == 0)
+		{
+			DLOG(MAM_IF_NOISY_DEBUG2, "Got connect callback\n");
+		}
 		_muacc_send_ctx_event(ctx, muacc_act_connect_resp);
 	}
 	else
@@ -234,17 +244,13 @@ int setup_policy_module(mam_context_t *ctx, const char *filename)
 		return -1;
 	}
 
-	lt_dlerror();
-	*(void **) (&init_function) = lt_dlsym(ctx->policy, "init");
-
-	if (NULL == (ltdl_error = lt_dlerror()))
+	if (_mam_fetch_policy_function(ctx->policy, "init", (void **)&init_function) == 0)
 	{
-		/* No error occured when looking for the init function */
-		(*init_function)(ctx);
+		init_function(ctx);
 	}
 	else
 	{
-		DLOG(MAM_IF_NOISY_DEBUG1, "init function of policy module not found:\n\t %s\n", ltdl_error);
+		DLOG(MAM_IF_NOISY_DEBUG1, "module %s could not be initialized", filename);
 		return -1;
 	}
 

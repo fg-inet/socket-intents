@@ -4,6 +4,19 @@
 
 #include "mam.h"
 #include "../clib/muacc_util.h"
+#include "../clib/dlog.h"
+
+#ifndef MAM_UTIL_NOISY_DEBUG0
+#define MAM_UTIL_NOISY_DEBUG0 0
+#endif
+
+#ifndef MAM_UTIL_NOISY_DEBUG1
+#define MAM_UTIL_NOISY_DEBUG1 0
+#endif
+
+#ifndef MAM_UTIL_NOISY_DEBUG2
+#define MAM_UTIL_NOISY_DEBUG2 0
+#endif
 
 size_t _mam_print_sockaddr_list(char *buf, size_t *buf_pos, size_t buf_len, const struct sockaddr_list *list)
 {
@@ -91,8 +104,10 @@ size_t _mam_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct m
 
 int _mam_free_ctx(struct mam_context *ctx)
 {
+	DLOG(MAM_UTIL_NOISY_DEBUG2, "freeing data fields");
 	if (ctx == NULL)
 	{
+		DLOG(MAM_UTIL_NOISY_DEBUG1, "tried to free NULL context\n");
 		return -1;
 	}
 
@@ -115,6 +130,29 @@ int _mam_free_ctx(struct mam_context *ctx)
 	}
 
 	free(ctx);
+
+	return 0;
+}
+
+int _mam_fetch_policy_function(lt_dlhandle policy, const char *name, void **function)
+{
+	if (policy == 0 || name == NULL || function == NULL)
+	{
+		return -1;
+	}
+
+	const char *ltdl_error = NULL;
+
+	DLOG(MAM_UTIL_NOISY_DEBUG2, "Trying to find original function %s\n", name);
+	lt_dlerror();
+	*function = lt_dlsym(policy, name);
+
+	if (NULL != (ltdl_error = lt_dlerror()))
+	{
+		/* Error occured */
+		DLOG(MAM_UTIL_NOISY_DEBUG1, "Function %s not found:\t%s\n", name, ltdl_error);
+		return -1;
+	}
 
 	return 0;
 }

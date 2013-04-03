@@ -18,4 +18,7 @@ size_t _mam_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct m
 /** Helper that frees a context */
 int _mam_free_ctx(struct mam_context *ctx);
 
+/** Helper that fetches a function pointer from the handle of a policy module */
+int _mam_fetch_policy_function(lt_dlhandle policy, const char *name, void **function);
+
 #endif /* __MAM_UTIL_H__ */
