@@ -28,7 +28,7 @@ addrinfo_SOURCES = tests/addrinfo.c
 addrinfo_LDADD = $(LDADD) libmuacc.a
 
 
-mamma_SOURCES = $(clib_SOURCES) mam/mam_master.c mam/mam_ctx.c mam/mam_util.c mam/mam.h mam/mam_util.h
+mamma_SOURCES = $(clib_SOURCES) mam/mam_master.c mam/mam_ctx.c mam/mam_util.c mam/mam_iface.c mam/mam.h mam/mam_util.h
 mamma_LDADD = $(LDADD) libmuacc.a
 
 TESTS = testmuacc

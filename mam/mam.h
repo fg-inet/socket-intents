@@ -17,17 +17,18 @@ typedef struct request_context {
 typedef struct sockaddr_list {
 	struct sockaddr_list	*next;			/**< Next item in list */
 	struct sockaddr			*addr;			/**< Socket address */
-	size_t					addr_len;		/**< Length of socket address */
+	socklen_t				addr_len;		/**< Length of socket address */
 } sockaddr_list_t;
 
 /** List of source prefixes */
 typedef struct src_prefix_list {
 	struct src_prefix_list 	*next;			/**< Next item in list */
 	char 					*if_name;		/**< Name of the interface */
+	int 					family;			/**< Address family */
 	unsigned int			if_flags;		/**< Flags from SIOCGIFFLAGS */
 	struct sockaddr_list 	*if_addrs;		/**< List of socket addresses for this prefix */
 	struct sockaddr			*if_netmask;	/**< Netmask of interface */
-	size_t					if_netmask_len;	/**< Length of netmask */
+	socklen_t				if_netmask_len;	/**< Length of netmask */
 } src_prefix_list_t;
 
 /** Context of the MAM */

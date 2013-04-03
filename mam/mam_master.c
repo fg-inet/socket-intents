@@ -208,6 +208,10 @@ main(int c, char **v)
 
 	DLOG(MAM_IF_NOISY_DEBUG2, "creating and initializing mam context...\n");
 	ctx = mam_create_context();
+    if (ctx == NULL) {
+		DLOG(MAM_IF_NOISY_DEBUG0, "failed to create mam context\n");
+        exit(1);
+    }
 
 	DLOG(MAM_IF_NOISY_DEBUG2, "setting up event base...\n");
 	/* set up libevent */
