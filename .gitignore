@@ -18,7 +18,7 @@ muacsocksd
 addrinfo
 testintents
 testmuacc
-test_policy_sample
+test_policy_generic
 
 # Compiler docs
 doxygen/
