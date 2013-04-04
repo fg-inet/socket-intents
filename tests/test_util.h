@@ -42,6 +42,10 @@ typedef struct
  */
 void ctx_empty_setup(dfixture *df, const void *test_data);
 
+/** Helper that adds some sockopts to the context
+ */
+void ctx_add_socketopts(struct _muacc_ctx *ctx);
+
 /** Helper that creates a muacc context and fills it
  *  with some data
  */

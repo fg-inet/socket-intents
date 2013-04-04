@@ -53,6 +53,25 @@ void ctx_empty_setup(dfixture *df, const void *test_data)
 	muacc_init_context(df->context);
 }
 
+/** Helper that adds some sockopts to the context
+ */
+void ctx_add_socketopts(struct _muacc_ctx *ctx)
+{
+	struct socketopt testopt = { .level = SOL_SOCKET, .optname = SO_BROADCAST, .optval=malloc(sizeof(int)), .optlen = sizeof(int) };
+	int flag = 1;
+	memcpy(testopt.optval, &flag, sizeof(int));
+
+	ctx->sockopts_current = malloc(sizeof(struct socketopt));
+	memcpy(ctx->sockopts_current, &testopt, sizeof(struct socketopt));
+
+	struct socketopt testopt2 = { .level = SOL_INTENTS, .optname = SO_CATEGORY, .optval=malloc(sizeof(enum category)), .optlen = sizeof(enum category) };
+	enum category cat = C_KEEPALIVES;
+	memcpy(testopt2.optval, &cat, sizeof(enum category));
+
+	ctx->sockopts_current->next = malloc(sizeof(struct socketopt));
+	memcpy(ctx->sockopts_current->next, &testopt2, sizeof(struct socketopt));
+}
+
 /** Helper that creates a muacc context and fills it
  *  with some data
  */
@@ -76,20 +95,7 @@ void ctx_data_setup(dfixture *df, const void *test_data)
 	{
 		df->context->ctx->remote_addrinfo_res = result1;
 	}
-
-	struct socketopt testopt = { .level = SOL_SOCKET, .optname = SO_BROADCAST, .optval=malloc(sizeof(int)), .optlen = sizeof(int) };
-	int flag = 1;
-	memcpy(testopt.optval, &flag, sizeof(int));
-
-	df->context->ctx->sockopts_current = malloc(sizeof(struct socketopt));
-	memcpy(df->context->ctx->sockopts_current, &testopt, sizeof(struct socketopt));
-
-	struct socketopt testopt2 = { .level = SOL_INTENTS, .optname = SO_CATEGORY, .optval=malloc(sizeof(enum category)), .optlen = sizeof(enum category) };
-	enum category cat = C_KEEPALIVES;
-	memcpy(testopt2.optval, &cat, sizeof(enum category));
-
-	df->context->ctx->sockopts_current->next = malloc(sizeof(struct socketopt));
-	memcpy(df->context->ctx->sockopts_current->next, &testopt2, sizeof(struct socketopt));
+	ctx_add_socketopts(df->context->ctx);
 }
 
 /** Helper that releases a context
