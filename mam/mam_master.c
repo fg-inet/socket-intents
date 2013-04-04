@@ -52,14 +52,9 @@ struct event_base *base = NULL;
 
 void process_mam_request(struct request_context *ctx)
 {
-	char buf[4096] = {0};
-	size_t buf_len = 4096;
-	size_t buf_pos = 0;
 	struct _muacc_ctx *_new_ctx;
-
-	_muacc_print_ctx(buf, &buf_pos, buf_len, ctx->ctx);
-	printf("/**************************************/\n%s\n", buf);
-	int (*callback_function)(request_context_t *ctx) = NULL;
+	int (*callback_function)(request_context_t *ctx, struct event_base *base) = NULL;
+	int ret;
 
 	if (ctx->action == muacc_act_getaddrinfo_resolve_req)
 	{
@@ -67,9 +62,19 @@ void process_mam_request(struct request_context *ctx)
 		DLOG(MAM_MASTER_NOISY_DEBUG2, "received getaddrinfo resolve request\n");
 		if (_mam_fetch_policy_function(ctx->mctx->policy, "on_resolve_request", (void **) &callback_function) == 0)
 		{
-			DLOG(MAM_MASTER_NOISY_DEBUG2, "Got getaddrinfo callback\n");
+			/* Call policy module function */
+			DLOG(MAM_MASTER_NOISY_DEBUG2, "calling on_resolve_request callback\n");
+			ret = callback_function(ctx, base);
+			if (ret != 0)
+			{
+				DLOG(MAM_MASTER_NOISY_DEBUG1, "on_resolve_request callback returned %d\n", ret);
+			}
 		}
-		_muacc_send_ctx_event(ctx, muacc_act_getaddrinfo_resolve_resp);
+		else
+		{
+			DLOG(MAM_MASTER_NOISY_DEBUG2, "no callback on_resolve_request available. Sending back ctx\n");
+			_muacc_send_ctx_event(ctx, muacc_act_getaddrinfo_resolve_resp);
+		}
 	}
 	else if (ctx->action == muacc_act_connect_req)
 	{
@@ -77,9 +82,19 @@ void process_mam_request(struct request_context *ctx)
 		DLOG(MAM_MASTER_NOISY_DEBUG2, "received connect request\n");
 		if (_mam_fetch_policy_function(ctx->mctx->policy, "on_connect_request", (void **) &callback_function) == 0)
 		{
-			DLOG(MAM_MASTER_NOISY_DEBUG2, "Got connect callback\n");
+			/* Call policy module function */
+			DLOG(MAM_MASTER_NOISY_DEBUG2, "calling on_connect_request callback\n");
+			ret = callback_function(ctx, base);
+			if (ret != 0)
+			{
+				DLOG(MAM_MASTER_NOISY_DEBUG1, "on_connect_request callback returned %d\n", ret);
+			}
 		}
-		_muacc_send_ctx_event(ctx, muacc_act_connect_resp);
+		else
+		{
+			DLOG(MAM_MASTER_NOISY_DEBUG2, "no callback on_connect_request available. Sending back ctx\n");
+			_muacc_send_ctx_event(ctx, muacc_act_connect_resp);
+		}
 	}
 	else
 	{
