@@ -39,7 +39,7 @@ mamma_LDFLAGS = -export-dynamic
 TESTS = testmuacc
 check_PROGRAMS = testmuacc
 
-testmuacc_SOURCES = tests/testmuacc.c
+testmuacc_SOURCES = tests/testmuacc.c tests/test_util.h tests/test_util.c
 testmuacc_LDADD = $(LDADD) libmuacc_intents.la
 
 dist_noinst_SCRIPTS = autogen.sh
