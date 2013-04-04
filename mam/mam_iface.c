@@ -110,12 +110,12 @@ void _scan_update_prefix (
 				&(((struct sockaddr_in6 *) addr)->sin6_addr), 
 				&(((struct sockaddr_in6 *) cur->if_addrs->addr)->sin6_addr),
 				&(((struct sockaddr_in6 *) cur->if_netmask)->sin6_addr))
-		    ) || (
+		    ) == 0|| (
 			family == AF_INET &&
 			_cmp_in_addr_with_mask(
 				&(((struct sockaddr_in *) addr)->sin_addr),
 				&(((struct sockaddr_in *) cur->if_addrs->addr)->sin_addr),
-				&(((struct sockaddr_in *) cur->if_netmask)->sin_addr))
+				&(((struct sockaddr_in *) cur->if_netmask)->sin_addr)) == 0
 		))
 		{
 			for(cus = cur->if_addrs; cus->next != NULL; cus = cus->next);; 
