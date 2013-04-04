@@ -36,10 +36,13 @@ mamma_CFLAGS = $(LTDLINCL) $(AM_CFLAGS)
 mamma_LDADD = $(LDADD) libmuacc.a
 mamma_LDFLAGS = -export-dynamic
 
-TESTS = testmuacc
-check_PROGRAMS = testmuacc
+TESTS = testmuacc tests/policy_sample.sh
+check_PROGRAMS = testmuacc test_policy_sample
 
 testmuacc_SOURCES = tests/testmuacc.c tests/test_util.h tests/test_util.c
 testmuacc_LDADD = $(LDADD) libmuacc_intents.la
+
+test_policy_sample_SOURCES = tests/test_policy_sample.c tests/test_util.h tests/test_util.c
+test_policy_sample_LDADD = $(LDADD) libmuacc_intents.la
 
 dist_noinst_SCRIPTS = autogen.sh
