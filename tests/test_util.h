@@ -47,6 +47,12 @@ void ctx_empty_setup(dfixture *df, const void *test_data);
  */
 void ctx_add_socketopts(struct _muacc_ctx *ctx, struct socketopt *opts);
 
+/** Helper that adds a sockopt with this intent (category) to the context */
+void ctx_set_category(struct _muacc_ctx *ctx, enum category cat);
+
+/** Helper that initializes an empty context with intent category STREAM */
+void ctx_stream_setup(dfixture *df, const void *test_data);
+
 /** Helper that creates a muacc context and fills it
  *  with some data
  */

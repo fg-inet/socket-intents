@@ -72,6 +72,35 @@ void ctx_add_socketopts(struct _muacc_ctx *ctx, struct socketopt *opts)
 	}
 }
 
+void ctx_set_category(struct _muacc_ctx *ctx, enum category cat)
+{
+	struct socketopt *current = ctx->sockopts_current;
+	while (current != NULL)
+	{
+		if (current->level == SOL_INTENTS && current->optname == SO_CATEGORY)
+		{
+			/* Intent category exists - overwrite with new value */
+			memcpy(current->optval, &cat, sizeof(enum category));
+			break;
+		}
+		current = current->next;
+	}
+	if (current == NULL)
+	{
+		/* Add intent category */
+		struct socketopt newopt = { .level = SOL_INTENTS, .optname = SO_CATEGORY, .optval=malloc(sizeof(enum category)), .optlen = sizeof(enum category) };
+		memcpy(newopt.optval, &cat, sizeof(enum category));
+		ctx_add_socketopts(ctx, &newopt);
+		free(newopt.optval);
+	}
+}
+
+void ctx_stream_setup(dfixture *df, const void *test_data)
+{
+	ctx_empty_setup(df, test_data);
+	ctx_set_category(df->context->ctx, C_STREAM);
+}
+
 /** Helper that creates a muacc context and fills it
  *  with some data
  */
@@ -108,15 +137,12 @@ void ctx_data_setup(dfixture *df, const void *test_data)
 
 	ctx_add_socketopts(df->context->ctx, testopt);
 
-	struct socketopt testopt2 = { .level = SOL_INTENTS, .optname = SO_CATEGORY, .optval=malloc(sizeof(enum category)), .optlen = sizeof(enum category) };
-	enum category cat = C_KEEPALIVES;
-	memcpy(testopt2.optval, &cat, sizeof(enum category));
-	ctx_add_socketopts(df->context->ctx, &testopt2);
-
 	struct socketopt testopt3 = { .level = SOL_INTENTS, .optname = SO_DURATION, .optval=malloc(sizeof(int)), .optlen = sizeof(int) };
 	int duration = 12345;
 	memcpy(testopt3.optval, &duration, sizeof(int));
 	ctx_add_socketopts(df->context->ctx, &testopt3);
+
+	ctx_set_category(df->context->ctx, C_STREAM);
 }
 
 /** Helper that releases a context

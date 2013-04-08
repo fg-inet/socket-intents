@@ -184,5 +184,6 @@ int main(int argc, char *argv[])
 	g_test_add("/ctx/getaddrinfo_localport", dfixture, create_actx_localport(1338), ctx_empty_setup, getaddrinfo_request, ctx_destroy);
 	g_test_add("/ctx/getaddrinfo_remote", dfixture, create_actx_remote(1337, "www.maunz.org"), ctx_empty_setup, getaddrinfo_request, ctx_destroy);
 	g_test_add("/ctx/connect_remote_v4_google", dfixture, create_cctx_remote(AF_INET, SOCK_STREAM, 0, 80, "www.google.com"), ctx_empty_setup, connect_request, ctx_destroy);
+	g_test_add("/ctx/connect_stream_v4_google", dfixture, create_cctx_remote(AF_INET, SOCK_STREAM, 0, 80, "www.google.com"), ctx_stream_setup, connect_request, ctx_destroy);
 	return g_test_run();
 }
