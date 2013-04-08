@@ -17,6 +17,7 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 #include "../clib/muacc.h"
+#include "../clib/muacc_types.h"
 #include "../clib/muacc_ctx.h"
 #include "../clib/muacc_tlv.h"
 #include "../clib/muacc_util.h"
@@ -44,7 +45,7 @@ void ctx_empty_setup(dfixture *df, const void *test_data);
 
 /** Helper that adds some sockopts to the context
  */
-void ctx_add_socketopts(struct _muacc_ctx *ctx);
+void ctx_add_socketopts(struct _muacc_ctx *ctx, struct socketopt *opts);
 
 /** Helper that creates a muacc context and fills it
  *  with some data

@@ -55,21 +55,21 @@ void ctx_empty_setup(dfixture *df, const void *test_data)
 
 /** Helper that adds some sockopts to the context
  */
-void ctx_add_socketopts(struct _muacc_ctx *ctx)
+void ctx_add_socketopts(struct _muacc_ctx *ctx, struct socketopt *opts)
 {
-	struct socketopt testopt = { .level = SOL_SOCKET, .optname = SO_BROADCAST, .optval=malloc(sizeof(int)), .optlen = sizeof(int) };
-	int flag = 1;
-	memcpy(testopt.optval, &flag, sizeof(int));
-
-	ctx->sockopts_current = malloc(sizeof(struct socketopt));
-	memcpy(ctx->sockopts_current, &testopt, sizeof(struct socketopt));
-
-	struct socketopt testopt2 = { .level = SOL_INTENTS, .optname = SO_CATEGORY, .optval=malloc(sizeof(enum category)), .optlen = sizeof(enum category) };
-	enum category cat = C_KEEPALIVES;
-	memcpy(testopt2.optval, &cat, sizeof(enum category));
-
-	ctx->sockopts_current->next = malloc(sizeof(struct socketopt));
-	memcpy(ctx->sockopts_current->next, &testopt2, sizeof(struct socketopt));
+	if (ctx->sockopts_current == NULL)
+	{
+		ctx->sockopts_current = _muacc_clone_socketopts(opts);
+	}
+	else
+	{
+		struct socketopt *current = ctx->sockopts_current;
+		while (current->next != NULL)
+		{
+			current = current->next;
+		}
+		current->next = _muacc_clone_socketopts(opts);
+	}
 }
 
 /** Helper that creates a muacc context and fills it
@@ -95,7 +95,28 @@ void ctx_data_setup(dfixture *df, const void *test_data)
 	{
 		df->context->ctx->remote_addrinfo_res = result1;
 	}
-	ctx_add_socketopts(df->context->ctx);
+
+	struct socketopt *testopt = malloc(sizeof(struct socketopt));
+	int flag = 1;
+
+	memset(testopt, 0, sizeof(struct socketopt));
+	testopt->level = SOL_SOCKET;
+	testopt->optname = SO_BROADCAST;
+	testopt->optlen = sizeof(int);
+	testopt->optval = malloc(sizeof(int));
+	memcpy(testopt->optval, &flag, sizeof(int));
+
+	ctx_add_socketopts(df->context->ctx, testopt);
+
+	struct socketopt testopt2 = { .level = SOL_INTENTS, .optname = SO_CATEGORY, .optval=malloc(sizeof(enum category)), .optlen = sizeof(enum category) };
+	enum category cat = C_KEEPALIVES;
+	memcpy(testopt2.optval, &cat, sizeof(enum category));
+	ctx_add_socketopts(df->context->ctx, &testopt2);
+
+	struct socketopt testopt3 = { .level = SOL_INTENTS, .optname = SO_DURATION, .optval=malloc(sizeof(int)), .optlen = sizeof(int) };
+	int duration = 12345;
+	memcpy(testopt3.optval, &duration, sizeof(int));
+	ctx_add_socketopts(df->context->ctx, &testopt3);
 }
 
 /** Helper that releases a context
