@@ -7,6 +7,8 @@
 #include <event2/event.h>
 
 #include "mam.h"
+#include "policy_util.h"
+
 #include "../libintents/libintents.h"
 #include "../clib/muacc.h"
 #include "../clib/muacc_types.h"
@@ -33,59 +35,30 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	if (!(rctx->ctx->calls_performed & MUACC_BIND_CALLED))
 	{
 		/* If no bind occured yet, bind to a suitable local address */
-		struct socketopt *current = rctx->ctx->sockopts_current;
-		while (current != NULL)
+		category_s c = 0;
+		socklen_t option_length = sizeof(category_s);
+
+		if (0 == mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, SO_CATEGORY, &option_length, &c))
 		{
-			if (current->level == SOL_INTENTS && current->optname == SO_CATEGORY && current->optval != NULL)
+			if (c == C_QUERY)
 			{
-				category_s *c = (category_s *) current->optval;
-				if (*c == C_QUERY)
-				{
-					printf("C_QUERY -> use wlan0 interface if available\n");
-					struct src_prefix_list *iface = rctx->mctx->prefixes;
-					while (iface != NULL)
-					{
-						if (0 == strcmp(iface->if_name, "wlan0") && (iface->family == rctx->ctx->domain))
-						{
-							// use wlan0 interface if available
-							rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(iface->if_addrs->addr, iface->if_addrs->addr_len);
-							rctx->ctx->bind_sa_suggested_len = iface->if_addrs->addr_len;
-						}
-						iface = iface->next;
-					}
-				}
-				else if (*c == C_STREAM)
-				{
-					printf("C_STREAM -> use eth0 interface if available\n");
-					struct src_prefix_list *iface = rctx->mctx->prefixes;
-					while (iface != NULL)
-					{
-						if (0 == strcmp(iface->if_name, "eth0") && (iface->family == rctx->ctx->domain))
-						{
-							// use eth0 interface if available
-							rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(iface->if_addrs->addr, iface->if_addrs->addr_len);
-							rctx->ctx->bind_sa_suggested_len = iface->if_addrs->addr_len;
-						}
-						iface = iface->next;
-					}
-				}
-				else if (*c == C_CONTROLTRAFFIC)
-				{
-					printf("C_CONTROLTRAFFIC -> use ppp0 interface if available\n");
-					struct src_prefix_list *iface = rctx->mctx->prefixes;
-					while (iface != NULL)
-					{
-						if (0 == strcmp(iface->if_name, "ppp0") && (iface->family == rctx->ctx->domain))
-						{
-							// use ppp0 interface if available
-							rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(iface->if_addrs->addr, iface->if_addrs->addr_len);
-							rctx->ctx->bind_sa_suggested_len = iface->if_addrs->addr_len;
-						}
-						iface = iface->next;
-					}
-				}
+				printf("C_QUERY -> use wlan0 interface if available\n");
+				mampol_suggest_bind_sa(rctx, "wlan0");
 			}
-			current = current->next;
+			else if (c == C_STREAM)
+			{
+				printf("C_STREAM -> use eth0 interface if available\n");
+				mampol_suggest_bind_sa(rctx, "eth0");
+			}
+			else if (c == C_CONTROLTRAFFIC)
+			{
+				printf("C_CONTROLTRAFFIC -> use ppp0 interface if available\n");
+				mampol_suggest_bind_sa(rctx, "ppp0");
+			}
+			else
+			{
+				printf("No policy for category %d\n", (int) c);
+			}
 		}
 	}
 

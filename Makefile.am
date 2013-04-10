@@ -22,7 +22,7 @@ libintents_la_LIBADD = $(glib2_LIBS) -ldl libmuacc_intents.la
 policy_sample_la_SOURCES = mam/policy_sample.c
 policy_sample_la_LDFLAGS = -module -avoid-version
 
-policy_intents_la_SOURCES = mam/policy_intents.c
+policy_intents_la_SOURCES = mam/policy_intents.c mam/policy_util.h mam/policy_util.c
 policy_intents_la_LDFLAGS = -module -avoid-version
 policy_intents_la_LIBADD = libmuacc_intents.la
 
