@@ -1,48 +1,35 @@
-/** /file Stuff to manipulate "_muacc_ctx"
- *
+/** \file  muacc_ctx.h
+ *  \brief Functions to manipulate and print "_muacc_ctx" and to pack it to a TLV buffer
  */
 
 #ifndef __MUACC_CTX_H__
-#define __MUACC_CTX_H__ 1
+#define __MUACC_CTX_H__
 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 
 #include "muacc.h"
-#include "muacc_types.h"
-
-
 
 /** Helper to allocate and initialize _muacc_ctx
  *
  */
 struct _muacc_ctx *_muacc_create_ctx();
 
-/** Helper to maintain refernece count on _muacc_ctx
+/** Helper that computes a new context ID from a counter and the current PID
  *
  */
-int _muacc_retain_ctx(struct _muacc_ctx *_ctx);
+muacc_ctxid_t _get_ctxid();
 
 /** Helper to free _muacc_ctx if reference count reaches 0
  *
  */
 int _muacc_free_ctx (struct _muacc_ctx *_ctx);
 
-
-/** Helper doing locking simulation - lock part
+/* helper to print ctx
  *
- * just to make sure that we have no
- * interleaving requests on a single socket
  */
-int _lock_ctx (muacc_context_t *ctx);
-
-/** Helper doing locking simulation - unlock part
- *
- * just to make sure that we have no
- * interleaving requests on a single socket
- */
-int _unlock_ctx (muacc_context_t *ctx);
+void _muacc_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct _muacc_ctx *_ctx);
 
 /** Serialize the _ctx packing struct in a series of TLVs
  *
@@ -68,10 +55,5 @@ int _muacc_unpack_ctx(
 	size_t data_len,				/**< [in]		length of the TLV */
 	struct _muacc_ctx *_ctx			/**< [in]		context to put parsed data in */
 );
-
-/* helper to print ctx
- *
- */
-void _muacc_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct _muacc_ctx *_ctx);
 
 #endif

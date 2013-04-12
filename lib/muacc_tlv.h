@@ -1,16 +1,17 @@
+/** \file  muacc_tlv.h
+ *  \brief Functions for reading/writing tags and structs from/to TLV buffers
+ */
+
 #ifndef __MUACC_TLV_H__
-#define __MUACC_TLV_H__ 1
+#define __MUACC_TLV_H__
 
 #include <sys/types.h>
 #include <sys/socket.h>
 
 #include <netdb.h>
-#include "muacc_types.h"
-#include "../mam/mam.h"
-
+#include "muacc.h"
 
 #define MUACC_TLV_MAXLEN 2048
-
 
 /** push data in an TLV buffer
  *
@@ -29,7 +30,7 @@ size_t _muacc_push_tlv (
  *
  * @return length of the added tlv, -1 if there was an error.
  */
-size_t _muacc_push_tlv_tag( 
+size_t _muacc_push_tlv_tag(
 	char *buf,         /**< [in]     	pointer to buffer to put data */
 	size_t *buf_pos,   /**< [in,out]    pointer to current offset to which the buffer is already used */
 	size_t buf_len,    /**< [in]    	length of the buffer */
@@ -67,7 +68,7 @@ size_t _muacc_push_addrinfo_tlv (
 	const struct addrinfo *ai0	/**< [in]     addrinfo sruct do encode */
 );
 
-/** decode an encoded socketaddr 
+/** decode an encoded socketaddr
  *
  * @return size of the extracted struct
  */
@@ -77,7 +78,7 @@ size_t _muacc_extract_socketaddr_tlv(
 	struct sockaddr **sa0       /**< [out]    pointer to extracted struct (will be allocated) */
 );
 
-/** decode an encoded addrinfo by deep copying 
+/** decode an encoded addrinfo by deep copying
  *
  * @return sum of the sizes of the extracted structs/stringd
  */
@@ -97,16 +98,6 @@ size_t _muacc_extract_socketopt_tlv(
 	struct socketopt **so0       /**< [out]    pointer to extracted struct (will be allocated) */
 );
 
-#define _muacc_proc_tlv_event_too_short	-1
-#define _muacc_proc_tlv_event_eof		0
-/** try to read a TLV from an libevent2 evbuffer
- *
- * @return number of bytes processed, 0 if last TLV was EOF, -1 if buffer was too short
- */
-int _muacc_proc_tlv_event(
-	request_context_t *ctx		/**< [in]	  ctx to extract data to */
-);
-
 /** read a TLV from a file descriptor
  *
  * @return length of the tlv read, -1 if there was an error.
@@ -120,26 +111,5 @@ size_t _muacc_read_tlv(
  	void **data,      	/**< [out]    data extracted (pointer within buf) */
 	size_t *data_len  	/**< [out]    length of data extracted */
 );
-
-/** send context via libevent evbuffer
- *
- * @return 0 on success, -1 if there was an error.
- */
-int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason);
-
-/** speak the TLV protocol as a client to make MAM update _ctx with her wisdom
- *
- * @return 0 on success, a negative number otherwise
- */
-int _muacc_contact_mam (
-	muacc_mam_action_t reason,	/**< [in]	reason for contacting */
-	muacc_context_t *ctx		/**< [in]	context to be updated */
-);
-
-/** make the TLV client ready by establishing a connection to MAM
- *
- * @return 0 on success, a negative number otherwise
- */
-int _muacc_connect_ctx_to_mam(muacc_context_t *ctx) ;
 
 #endif

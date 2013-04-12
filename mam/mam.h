@@ -1,10 +1,14 @@
+/* \file  mam.h
+ * \brief Definition of structs and basic functions used by Multi Access Manager
+ */
+
 #ifndef __MAM_H__
 #define __MAM_H__
 
 #include <event2/buffer.h>
 #include <ltdl.h>
 
-#include "../clib/muacc_types.h"
+#include "../lib/muacc.h"
 
 /** Context of an incoming request to the MAM */
 typedef struct request_context {

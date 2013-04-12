@@ -1,4 +1,6 @@
-
+/** \file  muacc_util.h
+ *  \brief Helper functions used by the muacc library that do not manipulate the muacc ctx directly
+ */
 #ifndef __MUACC_UTIL_H__
 #define __MUACC_UTIL_H__
 
@@ -8,6 +10,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+
+#include "muacc.h"
 
 /** helper to copy a cstring
  *

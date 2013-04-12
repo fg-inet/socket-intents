@@ -1,47 +1,24 @@
+/** \file  muacc_client.h
+ *  \brief Alternate Socket API, extended by muacc context
+ */
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 
-#ifndef __MUACC_H__
-#define __MUACC_H__
+#include "../lib/muacc.h"
+
+#ifndef __MUACC_CLIENT_H__
+#define __MUACC_CLIENT_H__
 
 /** Context of a socket on the client side */
-typedef struct muacc_context 
+typedef struct muacc_context
 {
-	int		usage;				/**< reference counter */
-	uint8_t	locks;				/**< lock to avoid multiple concurrent requests */
-	int		mamsock;			/**< socket to talk to MAM */
-	struct _muacc_ctx *ctx;		/**< internal struct with relevant socket context data */
+    int     usage;              /**< reference counter */
+    uint8_t locks;              /**< lock to avoid multiple concurrent requests */
+    int     mamsock;            /**< socket to talk to MAM */
+    struct _muacc_ctx *ctx;     /**< internal struct with relevant socket context data */
 } muacc_context_t;
-
-/** initialize background structures for muacc_context
- *
- * @return 0 on success, -1 otherwise
- */ 
-int muacc_init_context(muacc_context_t *ctx);
-
-/** make a deep copy of a muacc_context
- *
- * @return 0 on success, -1 otherwise
- */ 
-int muacc_clone_context(muacc_context_t *dst, muacc_context_t *src);
- 
-/** increase reference counter for muacc_context 
-  *
-  * @return current reference count
-  */
-int muacc_retain_context(muacc_context_t *ctx);
-
-/** print contents of the internal data structure of the context
- *
- */
-void muacc_print_context(muacc_context_t *ctx);
-
-/** decrease reference for muacc_context and free background structures if it reaches 0
-  *
-  * @return current reference count or -1 if context was NULL
-  */
-int muacc_release_context(muacc_context_t *ctx);
 
 /** wrapper for socket, initializes an uninitialized context
  *
@@ -74,7 +51,6 @@ int muacc_getsockopt(muacc_context_t *ctx,
  *
  */
 int muacc_bind(muacc_context_t *ctx, int socket, const struct sockaddr *address, socklen_t address_len);
-
 
 /** wrapper for connect using info from ctx
  *

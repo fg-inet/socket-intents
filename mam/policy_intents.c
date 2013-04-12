@@ -7,13 +7,11 @@
 #include <event2/event.h>
 
 #include "mam.h"
+#include "mam_util.h"
 #include "policy_util.h"
 
-#include "../libintents/libintents.h"
-#include "../clib/muacc.h"
-#include "../clib/muacc_types.h"
-#include "../clib/muacc_tlv.h"
-#include "../clib/muacc_util.h"
+#include "../lib/intents.h"
+#include "../lib/muacc.h"
 
 int init(mam_context_t *mctx)
 {
@@ -35,24 +33,24 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	if (!(rctx->ctx->calls_performed & MUACC_BIND_CALLED))
 	{
 		/* If no bind occured yet, bind to a suitable local address */
-		category_s c = 0;
-		socklen_t option_length = sizeof(category_s);
+		intent_category_t c = 0;
+		socklen_t option_length = sizeof(intent_category_t);
 
-		if (0 == mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, SO_CATEGORY, &option_length, &c))
+		if (0 == mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_CATEGORY, &option_length, &c))
 		{
-			if (c == C_QUERY)
+			if (c == INTENT_QUERY)
 			{
-				printf("C_QUERY -> use wlan0 interface if available\n");
+				printf("INTENT_QUERY -> use wlan0 interface if available\n");
 				mampol_suggest_bind_sa(rctx, "wlan0");
 			}
-			else if (c == C_STREAM)
+			else if (c == INTENT_STREAM)
 			{
-				printf("C_STREAM -> use eth0 interface if available\n");
+				printf("INTENT_STREAM -> use eth0 interface if available\n");
 				mampol_suggest_bind_sa(rctx, "eth0");
 			}
-			else if (c == C_CONTROLTRAFFIC)
+			else if (c == INTENT_CONTROLTRAFFIC)
 			{
-				printf("C_CONTROLTRAFFIC -> use ppp0 interface if available\n");
+				printf("INTENT_CONTROLTRAFFIC -> use ppp0 interface if available\n");
 				mampol_suggest_bind_sa(rctx, "ppp0");
 			}
 			else

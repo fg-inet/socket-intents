@@ -5,24 +5,8 @@
 #ifndef __TEST_UTIL_H__
 #define __TEST_UTIL_H__
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <glib.h>
-#include <errno.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/ip.h>
-#include <arpa/inet.h>
-#include "../clib/muacc.h"
-#include "../clib/muacc_types.h"
-#include "../clib/muacc_ctx.h"
-#include "../clib/muacc_tlv.h"
-#include "../clib/muacc_util.h"
-#include "../libintents/libintents.h"
-#include "../clib/dlog.h"
+#include "../lib/muacc.h"
+#include "../lib/intents.h"
 
 #ifndef memset_pattern4
 void memset_pattern4 (void *dst, const void *pat, size_t len);
@@ -48,7 +32,7 @@ void ctx_empty_setup(dfixture *df, const void *test_data);
 void ctx_add_socketopts(struct _muacc_ctx *ctx, struct socketopt *opts);
 
 /** Helper that adds a sockopt with this intent (category) to the context */
-void ctx_set_category(struct _muacc_ctx *ctx, enum category cat);
+void ctx_set_category(struct _muacc_ctx *ctx, intent_category_t cat);
 
 /** Helper that initializes an empty context with intent category STREAM */
 void ctx_stream_setup(dfixture *df, const void *test_data);

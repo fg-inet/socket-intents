@@ -1,16 +1,17 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "../clib/dlog.h"
-#include "../clib/muacc_util.h"
-#include "../clib/muacc_ctx.h"
+#include "../lib/dlog.h"
+#include "../lib/muacc_util.h"
+#include "../lib/muacc_ctx.h"
+
 #include "mam.h"
 #include "mam_util.h"
 
 #define BUF_LEN 4096
 
 #ifndef MAM_CTX_NOISY_DEBUG
-#define MAM_CTX_NOISY_DEBUG 1
+#define MAM_CTX_NOISY_DEBUG 0
 #endif
 
 struct mam_context *mam_create_context()

@@ -3,12 +3,12 @@
 #define on_connect_request policy_sample_LTX_on_connect_request
 
 #include <stdio.h>
-#include "mam.h"
 #include <event2/event.h>
 
-#include "../clib/muacc.h"
-#include "../clib/muacc_types.h"
-#include "../clib/muacc_tlv.h"
+#include "mam.h"
+#include "mam_util.h"
+
+#include "../lib/muacc.h"
 
 int init(mam_context_t *mctx)
 {

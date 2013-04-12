@@ -25,7 +25,7 @@ else
 	if [ $? = '1' ]
 	then
 		echo "Multi Access Manager running, but wrong policy module - killing and restarting..."
-		killall mamma
+		killall lt-mamma
 		./mamma "$policy" >/dev/null &
 	else
 		running=1
@@ -38,7 +38,7 @@ echo "Test finished with return value $ret"
 
 if [ "$running" = '0' ]
 then
-	killall mamma
+	killall lt-mamma
 fi
 
 exit "$ret"
