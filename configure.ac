@@ -4,6 +4,8 @@ AM_INIT_AUTOMAKE([1.10 no-define subdir-objects])
 AC_PROG_CC
 AM_PROG_CC_C_O
 AM_PROG_AR
+AC_PROG_YACC
+AC_PROG_LEX
 LT_INIT([dlopen])
 LTDL_INIT
 AC_CONFIG_HEADERS([config.h])

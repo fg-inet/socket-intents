@@ -22,9 +22,20 @@ typedef struct sockaddr_list {
 	socklen_t				addr_len;		/**< Length of socket address */
 } sockaddr_list_t;
 
+/** Flags used for a prefix */
+
+#define PFX_ENABLED			0x0001	/**< the prefix has been enabled */
+#define PFX_CONF			0x0002	/**< the prefix has been mentioned in the configuration */
+#define PFX_CONF_PFX		0x0004	/**< the prefix has been configured through an prefix statement */
+#define PFX_CONF_IF			0x0008	/**< the prefix has been configured through an interface statement */
+#define PFX_SCOPE_GLOBAL	0x0100
+#define PFX_SCOPE_LL		0x0200
+
+
 /** List of source prefixes */
 typedef struct src_prefix_list {
 	struct src_prefix_list 	*next;			/**< Next item in list */
+	unsigned int			pfx_flags;		/**< Flags of that prefix */
 	char 					*if_name;		/**< Name of the interface */
 	int 					family;			/**< Address family */
 	unsigned int			if_flags;		/**< Flags from SIOCGIFFLAGS */

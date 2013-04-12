@@ -1,9 +1,14 @@
 AUTOMAKE_OPTIONS = subdir-objects
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS}
 AM_CFLAGS =-g --pedantic -Wall -std=c99 -O0 -D_GNU_SOURCE
+AM_YFLAGS = -d -v
+
 LDADD = $(libevent_LIBS) $(glib2_LIBS) $(LIBLTDL)
 
 AM_CFLAGS += $(libevent_CFLAGS) $(glib2_CFLAGS) 
+
+BUILT_SOURCES = mam/mam_configp.h
+
 
 noinst_LIBRARIES = libmuacc.a
 
@@ -35,7 +40,7 @@ addrinfo_SOURCES = tests/addrinfo.c
 addrinfo_LDADD = $(LDADD) libmuacc.a
 
 
-mamma_SOURCES = $(clib_SOURCES) mam/mam_master.c mam/mam_ctx.c mam/mam_util.c mam/mam_iface.c mam/mam.h mam/mam_util.h
+mamma_SOURCES = $(clib_SOURCES) mam/mam_master.c mam/mam_ctx.c mam/mam_util.c mam/mam_iface.c mam/mam_configp.y mam/mam_configs.l mam/mam.h mam/mam_util.h
 mamma_CFLAGS = $(LTDLINCL) $(AM_CFLAGS)
 mamma_LDADD = $(LDADD) libmuacc.a
 mamma_LDFLAGS = -export-dynamic

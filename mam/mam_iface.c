@@ -168,10 +168,16 @@ int update_src_prefix_list (mam_context_t *ctx ){
     {
         family = ifa->ifa_addr->sa_family;
 
-        if(ifa->ifa_addr == NULL) {
+		if((ifa->ifa_flags & IFF_UP)==0) 
+		{
+            DLOG(MAM_IF_NOISY_DEBUG0, "%s: interface down skipping\n", ifa->ifa_name);
+        	continue;
+		} 
+		else if(ifa->ifa_addr == NULL) 
+		{
             DLOG(MAM_IF_NOISY_DEBUG0, "%s: address family: (NULL) - skipping\n", ifa->ifa_name);
             continue;
-        }
+		}
 		else if (family == AF_INET || family == AF_INET6) 
         {
 			#if MAM_IF_NOISY_DEBUG1 != 0
