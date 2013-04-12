@@ -1,6 +1,9 @@
+/** \file  muacc.h
+ *  \brief Defines data structures for generic muacc library
+ */
 
-#ifndef __MUACC_TYPES_H__
-#define __MUACC_TYPES_H__ 1
+#ifndef __MUACC_H__
+#define __MUACC_H__
 
 typedef enum
 {
@@ -70,4 +73,4 @@ typedef enum
 #define MUACC_CONNECT_CALLED 0x0010
 #define MUACC_CLOSE_CALLED 0x0020
 
-#endif /* __MUACC_TYPES_H__ */
+#endif /* __MUACC_H__ */

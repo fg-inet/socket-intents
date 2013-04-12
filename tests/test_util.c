@@ -9,12 +9,17 @@
 #include <sys/socket.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
-#include "../clib/muacc.h"
-#include "../clib/muacc_ctx.h"
-#include "../clib/muacc_tlv.h"
-#include "../clib/muacc_util.h"
-#include "../libintents/libintents.h"
-#include "../clib/dlog.h"
+
+#include "../lib/muacc.h"
+#include "../lib/muacc_ctx.h"
+#include "../lib/muacc_tlv.h"
+#include "../lib/muacc_util.h"
+
+#include "../lib/intents.h"
+#include "../lib/dlog.h"
+
+#include "../clib/muacc_client_util.h"
+
 #include "test_util.h"
 
 #ifndef TEST_UTIL_NOISY_DEBUG0
@@ -72,15 +77,15 @@ void ctx_add_socketopts(struct _muacc_ctx *ctx, struct socketopt *opts)
 	}
 }
 
-void ctx_set_category(struct _muacc_ctx *ctx, enum category cat)
+void ctx_set_category(struct _muacc_ctx *ctx, intent_category_t cat)
 {
 	struct socketopt *current = ctx->sockopts_current;
 	while (current != NULL)
 	{
-		if (current->level == SOL_INTENTS && current->optname == SO_CATEGORY)
+		if (current->level == SOL_INTENTS && current->optname == INTENT_CATEGORY)
 		{
 			/* Intent category exists - overwrite with new value */
-			memcpy(current->optval, &cat, sizeof(enum category));
+			memcpy(current->optval, &cat, sizeof(enum intent_category));
 			break;
 		}
 		current = current->next;
@@ -88,8 +93,8 @@ void ctx_set_category(struct _muacc_ctx *ctx, enum category cat)
 	if (current == NULL)
 	{
 		/* Add intent category */
-		struct socketopt newopt = { .level = SOL_INTENTS, .optname = SO_CATEGORY, .optval=malloc(sizeof(enum category)), .optlen = sizeof(enum category) };
-		memcpy(newopt.optval, &cat, sizeof(enum category));
+		struct socketopt newopt = { .level = SOL_INTENTS, .optname = INTENT_CATEGORY, .optval=malloc(sizeof(enum intent_category)), .optlen = sizeof(enum intent_category) };
+		memcpy(newopt.optval, &cat, sizeof(enum intent_category));
 		ctx_add_socketopts(ctx, &newopt);
 		free(newopt.optval);
 	}
@@ -98,7 +103,7 @@ void ctx_set_category(struct _muacc_ctx *ctx, enum category cat)
 void ctx_stream_setup(dfixture *df, const void *test_data)
 {
 	ctx_empty_setup(df, test_data);
-	ctx_set_category(df->context->ctx, C_STREAM);
+	ctx_set_category(df->context->ctx, INTENT_STREAM);
 }
 
 /** Helper that creates a muacc context and fills it
@@ -137,12 +142,12 @@ void ctx_data_setup(dfixture *df, const void *test_data)
 
 	ctx_add_socketopts(df->context->ctx, testopt);
 
-	struct socketopt testopt3 = { .level = SOL_INTENTS, .optname = SO_DURATION, .optval=malloc(sizeof(int)), .optlen = sizeof(int) };
+	struct socketopt testopt3 = { .level = SOL_INTENTS, .optname = INTENT_DURATION, .optval=malloc(sizeof(int)), .optlen = sizeof(int) };
 	int duration = 12345;
 	memcpy(testopt3.optval, &duration, sizeof(int));
 	ctx_add_socketopts(df->context->ctx, &testopt3);
 
-	ctx_set_category(df->context->ctx, C_STREAM);
+	ctx_set_category(df->context->ctx, INTENT_STREAM);
 }
 
 /** Helper that releases a context

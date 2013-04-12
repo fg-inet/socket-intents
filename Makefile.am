@@ -7,51 +7,51 @@ LDADD = $(libevent_LIBS) $(glib2_LIBS) $(LIBLTDL)
 
 AM_CFLAGS += $(libevent_CFLAGS) $(glib2_CFLAGS) 
 
+<<<<<<< HEAD
 BUILT_SOURCES = mam/mam_configp.h
 
 
 noinst_LIBRARIES = libmuacc.a
+=======
+include_HEADERS = lib/intents.h
+>>>>>>> f6472d3f45e3fd35bc2454ffc192c518738fe211
 
-libmuacc_a_SOURCES = clib/muacc.c clib/muacc_util.c clib/muacc_ctx.c clib/muacc_tlv.c clib/muacc.h clib/muacc_types.h clib/muacc_util.h clib/muacc_ctx.h clib/muacc_tlv.h
+lib_LTLIBRARIES = libmuacc.la libmuacc_client.la policy_sample.la policy_intents.la
 
-include_HEADERS = libintents/libintents.h clib/muacc.h
+libmuacc_la_SOURCES = lib/muacc_ctx.h lib/muacc_tlv.h lib/muacc_util.h lib/muacc_ctx.c lib/muacc_tlv.c lib/muacc_util.c
+libmuacc_la_CFLAGS = -DUSE_SO_INTENTS $(AM_CFLAGS)
 
-noinst_LTLIBRARIES = libmuacc_intents.la
-libmuacc_intents_la_SOURCES = clib/muacc.c clib/muacc_util.c clib/muacc_ctx.c clib/muacc_tlv.c clib/muacc.h clib/muacc_util.h clib/muacc_ctx.h clib/muacc_tlv.h
-libmuacc_intents_la_CFLAGS = -DUSE_SO_INTENTS $(AM_CFLAGS)
-
-lib_LTLIBRARIES = libintents.la policy_sample.la policy_intents.la
-libintents_la_SOURCES = libintents/libintents.c
-libintents_la_LIBADD = $(glib2_LIBS) -ldl libmuacc_intents.la
+libmuacc_client_la_SOURCES = clib/muacc_client.h clib/muacc_client_util.h clib/muacc_client.c clib/muacc_client_util.c
+libmuacc_client_la_CFLAGS = -DUSE_SO_INTENTS $(AM_CFLAGS)
+libmuacc_client_la_LIBADD = libmuacc.la
 
 policy_sample_la_SOURCES = mam/policy_sample.c
 policy_sample_la_LDFLAGS = -module -avoid-version
 
 policy_intents_la_SOURCES = mam/policy_intents.c mam/policy_util.h mam/policy_util.c
 policy_intents_la_LDFLAGS = -module -avoid-version
-policy_intents_la_LIBADD = libmuacc_intents.la
+policy_intents_la_LIBADD = libmuacc.la
 
-bin_PROGRAMS = mamma muacsocksd addrinfo 
+bin_PROGRAMS = mamma # muacsocksd addrinfo
 
-muacsocksd_SOURCES = muacsocks/muacsocksd.c
-muacsocksd_LDADD = $(LDADD) libmuacc.a
+#muacsocksd_SOURCES = muacsocks/muacsocksd.c
+#muacsocksd_LDADD = $(LDADD) libmuacc.a
+#
+#addrinfo_SOURCES = tests/addrinfo.c
+#addrinfo_LDADD = $(LDADD) libmuacc.a
 
-addrinfo_SOURCES = tests/addrinfo.c
-addrinfo_LDADD = $(LDADD) libmuacc.a
-
-
-mamma_SOURCES = $(clib_SOURCES) mam/mam_master.c mam/mam_ctx.c mam/mam_util.c mam/mam_iface.c mam/mam_configp.y mam/mam_configs.l mam/mam.h mam/mam_util.h
+mamma_SOURCES = mam/mam_master.c mam/mam_ctx.c mam/mam_util.c mam/mam_iface.c mam/mam_configp.y mam/mam_configs.l mam/mam.h mam/mam_util.h
 mamma_CFLAGS = $(LTDLINCL) $(AM_CFLAGS)
-mamma_LDADD = $(LDADD) libmuacc.a
+mamma_LDADD = $(LDADD) libmuacc.la
 mamma_LDFLAGS = -export-dynamic
 
 TESTS = testmuacc tests/policy_test.sh
 check_PROGRAMS = testmuacc test_policy_generic
 
 testmuacc_SOURCES = tests/testmuacc.c tests/test_util.h tests/test_util.c
-testmuacc_LDADD = $(LDADD) libmuacc_intents.la
+testmuacc_LDADD = $(LDADD) libmuacc.la libmuacc_client.la
 
 test_policy_generic_SOURCES = tests/test_policy_generic.c tests/test_util.h tests/test_util.c
-test_policy_generic_LDADD = $(LDADD) libmuacc_intents.la
+test_policy_generic_LDADD = $(LDADD) libmuacc.la libmuacc_client.la
 
 dist_noinst_SCRIPTS = autogen.sh

@@ -9,16 +9,15 @@
 
 #include "../config.h"
 
-#include "muacc_types.h"
+#include "muacc.h"
 #include "muacc_util.h"
-#include "muacc_ctx.h"
 
 #ifdef USE_SO_INTENTS
-#include "../libintents/libintents.h"
+#include "intents.h"
 #endif
 
-#ifndef CLIB_UTIL_NOISY_DEBUG
-#define CLIB_UTIL_NOISY_DEBUG 0
+#ifndef MUACC_UTIL_NOISY_DEBUG
+#define MUACC_UTIL_NOISY_DEBUG 0
 #endif
 
 
@@ -39,20 +38,20 @@ struct sockaddr *_muacc_clone_sockaddr(const struct sockaddr *src, size_t src_le
 
 
 char *_muacc_clone_string(const char *src)
- {
-	 char* ret = NULL;
+{
+	char* ret = NULL;
 
-	 if ( src != NULL)
-	 {
-	 	size_t sl = strlen(src)+1;
-	 	if( ( ret = malloc(sl) ) == NULL )
-	 		return(NULL);
-	 	memcpy( ret, src, sl);
-	 	ret[sl] = 0x00;
-	 }
+	if ( src != NULL)
+	{
+		size_t sl = strlen(src)+1;
+		if( ( ret = malloc(sl) ) == NULL )
+			return(NULL);
+		memcpy( ret, src, sl);
+		ret[sl] = 0x00;
+	}
 
-	 return(ret);
- }
+	return(ret);
+}
 
 
 struct addrinfo *_muacc_clone_addrinfo(const struct addrinfo *src)
@@ -280,7 +279,7 @@ void _muacc_print_socket_option_list(const struct socketopt *opts)
 size_t _muacc_print_socket_option(char *buf, size_t *buf_pos, size_t buf_len, const struct socketopt *current)
 {
 	size_t old_pos = *buf_pos;
-	
+
 	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
 	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "level = %d (%s), ", current->level, _muacc_get_socket_level(current->level));
 	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optname = %d, ", current->optname);
@@ -295,7 +294,7 @@ size_t _muacc_print_socket_option(char *buf, size_t *buf_pos, size_t buf_len, co
 	}
 	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optlen = %d ", current->optlen);
 	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }");
-	
+
 	return(*buf_pos - old_pos);
 }
 
@@ -319,3 +318,4 @@ size_t _muacc_print_socket_options(char *buf, size_t *buf_pos, size_t buf_len, c
 
 	return(*buf_pos - old_pos);
 }
+

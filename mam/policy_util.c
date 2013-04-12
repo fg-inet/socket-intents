@@ -2,7 +2,7 @@
 #include <string.h>
 
 #include "mam.h"
-#include "../clib/muacc_util.h"
+#include "../lib/muacc_util.h"
 
 int mampol_get_socketopt(struct socketopt *list, int level, int optname, socklen_t *optlen, void *optval)
 {

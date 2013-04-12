@@ -27,8 +27,9 @@
 
 #include "mam.h"
 #include "mam_util.h"
-#include "../clib/dlog.h"
-#include "../clib/muacc_util.h"
+
+#include "../lib/dlog.h"
+#include "../lib/muacc_util.h"
 
 
 #ifndef MAM_IF_NOISY_DEBUG0

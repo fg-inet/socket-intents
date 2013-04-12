@@ -25,12 +25,11 @@
 
 #include "../config.h"
 
-#include "../clib/muacc.h"
-#include "../clib/muacc_ctx.h"
-#include "../clib/muacc_tlv.h"
-#include "../clib/dlog.h"
+#include "../lib/muacc.h"
+#include "../lib/muacc_ctx.h"
+#include "../lib/muacc_tlv.h"
+#include "../lib/dlog.h"
 
-#include "mam.h"
 #include "mam_util.h"
 
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))

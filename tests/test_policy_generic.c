@@ -17,12 +17,16 @@
 #include <sys/socket.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
-#include "../clib/muacc.h"
-#include "../clib/muacc_ctx.h"
-#include "../clib/muacc_tlv.h"
-#include "../clib/muacc_util.h"
-#include "../libintents/libintents.h"
-#include "../clib/dlog.h"
+
+#include "../lib/muacc.h"
+#include "../lib/muacc_ctx.h"
+#include "../lib/muacc_tlv.h"
+#include "../lib/muacc_util.h"
+
+#include "../lib/dlog.h"
+
+#include "../clib/muacc_client_util.h"
+
 #include "test_util.h"
 
 #ifndef TEST_POLICY_SAMPLE_NOISY_DEBUG0
