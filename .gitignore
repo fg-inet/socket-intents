@@ -12,6 +12,13 @@
 *.dSYM
 .libs/
 
+# lex/yacc stuff
+lex.yy.c
+mam/mam_configp.c
+mam/mam_configp.h
+mam/mam_configp.output
+mam/mam_configs.c
+
 # binaried
 mamma
 muacsocksd
