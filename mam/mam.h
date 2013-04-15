@@ -26,8 +26,6 @@ typedef struct sockaddr_list {
 	struct sockaddr_list	*next;			/**< Next item in list */
 	struct sockaddr			*addr;			/**< Socket address */
 	socklen_t				addr_len;		/**< Length of socket address */
-	char 					*if_name;		/**< Name of the interface */	
-	unsigned int			if_flags;		/**< Flags from SIOCGIFFLAGS */
 } sockaddr_list_t;
 
 /** Flags used for a prefix */
@@ -44,7 +42,9 @@ typedef struct sockaddr_list {
 typedef struct src_prefix_list {
 	struct src_prefix_list 	*next;			/**< Next item in list */
 	unsigned int			pfx_flags;		/**< Flags of that prefix */
+	char 					*if_name;		/**< Name of the interface */
 	int 					family;			/**< Address family */
+	unsigned int			if_flags;		/**< Flags from SIOCGIFFLAGS */
 	struct sockaddr_list 	*if_addrs;		/**< List of socket addresses for this prefix */
 	struct sockaddr			*if_netmask;	/**< Netmask of interface */
 	socklen_t				if_netmask_len;	/**< Length of netmask */
