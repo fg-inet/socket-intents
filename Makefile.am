@@ -9,7 +9,6 @@ AM_CFLAGS += $(libevent_CFLAGS) $(glib2_CFLAGS)
 
 BUILT_SOURCES = mam/mam_configp.h
 
-noinst_LIBRARIES = libmuacc.a
 include_HEADERS = lib/intents.h
 
 lib_LTLIBRARIES = libmuacc.la libmuacc_client.la policy_sample.la policy_intents.la
