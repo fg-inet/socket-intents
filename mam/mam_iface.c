@@ -68,45 +68,23 @@ int _cmp_in6_addr_with_mask(
 	return(0);	
 }
 
-int _append_sockaddr_list (
-	struct sockaddr_list **dst,
-    struct sockaddr *addr, 
-	socklen_t addr_len )
-{
-	*dst = malloc(sizeof(struct sockaddr_list));
-	if(*dst == NULL) { DLOG(1, "malloc failed"); return(-1); } 
-	memset(*dst, 0, sizeof(struct sockaddr_list));
-	(*dst)->addr = _muacc_clone_sockaddr(addr, addr_len);
-	(*dst)->addr_len = addr_len;
-	return(0);
-}
-																																																		   
-void _scan_update_prefix (
-	struct src_prefix_list **spfxl,
-	char *if_name, unsigned int if_flags,
+struct src_prefix_list *lookup_source_prefix (
+	struct src_prefix_list *spfxl,
+	const char *if_name,
 	int family,
-	struct sockaddr *addr,
-	struct sockaddr *mask)
-{
-	struct src_prefix_list **last = spfxl;
-	struct src_prefix_list *new;
-	size_t family_size = (family == AF_INET)  ? sizeof(struct sockaddr_in)  :
-	 					 (family == AF_INET6) ? sizeof(struct sockaddr_in6) :
-						 -1;
-	struct sockaddr_list *cus;
-	
-	
+	const struct sockaddr *addr
+) {
+
 	/* scan through prefixes */
-	for(struct src_prefix_list *cur = *spfxl; cur != NULL; cur = cur->next)
+	for(struct src_prefix_list *cur = spfxl; cur != NULL; cur = cur->next)
 	{
-		last = &(cur->next);
-		
 		/* different interface or family */
 		if(cur->family != family)
 			continue;
-		if(strcmp(cur->if_name, if_name) != 0)
+		if(if_name != NULL && strcmp(cur->if_name, if_name) != 0)
 			continue;
-		if((family == AF_INET6 &&
+		if( addr == NULL ||
+			(family == AF_INET6 &&
 			_cmp_in6_addr_with_mask(
 				&(((struct sockaddr_in6 *) addr)->sin6_addr), 
 				&(((struct sockaddr_in6 *) cur->if_addrs->addr)->sin6_addr),
@@ -119,10 +97,50 @@ void _scan_update_prefix (
 				&(((struct sockaddr_in *) cur->if_netmask)->sin_addr)) == 0
 		))
 		{
-			for(cus = cur->if_addrs; cus->next != NULL; cus = cus->next);; 
-			_append_sockaddr_list( &(cus->next), addr, family_size);
-			return;			
+			return cur;			
 		}
+	}
+	return NULL;	
+}
+
+
+int _append_sockaddr_list (
+	struct sockaddr_list **dst,
+    struct sockaddr *addr, 
+	socklen_t addr_len )
+{
+	*dst = malloc(sizeof(struct sockaddr_list));
+	if(*dst == NULL) { DLOG(1, "malloc failed"); return(-1); } 
+	memset(*dst, 0, sizeof(struct sockaddr_list));
+	(*dst)->addr = _muacc_clone_sockaddr(addr, addr_len);
+	(*dst)->addr_len = addr_len;
+	return(0);
+}
+	
+																																																	   
+void _scan_update_prefix (
+	struct src_prefix_list **spfxl,
+	char *if_name, unsigned int if_flags,
+	int family,
+	struct sockaddr *addr,
+	struct sockaddr *mask)
+{
+	struct src_prefix_list *cur;
+	struct src_prefix_list *last;
+	struct src_prefix_list *new;
+	size_t family_size = (family == AF_INET)  ? sizeof(struct sockaddr_in)  :
+	 					 (family == AF_INET6) ? sizeof(struct sockaddr_in6) :
+						 -1;
+	struct sockaddr_list *cus;
+	
+	
+	/* scan through prefixes */
+	cur = lookup_source_prefix (*spfxl,	if_name, family, addr);
+	if (cur != NULL)
+	{
+		for(cus = cur->if_addrs; cus->next != NULL; cus = cus->next);; 
+		_append_sockaddr_list( &(cus->next), addr, family_size);
+		return;			
 	}
 	
 	/* we have a new prefix */
@@ -141,8 +159,9 @@ void _scan_update_prefix (
 	new->if_netmask = _muacc_clone_sockaddr(mask, family_size);
 	new->if_netmask_len = family_size;
 	
-	/* save new one */ 
-	*last = new;
+	/* save new one */
+	for(last = *spfxl; last->next != NULL; last = last->next);; 
+	last->next = new;
 	return;
 }
 

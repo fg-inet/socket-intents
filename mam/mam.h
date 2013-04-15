@@ -76,6 +76,15 @@ void mam_print_request_context(request_context_t *ctx);
 /** update the source prefix list within the mam_context using getifaddrs()*/
 int update_src_prefix_list (mam_context_t *ctx);
 
+/** get the src_prefix_list for a specific interface or prefix
+  */
+struct src_prefix_list *lookup_source_prefix (
+ 	struct src_prefix_list *spfxl,	/**< [in] list element to start scanning */
+	const char *if_name,            /**< [in] interface name to look for – NULL ist a wildcard */
+	int family,                     /**< [in] address family to look for */
+	const struct sockaddr *addr     /**< [in] prefix to scan for (uses mask from spfxl)  – NULL ist a wildcard */
+);
+
 /** config read function */
 void mam_read_config(int config_fd, char **p_file, GHashTable **p_dict);
 
