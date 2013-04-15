@@ -69,15 +69,22 @@ int _cmp_in6_addr_with_mask(
 }
 
 int _append_sockaddr_list (
-	struct sockaddr_list **dst,
-    struct sockaddr *addr, 
-	socklen_t addr_len )
+	struct sockaddr_list	**dst,
+    struct sockaddr 		*addr, 
+	socklen_t 				addr_len,
+	char 					*if_name,		/**< Name of the interface */	
+	unsigned int			if_flags		/**< Flags from SIOCGIFFLAGS */
+	)
 {
 	*dst = malloc(sizeof(struct sockaddr_list));
 	if(*dst == NULL) { DLOG(1, "malloc failed"); return(-1); } 
 	memset(*dst, 0, sizeof(struct sockaddr_list));
 	(*dst)->addr = _muacc_clone_sockaddr(addr, addr_len);
 	(*dst)->addr_len = addr_len;
+	(*dst)->if_name = strdup(if_name);
+	(*dst)->if_flags = if_flags;
+
+	
 	return(0);
 }
 																																																		   
@@ -104,8 +111,6 @@ void _scan_update_prefix (
 		/* different interface or family */
 		if(cur->family != family)
 			continue;
-		if(strcmp(cur->if_name, if_name) != 0)
-			continue;
 		if((family == AF_INET6 &&
 			_cmp_in6_addr_with_mask(
 				&(((struct sockaddr_in6 *) addr)->sin6_addr), 
@@ -120,7 +125,7 @@ void _scan_update_prefix (
 		))
 		{
 			for(cus = cur->if_addrs; cus->next != NULL; cus = cus->next);; 
-			_append_sockaddr_list( &(cus->next), addr, family_size);
+			_append_sockaddr_list( &(cus->next), addr, family_size, if_name, if_flags);
 			return;			
 		}
 	}
@@ -134,10 +139,8 @@ void _scan_update_prefix (
 	memset(new, 0, sizeof(struct src_prefix_list));
 	
 	/* copy data */
-	new->if_name = _muacc_clone_string(if_name);
 	new->family = family;
-	new->if_flags = if_flags;
-	_append_sockaddr_list( &(new->if_addrs), addr, family_size);
+	_append_sockaddr_list( &(new->if_addrs), addr, family_size, if_name, if_flags);
 	new->if_netmask = _muacc_clone_sockaddr(mask, family_size);
 	new->if_netmask_len = family_size;
 	
@@ -224,15 +227,15 @@ int _free_src_prefix_list (struct src_prefix_list *spfxl)
 	{
 		currp = nextp;
 		nextp = currp->next;
-		
-		if (currp->if_name != NULL)		
-			free(currp->if_name);
-		
+				
 		nexta = currp->if_addrs;
 		while (nexta != NULL)
 		{
 			curra = nexta;
 			nexta = curra->next;
+			
+			if (curra->if_name != NULL)		
+				free(curra->if_name);
 			
 			if (curra->addr != NULL)	
 				free(curra->addr);
