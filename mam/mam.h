@@ -7,8 +7,10 @@
 
 #include <event2/buffer.h>
 #include <ltdl.h>
+#include <glib.h>
 
 #include "../lib/muacc.h"
+
 
 /** Context of an incoming request to the MAM */
 typedef struct request_context {
@@ -53,6 +55,7 @@ typedef struct mam_context {
 	int						usage;			/**< Reference counter */
 	struct src_prefix_list	*prefixes;		/**< Possible source prefixes on this system */
 	lt_dlhandle				policy;			/**< Handle of policy module */
+	GHashTable 				*policy_set_dict; /**< dictionary for policy configuration */
 } mam_context_t;
 
 /** Create and initialize the MAM context */
@@ -72,5 +75,8 @@ void mam_print_request_context(request_context_t *ctx);
 
 /** update the source prefix list within the mam_context using getifaddrs()*/
 int update_src_prefix_list (mam_context_t *ctx);
+
+/** config read function */
+void mam_read_config(int config_fd, char **p_file, GHashTable **p_dict);
 
 #endif /* __MAM_H__ */

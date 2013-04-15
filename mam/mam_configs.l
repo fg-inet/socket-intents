@@ -5,21 +5,24 @@
 %}
 
 %%
-#.*\n			/* ignore comments */;
+#.*\n					/* ignore comments */;
+
+\"(\\\"|[^"])*\"		yylval.string=strndup(yytext+1, strlen(yytext)-2); return QNAME;
 
 policy					return POLICYTOK;
-options                 return OPTSTOC;
 prefix                  return PREFIXTOK;
 iface                   return IFACETOK;
+set                		return SETTOK;
 
 nameserver              return NAMESERVERTOK;
 search                	return SEARCHTOK;
 
-\"(\\\"|[^"])*\"		yylval.string=strndup(yytext+1, strlen(yytext)-2); return QNAME;
-[a-zA-Z][a-zA-Z0-9]*    yylval.string=strdup(yytext); return LNAME;
 \{                      return OBRACE;
 \}                      return CBRACE;
+=                      	return EQUAL;
 ;                       return SEMICOLON;
+
+[a-zA-Z][a-zA-Z0-9]*    yylval.string=strdup(yytext); return LNAME;
 \n                      /* ignore EOL */;
 [ \t]+                  /* ignore whitespace */;
 %%

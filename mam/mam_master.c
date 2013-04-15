@@ -31,16 +31,17 @@
 #include "../lib/dlog.h"
 
 #include "mam_util.h"
+#include "mam_configp.h"
 
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))
 #define MAX_BUF 0
 
 #ifndef MAM_MASTER_NOISY_DEBUG0
-#define MAM_MASTER_NOISY_DEBUG0 0
+#define MAM_MASTER_NOISY_DEBUG0 1
 #endif
 
 #ifndef MAM_MASTER_NOISY_DEBUG1
-#define MAM_MASTER_NOISY_DEBUG1 0
+#define MAM_MASTER_NOISY_DEBUG1 1
 #endif
 
 #ifndef MAM_MASTER_NOISY_DEBUG2
@@ -48,6 +49,8 @@
 #endif
 
 struct event_base *base = NULL;
+struct mam_context *ctx = NULL;
+int config_fd = -1;
 
 void process_mam_request(struct request_context *ctx)
 {
@@ -225,23 +228,14 @@ int setup_policy_module(mam_context_t *ctx, const char *filename)
 {
 	DLOG(MAM_MASTER_NOISY_DEBUG2, "setting up policy module %s \n", filename);
 
-	int ret = -1;
 	const char *ltdl_error = NULL;
 
 	lt_dlhandle mam_policy;
 	int (*init_function)() = NULL;
 
-	if (0 != (ret = lt_dlinit()))
-	{
-		DLOG(MAM_MASTER_NOISY_DEBUG1, "Initializing dynamic module loader failed with %d errors\n", ret);
-		return -1;
-	}
-
-	lt_dladdsearchdir(".");
 	if (NULL != (mam_policy = lt_dlopen(filename)))
 	{
 		DLOG(MAM_MASTER_NOISY_DEBUG2, "policy module has been loaded successfully\n");
-		ctx->policy = mam_policy;
 	}
 	else
 	{
@@ -258,7 +252,7 @@ int setup_policy_module(mam_context_t *ctx, const char *filename)
 		return -1;
 	}
 
-	if (_mam_fetch_policy_function(ctx->policy, "init", (void **)&init_function) == 0)
+	if (_mam_fetch_policy_function(mam_policy, "init", (void **)&init_function) == 0)
 	{
 		init_function(ctx);
 	}
@@ -267,8 +261,66 @@ int setup_policy_module(mam_context_t *ctx, const char *filename)
 		DLOG(MAM_MASTER_NOISY_DEBUG1, "module %s could not be initialized", filename);
 		return -1;
 	}
-
+	
+	/* publish policy */
+	ctx->policy = mam_policy;
+	
 	return 0;
+}
+
+/** call policy cleanup callback and trash pointer
+  */
+int cleanup_policy_module(mam_context_t *ctx) {
+	
+	int ret;
+	int (*cleanup_function)() = NULL;
+	
+	if (_mam_fetch_policy_function(ctx->policy, "cleanup", (void **) &cleanup_function) == 0)
+	{
+		/* Call policy module function */
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "calling policy cleanup callback\n");
+		ret = cleanup_function(ctx);
+		if (ret != 0)
+		{
+			DLOG(1, "cleanup callback returned %d\n", ret);
+		}
+		return(ret);
+	}
+	else
+	{
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "policy has no cleanup callback\n");
+		ret = -1;
+	}
+	
+	ctx->policy = NULL;
+	return(ret);
+}
+
+
+/** read config an (re)load policy module
+ */
+void configure_mamma() {
+	
+	char *policy_filename = NULL;
+	
+	/* clean up old policy module of present */
+	cleanup_policy_module(ctx);
+	
+	/* get interface config from system */
+	update_src_prefix_list(ctx);
+	
+	/* load policy module if we have command line arguments */
+	mam_read_config(config_fd, &policy_filename, &(ctx->policy_set_dict));
+	
+	/* initialize dynamic loader and load policy module */
+	if(policy_filename != NULL)
+	{
+		setup_policy_module(ctx, policy_filename);
+	}
+	else
+	{
+		DLOG(1, "not policy module given - mamma is useless...\n");
+	}
 }
 
 /** signal handler the libevent-way 
@@ -279,33 +331,71 @@ static void do_graceful_shutdown(evutil_socket_t _, short what, void* ctx) {
     event_base_loopexit(evb, NULL);
 }
 
+/** signal handler the libevent-way 
+ */
+static void do_reconfigure(evutil_socket_t _, short what, void* ctx) {
+	DLOG(MAM_MASTER_NOISY_DEBUG0, "got hangup signal - reconfigureing...\n");
+	configure_mamma();
+}
+
 int
 main(int c, char **v)
 {
     evutil_socket_t listener;
-    struct event *term_event, *int_event;
+    struct event *term_event, *int_event, *hup_event;
     struct sockaddr_un sun;
-	struct mam_context *ctx = NULL;
+	int ret;
 
     setvbuf(stderr, NULL, _IONBF, 0);
 
-	DLOG(MAM_MASTER_NOISY_DEBUG2, "creating and initializing mam context...\n");
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "creating and initializing mam context...\n");
 	ctx = mam_create_context();
     if (ctx == NULL) {
-		DLOG(MAM_MASTER_NOISY_DEBUG0, "failed to create mam context\n");
+		DLOG(1, "failed to create mam context\n");
         exit(1);
     }
 
-	DLOG(MAM_MASTER_NOISY_DEBUG2, "setting up event base...\n");
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "setting up event base...\n");
 	/* set up libevent */
     base = event_base_new();
     if (!base) {
 		/* will log error on it's own */
         exit(1);
     }
+	
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "initializing dynamic module loader...\n");
+	if (0 != (ret = lt_dlinit()))
+	{
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "initializing dynamic module loader failed with error %d\n", ret);
+		exit(1);
+	}
+	lt_dladdsearchdir(".");
+	
+	/* call term function on a INT or TERM signal */
+	term_event = evsignal_new(base, SIGTERM, do_graceful_shutdown, base);
+	event_add(term_event, NULL);
+	int_event = evsignal_new(base, SIGINT, do_graceful_shutdown, base);
+	event_add(int_event, NULL);
+	hup_event = evsignal_new(base, SIGHUP, do_reconfigure, base);
+	event_add(hup_event, NULL);
+	
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "reading config file...\n");	
+	if ( c < 2 )
+	{
+		DLOG(1, "no config file specified\n");
+		exit(1);
+	}
+	else if ( (config_fd = open(v[1], O_RDONLY)) == -1 )
+	{
+		DLOG(1, "reading config file %s failed: %s\n", v[1], strerror(errno));
+		exit(1);
+	} 
+	
+	/* apply config and read policy */
+	configure_mamma();
 
 	/* set mam socket */
-	DLOG(MAM_MASTER_NOISY_DEBUG0, "setting up mamma's socket %s ...\n", MUACC_SOCKET);
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "setting up mamma's socket %s ...\n", MUACC_SOCKET);
 	sun.sun_family = AF_UNIX;
 	#ifdef HAVE_SOCKADDR_LEN
 	sun.sun_len = sizeof(struct sockaddr_un);
@@ -316,36 +406,22 @@ main(int c, char **v)
     int one = 1;
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 
-	DLOG(MAM_MASTER_NOISY_DEBUG2, "setting up listener...\n");
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "setting up listener...\n");
 	if( 0 > do_listen(ctx, listener, (struct sockaddr *)&sun, sizeof(sun)))
 	{
-		DLOG(MAM_MASTER_NOISY_DEBUG1, "listen failed\n");
+		DLOG(1, "listen failed\n");
 		return 1;
 	}
 
-	/* call term function on a INT or TERM signal */
-	term_event = evsignal_new(base, SIGTERM, do_graceful_shutdown, base);
-	event_add(term_event, NULL);
-	int_event = evsignal_new(base, SIGINT, do_graceful_shutdown, base);
-	event_add(int_event, NULL);
-
- 	/* get interface config from system */
-	update_src_prefix_list(ctx);
-
-	/* load policy module if we have command line arguments */
-	if (c > 1)
-	{
-		/* initialize dynamic loader and load policy module */
-		setup_policy_module(ctx, v[1]);
-	}
-
 	/* run libevent */
-	DLOG(MAM_MASTER_NOISY_DEBUG2, "running event loop...\n");
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "running event loop...\n");
     event_base_dispatch(base);
 
     /* clean up */
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "cleaning up...\n");
     close(listener);
     unlink(MUACC_SOCKET);
+	cleanup_policy_module(ctx);
 	mam_release_context(ctx);
 	lt_dlexit();
 

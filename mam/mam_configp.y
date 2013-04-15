@@ -4,32 +4,25 @@
 %{
     #include <unistd.h>
     #include <stdio.h>	
-	#include <glib.h>
+	#include "mam.h"
 	
 	extern int yylex (void);
 	extern void yyset_debug(int);
 	
 	extern FILE* yyin;
+	// int yydebug=1;
 	
-	char *policy_file;				/**< policy share library to load */
-	GHashTable *global_set_dict;	/**< global set config holder */
+	char *p_file = NULL;				/**< policy share library to load */
+	GHashTable *p_set_dict = NULL;		/**< global set config holder */
+	GHashTable *l_set_dict = NULL;		/**< per block set config holder */
 	
-	GHashTable *local_set_dict;		/**< per block set config holder */
-	
-	void yyerror(const char *str)
-	{
-	        fprintf(stderr,"error: %s\n",str);
-	}
-
-	int yywrap()
-	{
-	        return 1;
-	}
+	void yyerror(const char *str);
+	int yywrap();
 		
 %}
 
-%token SEMICOLON OBRACE CBRACE
-%token POLICYTOK OPTSTOC IFACETOK PREFIXTOK 
+%token SEMICOLON OBRACE CBRACE EQUAL
+%token POLICYTOK IFACETOK PREFIXTOK 
 %token SETTOK NAMESERVERTOK SEARCHTOK
 
 %union
@@ -48,37 +41,43 @@
 %%
 
 config_blocks:
-	/* empty */ | config_blocks config_block SEMICOLON
+	/* empty */ | config_blocks config_block SEMICOLON | error SEMICOLON
 	;
 
 config_block:
-	options_block | iface_block	| prefix_block | policy_stmt 
+	iface_block	| prefix_block | policy_block
 	;
 
 name:
 	LNAME | QNAME
 	;
 	
-policy_stmt:
-	POLICYTOK name SEMICOLON
-	{ policy_file = $2; }
+policy_block:
+	POLICYTOK QNAME OBRACE policy_statements CBRACE
+	{ p_file = $2; }
+	|
+	POLICYTOK QNAME
+	{ p_file = $2; }
 	;
 
-options_block:
-	OPTSTOC OBRACE options_statements CBRACE SEMICOLON
-    ;
-
-options_statements:
-	/* empty */ | options_statements option_set SEMICOLON
+policy_statements:
+	/* empty */ 
+	|
+	policy_statements policy_set SEMICOLON
+	|
+	error SEMICOLON
 	;
 
-option_set:
+policy_set:
 	SETTOK name name
-	{g_hash_table_replace(global_set_dict, $2, $3);}
+	{g_hash_table_replace(p_set_dict, $2, $3);}
+	|
+	SETTOK name EQUAL name
+	{g_hash_table_replace(p_set_dict, $2, $4);}
 	;
 
 iface_block:
-	IFACETOK name OBRACE iface_statements CBRACE SEMICOLON
+	IFACETOK name OBRACE iface_statements CBRACE
 
 iface_statements:
 	/* empty */
@@ -93,26 +92,39 @@ prefix_statements:
 	
 %%
 
-void mam_read_config(int config_fd, GHashTable **set_dict )
+void yyerror(const char *str)
+{
+        fprintf(stderr,"error: %s\n",str);
+}
+
+int yywrap()
+{
+        return 1;
+}
+
+void mam_read_config(int config_fd, char **p_file_out, GHashTable **p_dict_out)
 {
 
 	/* open file */
-	yyin = fdopen(config_fd, "r");
+	int config_fd2 = dup(config_fd);
+	yyin = fdopen(config_fd2, "r");
 	fseek(yyin, 0, SEEK_SET);
 
 	/* prepair globals used during parsing */
-	if(*set_dict == NULL)
-		*set_dict = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
-	global_set_dict = *set_dict;
-	local_set_dict = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
+	if(*p_dict_out == NULL)
+		*p_dict_out = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
+	p_set_dict = *p_dict_out;
+	l_set_dict = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
 
 	/* do parse */
-    yyset_debug(1);
     yyparse();
+	
+	if(p_file != NULL)
+		*p_file_out = p_file;
 
 	/* clean up */
 	fclose(yyin);
-	g_hash_table_destroy(local_set_dict);
+	g_hash_table_destroy(l_set_dict);
 
 }
 

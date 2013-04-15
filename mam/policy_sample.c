@@ -1,4 +1,5 @@
 #define init policy_sample_LTX_init
+#define cleanup policy_sample_LTX_cleanup
 #define on_resolve_request policy_sample_LTX_on_resolve_request
 #define on_connect_request policy_sample_LTX_on_connect_request
 
@@ -14,6 +15,12 @@ int init(mam_context_t *mctx)
 {
 	printf("Policy sample library has been loaded.\n");
 	mam_print_context(mctx);
+	return 0;
+}
+
+int cleanup(mam_context_t *mctx)
+{
+	printf("Policy sample library cleaned up.\n");
 	return 0;
 }
 
