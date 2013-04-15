@@ -7,14 +7,10 @@ LDADD = $(libevent_LIBS) $(glib2_LIBS) $(LIBLTDL)
 
 AM_CFLAGS += $(libevent_CFLAGS) $(glib2_CFLAGS) 
 
-<<<<<<< HEAD
 BUILT_SOURCES = mam/mam_configp.h
 
-
 noinst_LIBRARIES = libmuacc.a
-=======
 include_HEADERS = lib/intents.h
->>>>>>> f6472d3f45e3fd35bc2454ffc192c518738fe211
 
 lib_LTLIBRARIES = libmuacc.la libmuacc_client.la policy_sample.la policy_intents.la
 
