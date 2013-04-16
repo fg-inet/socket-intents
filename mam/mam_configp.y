@@ -3,7 +3,10 @@
 
 %{
     #include <unistd.h>
-    #include <stdio.h>	
+    #include <stdio.h>
+	#include <netinet/in.h>
+    #include <arpa/inet.h>
+	
 	#include "mam.h"
 	
 	extern int yylex (void);
@@ -13,7 +16,7 @@
 	// int yydebug=1;
 	
 	char *p_file = NULL;				/**< policy share library to load */
-	GHashTable *p_set_dict = NULL;		/**< global set config holder */
+	struct mam_context *yymctx;			/**< mam context to feed */
 	GHashTable *l_set_dict = NULL;		/**< per block set config holder */
 	
 	void yyerror(const char *str);
@@ -21,7 +24,7 @@
 		
 %}
 
-%token SEMICOLON OBRACE CBRACE EQUAL
+%token SEMICOLON OBRACE CBRACE EQUAL SLASH
 %token POLICYTOK IFACETOK PREFIXTOK 
 %token SETTOK NAMESERVERTOK SEARCHTOK
 
@@ -29,11 +32,15 @@
 {
 	int number;
 	char *string;
+	struct sockaddr_in in_sa;
+	struct sockaddr_in6 in6_sa;
 }
 
 %token <number> BOOL
 %token <number> NUMBER
 %token <string> LNAME QNAME
+%token <in_sa>  IN4ADDR
+%token <in6_sa> IN6ADDR
 %type <string> name
 
 
@@ -70,10 +77,10 @@ policy_statements:
 
 policy_set:
 	SETTOK name name
-	{g_hash_table_replace(p_set_dict, $2, $3);}
+	{g_hash_table_replace(yymctx->policy_set_dict, $2, $3);}
 	|
 	SETTOK name EQUAL name
-	{g_hash_table_replace(p_set_dict, $2, $4);}
+	{g_hash_table_replace(yymctx->policy_set_dict, $2, $4);}
 	;
 
 iface_block:
@@ -84,10 +91,29 @@ iface_statements:
 	;
 	
 prefix_block:
-	PREFIXTOK name OBRACE prefix_statements CBRACE SEMICOLON
+	PREFIXTOK IN4ADDR SLASH NUMBER OBRACE prefix_statements CBRACE SEMICOLON
+	{
+ 		for( struct src_prefix_list *spl = lookup_source_prefix( yymctx->prefixes, NULL, AF_INET, (struct sockaddr *) &($2) ) ;
+		spl != NULL ;  spl = lookup_source_prefix( spl, NULL, AF_INET, (struct sockaddr *) &($2) ) )
+		{
+			spl->policy_set_dict = l_set_dict;
+		}
+		l_set_dict = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
+	}
+	;
 
 prefix_statements:
 	/* empty */
+	|
+	SETTOK name name
+	{g_hash_table_replace(l_set_dict, $2, $3);}
+	|
+	SETTOK name EQUAL name
+	{g_hash_table_replace(l_set_dict, $2, $4);}
+	|
+	NAMESERVERTOK
+	|
+	SEARCHTOK
 	;
 	
 %%
@@ -102,7 +128,7 @@ int yywrap()
         return 1;
 }
 
-void mam_read_config(int config_fd, char **p_file_out, GHashTable **p_dict_out)
+void mam_read_config(int config_fd, char **p_file_out, struct mam_context *ctx)
 {
 
 	/* open file */
@@ -111,9 +137,10 @@ void mam_read_config(int config_fd, char **p_file_out, GHashTable **p_dict_out)
 	fseek(yyin, 0, SEEK_SET);
 
 	/* prepair globals used during parsing */
-	if(*p_dict_out == NULL)
-		*p_dict_out = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
-	p_set_dict = *p_dict_out;
+	yymctx = ctx;
+	if(yymctx->policy_set_dict != NULL)
+		g_hash_table_destroy(yymctx->policy_set_dict);
+	yymctx->policy_set_dict = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
 	l_set_dict = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
 
 	/* do parse */

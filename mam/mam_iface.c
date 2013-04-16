@@ -160,8 +160,14 @@ void _scan_update_prefix (
 	new->if_netmask_len = family_size;
 	
 	/* save new one */
-	for(last = *spfxl; last->next != NULL; last = last->next);; 
-	last->next = new;
+	if(*spfxl != NULL) 
+	{
+		for(last = *spfxl; last->next != NULL; last = last->next);; 
+		last->next = new;
+	}
+	else
+		*spfxl = new;
+	
 	return;
 }
 
