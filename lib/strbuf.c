@@ -50,10 +50,11 @@ int strbuf_vprintf(strbuf_t *sb, const char *fmt, va_list args)
 		abort();
 	}
 	
-	rem = sb->len - sb->pos;
+	rem = sb->len - sb->pos -1;
 	
 	// make shure we have at least one chunk free 
 	// works around stupid null terminating bug in sprintf
+	/*
 	if( rem < sb->chunksize )
 	{ 	// grow buffer
 		nlen = sb->len+sb->chunksize;
@@ -61,7 +62,7 @@ int strbuf_vprintf(strbuf_t *sb, const char *fmt, va_list args)
 			sb->len, sb->pos, new, nlen, sb->buf);
 		sb->buf = realloc(sb->buf, nlen);
 		sb->len = nlen;
-		rem = sb->len - sb->pos;
+		rem = sb->len - sb->pos-1;
 		
 		if(sb->buf == NULL)
 		{	// malloc error
@@ -69,7 +70,7 @@ int strbuf_vprintf(strbuf_t *sb, const char *fmt, va_list args)
 			return -1;
 		}
 	}
-	
+	*/
 	
 	new = vsnprintf((sb->buf)+(sb->pos), rem, fmt, args);
 	
@@ -77,14 +78,15 @@ int strbuf_vprintf(strbuf_t *sb, const char *fmt, va_list args)
 	{	// error
 		return new;
 	}
-	else if(new > rem) 
+	else if(new >= rem) 
 	{
 		// was truncated - grow buffer
 		nlen = sb->len+((new < sb->chunksize)?(sb->chunksize):((size_t)(new/(sb->chunksize))+2)*(sb->chunksize));
 		DLOG(STRBUF_NOISY_DEBUG, "need to grow buffer len=%zd pos=%zd new=%zd new_size=%zd buf=%p\n",
 			sb->len, sb->pos, new, nlen, sb->buf);
 		sb->buf = realloc(sb->buf, nlen);
-		sb->len = nlen;
+		sb->len = nlen;		
+		rem = sb->len - sb->pos-1;
 		
 		if(sb->buf == NULL)
 		{	// malloc error
@@ -104,24 +106,7 @@ int strbuf_vprintf(strbuf_t *sb, const char *fmt, va_list args)
 	
 	// success
 	sb->pos += new;
-	
-	// make shure we have at least one chunk free 
-	// works around stupid null terminating bug in sprintf
-	if( rem-new < sb->chunksize )
-	{ // grow buffer
-		nlen = sb->len+sb->chunksize;
-		DLOG(STRBUF_NOISY_DEBUG, "preventivly grow buffer len=%zd pos=%zd new=%zd new_size=%zd buf=%p\n",
-			sb->len, sb->pos, new, nlen, sb->buf);
-		sb->buf = realloc(sb->buf, nlen);
-		sb->len = nlen;
 		
-		if(sb->buf == NULL)
-		{	// malloc error
-			sb->len = 0;
-			return -1;
-		}
-	}
-	
 	return new;
 }
 
