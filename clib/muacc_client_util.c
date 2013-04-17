@@ -70,10 +70,8 @@ int muacc_retain_context(struct muacc_context *ctx)
 
 void muacc_print_context(struct muacc_context *ctx)
 {
-	char buf[4096] = {0};
-	size_t buf_len = 4096;
-	size_t buf_pos = 0;
-
+	strbuf_t sb;
+	
 	if (ctx == NULL)
 	{
 		printf("ctx = NULL\n");
@@ -84,8 +82,10 @@ void muacc_print_context(struct muacc_context *ctx)
 	}
 	else
 	{
-		_muacc_print_ctx(buf, &buf_pos, buf_len, ctx->ctx);
-		printf("/**************************************/\n%s\n/**************************************/\n", buf);
+		strbuf_init(&sb);
+		_muacc_print_ctx(&sb, ctx->ctx);
+		printf("/**************************************/\n%s\n/**************************************/\n", strbuf_export(&sb));
+		strbuf_release(&sb);
 	}
 }
 

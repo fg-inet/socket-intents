@@ -14,7 +14,7 @@ include_HEADERS = lib/intents.h
 lib_LTLIBRARIES = libmuacc_client.la policy_sample.la policy_intents.la
 noinst_LIBRARIES = libmuacc.a
 
-libmuacc_a_SOURCES = lib/muacc_ctx.h lib/muacc_tlv.h lib/muacc_util.h lib/muacc_ctx.c lib/muacc_tlv.c lib/muacc_util.c
+libmuacc_a_SOURCES = lib/muacc_ctx.h lib/muacc_tlv.h lib/muacc_util.h lib/dlog.h lib/strbuf.h lib/muacc_ctx.c lib/muacc_tlv.c lib/muacc_util.c lib/strbuf.c
 libmuacc_a_CFLAGS = -DUSE_SO_INTENTS $(AM_CFLAGS)
 
 libmuacc_client_la_SOURCES = clib/muacc_client.h clib/muacc_client_util.h clib/muacc_client.c clib/muacc_client_util.c

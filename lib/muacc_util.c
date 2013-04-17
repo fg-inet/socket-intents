@@ -174,75 +174,70 @@ void _muacc_free_socketopts(struct socketopt *so)
 
 
 
-size_t _muacc_print_sockaddr(char *buf, size_t *buf_pos, size_t buf_len, const struct sockaddr *addr, size_t src_len)
+void _muacc_print_sockaddr(strbuf_t *sb, const struct sockaddr *addr, size_t src_len)
 {
-	size_t old_pos = *buf_pos;
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
+	strbuf_printf(sb, "{ ");
 	if (addr == NULL)
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "NULL");
+		strbuf_printf(sb, "NULL");
 	else
 	{
 		if (addr->sa_family == AF_INET)
 		{
 			struct sockaddr_in *inaddr = (struct sockaddr_in *) addr;
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin_family = AF_INET, ");
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin_port = %d, ", ntohs(inaddr->sin_port));
+			strbuf_printf(sb, "sin_family = AF_INET, ");
+			strbuf_printf(sb, "sin_port = %d, ", ntohs(inaddr->sin_port));
 			char ipaddr[INET_ADDRSTRLEN];
 			if (inet_ntop(AF_INET, &inaddr->sin_addr, ipaddr, INET_ADDRSTRLEN) != NULL)
-				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin_addr = %s", ipaddr);
+				strbuf_printf(sb, "sin_addr = %s", ipaddr);
 		}
 		else if (addr->sa_family == AF_INET6)
 		{
 			struct sockaddr_in6 *inaddr = (struct sockaddr_in6 *) addr;
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin6_family = AF_INET6, ");
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin6_port = %d, ", ntohs(inaddr->sin6_port));
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin6_flowinfo = %d, ", inaddr->sin6_flowinfo);
+			strbuf_printf(sb, "sin6_family = AF_INET6, ");
+			strbuf_printf(sb, "sin6_port = %d, ", ntohs(inaddr->sin6_port));
+			strbuf_printf(sb, "sin6_flowinfo = %d, ", inaddr->sin6_flowinfo);
 			char ipaddr[INET6_ADDRSTRLEN];
 			if (inet_ntop(AF_INET6, &inaddr->sin6_addr, ipaddr, INET6_ADDRSTRLEN) != NULL)
-				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin6_addr = %s, ", ipaddr);
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sin6_scope_id = %d", inaddr->sin6_scope_id);
+				strbuf_printf(sb, "sin6_addr = %s, ", ipaddr);
+			strbuf_printf(sb, "sin6_scope_id = %d", inaddr->sin6_scope_id);
 		}
 		else if (addr->sa_family == AF_UNIX)
 		{
 			struct sockaddr_un *unaddr = (struct sockaddr_un *) addr;
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sun_family = AF_UNIX, ");
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sun_path = %s",unaddr->sun_path);
+			strbuf_printf(sb, "sun_family = AF_UNIX, ");
+			strbuf_printf(sb, "sun_path = %s",unaddr->sun_path);
 		}
 		else
 		{
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "sa_family = %d <unknown>", addr->sa_family);
+			strbuf_printf(sb, "sa_family = %d <unknown>", addr->sa_family);
 		}
 	}
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }");
-
-	return(*buf_pos - old_pos);
+	strbuf_printf(sb, " }");
 }
 
-size_t _muacc_print_addrinfo(char *buf, size_t *buf_pos, size_t buf_len, const struct addrinfo *addr)
+void _muacc_print_addrinfo(strbuf_t *sb, const struct addrinfo *addr)
 {
-	size_t old_pos = *buf_pos;
 	const struct addrinfo *current = addr;
 
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
+	strbuf_printf(sb, "{ ");
 
 	while (current != NULL)
 	{
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_flags = %d, ", current->ai_flags);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_family = %d, ", current->ai_family);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_socktype = %d, ", current->ai_socktype);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_protocol = %d, ", current->ai_protocol);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_addr = ");
-		_muacc_print_sockaddr( buf, buf_pos, buf_len, current->ai_addr, current->ai_addrlen);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ", ");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "ai_canonname = %s", current->ai_canonname);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }, ");
+		strbuf_printf(sb, "{ ");
+		strbuf_printf(sb, "ai_flags = %d, ", current->ai_flags);
+		strbuf_printf(sb, "ai_family = %d, ", current->ai_family);
+		strbuf_printf(sb, "ai_socktype = %d, ", current->ai_socktype);
+		strbuf_printf(sb, "ai_protocol = %d, ", current->ai_protocol);
+		strbuf_printf(sb, "ai_addr = ");
+		_muacc_print_sockaddr( sb, current->ai_addr, current->ai_addrlen);
+		strbuf_printf(sb, ", ");
+		strbuf_printf(sb, "ai_canonname = %s", current->ai_canonname);
+		strbuf_printf(sb, " }, ");
 		current = current->ai_next;
 	}
 
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "NULL }");
+	strbuf_printf(sb, "NULL }");
 
-	return(*buf_pos - old_pos);
 }
 
 char *_muacc_get_socket_level (int level)
@@ -268,54 +263,46 @@ char *_muacc_get_socket_level (int level)
 
 void _muacc_print_socket_option_list(const struct socketopt *opts)
 {
-	char buf[4096];
-	size_t buf_len = 4096;
-	size_t buf_pos = 0;
+	strbuf_t sb;
 
-	_muacc_print_socket_options(buf, &buf_pos, buf_len, opts);
-	printf("%s\n", buf);
+	strbuf_init(&sb);
+	_muacc_print_socket_options(&sb, opts);
+	printf("%s\n", strbuf_export(&sb));
+	strbuf_release(&sb);
 }
 
-size_t _muacc_print_socket_option(char *buf, size_t *buf_pos, size_t buf_len, const struct socketopt *current)
+void _muacc_print_socket_option(strbuf_t *sb, const struct socketopt *current)
 {
-	size_t old_pos = *buf_pos;
-
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "level = %d (%s), ", current->level, _muacc_get_socket_level(current->level));
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optname = %d, ", current->optname);
+	strbuf_printf(sb, "{ ");
+	strbuf_printf(sb, "level = %d (%s), ", current->level, _muacc_get_socket_level(current->level));
+	strbuf_printf(sb, "optname = %d, ", current->optname);
 	if (current-> optval == NULL)
 	{
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optval = NULL, ");
+		strbuf_printf(sb, "optval = NULL, ");
 	}
 	else
 	{
 		int *value = current->optval;
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optval = %d, ", *value);
+		strbuf_printf(sb, "optval = %d, ", *value);
 	}
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "optlen = %d ", current->optlen);
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }");
-
-	return(*buf_pos - old_pos);
+	strbuf_printf(sb, "optlen = %d ", current->optlen);
+	strbuf_printf(sb, " }");
 }
 
-size_t _muacc_print_socket_options(char *buf, size_t *buf_pos, size_t buf_len, const struct socketopt *opts)
+void _muacc_print_socket_options(strbuf_t *sb, const struct socketopt *opts)
 {
-	size_t old_pos = *buf_pos;
-
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "{ ");
+	strbuf_printf(sb, "{ ");
 	if (opts == NULL)
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "NULL");
+		strbuf_printf(sb, "NULL");
 	else
 	{
 		const struct socketopt *current = opts;
 		while (current != NULL)
 		{
-			_muacc_print_socket_option(buf, buf_pos, buf_len, current);
+			_muacc_print_socket_option(sb, current);
 			current = current->next;
 		}
 	}
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  " }");
-
-	return(*buf_pos - old_pos);
+	strbuf_printf(sb, " }");
 }
 

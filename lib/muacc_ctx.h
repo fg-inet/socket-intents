@@ -11,6 +11,7 @@
 
 #include "muacc.h"
 
+
 /** Helper to allocate and initialize _muacc_ctx
  *
  */
@@ -29,7 +30,7 @@ int _muacc_free_ctx (struct _muacc_ctx *_ctx);
 /* helper to print ctx
  *
  */
-void _muacc_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct _muacc_ctx *_ctx);
+void _muacc_print_ctx(strbuf_t *sb, const struct _muacc_ctx *_ctx);
 
 /** Serialize the _ctx packing struct in a series of TLVs
  *

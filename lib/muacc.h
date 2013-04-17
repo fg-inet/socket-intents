@@ -5,6 +5,8 @@
 #ifndef __MUACC_H__
 #define __MUACC_H__
 
+#include "strbuf.h"
+
 typedef enum
 {
 	muacc_act_connect_req,					/**< is from a connect */

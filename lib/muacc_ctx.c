@@ -52,38 +52,38 @@ struct _muacc_ctx *_muacc_create_ctx()
 	return _ctx;
 }
 
-void _muacc_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct _muacc_ctx *_ctx)
+void _muacc_print_ctx(strbuf_t *sb, const struct _muacc_ctx *_ctx)
 {
 
 
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "_ctx = {\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tctxid = (%6d,%6d ),\n", (uint32_t) (_ctx->ctxid>>32), (uint32_t) _ctx->ctxid & (0x00000000ffffffff));
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tcalls_performed = %x,\n", _ctx->calls_performed);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tdomain = %d,\n", _ctx->domain);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\ttype = %d,\n", _ctx->type);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tprotocol = %d,\n", _ctx->protocol);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tbind_sa_req = ");
-		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->bind_sa_req, _ctx->bind_sa_req_len);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tbind_sa_suggested = ");
-		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->bind_sa_suggested, _ctx->bind_sa_suggested_len);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_hostname = %s,\n", _ctx->remote_hostname);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_addrinfo_hint = ");
-		_muacc_print_addrinfo(buf, buf_pos, buf_len, _ctx->remote_addrinfo_hint);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_addrinfo_res = ");
-		_muacc_print_addrinfo(buf, buf_pos, buf_len, _ctx->remote_addrinfo_res);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tremote_sa = ");
-		_muacc_print_sockaddr(buf, buf_pos, buf_len, _ctx->remote_sa, _ctx->remote_sa_len);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tsockopts_current = ");
-		_muacc_print_socket_options(buf, buf_pos, buf_len, _ctx->sockopts_current);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  ",\n");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\tsockopts_suggested = ");
-		_muacc_print_socket_options(buf, buf_pos, buf_len, _ctx->sockopts_suggested);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos),  "\n}\n");
+		strbuf_printf(sb, "_ctx = {\n");
+		strbuf_printf(sb, "\tctxid = (%6d,%6d ),\n", (uint32_t) (_ctx->ctxid>>32), (uint32_t) _ctx->ctxid & (0x00000000ffffffff));
+		strbuf_printf(sb, "\tcalls_performed = %x,\n", _ctx->calls_performed);
+		strbuf_printf(sb, "\tdomain = %d,\n", _ctx->domain);
+		strbuf_printf(sb, "\ttype = %d,\n", _ctx->type);
+		strbuf_printf(sb, "\tprotocol = %d,\n", _ctx->protocol);
+		strbuf_printf(sb, "\tbind_sa_req = ");
+		_muacc_print_sockaddr(sb, _ctx->bind_sa_req, _ctx->bind_sa_req_len);
+		strbuf_printf(sb, ",\n");
+		strbuf_printf(sb, "\tbind_sa_suggested = ");
+		_muacc_print_sockaddr(sb, _ctx->bind_sa_suggested, _ctx->bind_sa_suggested_len);
+		strbuf_printf(sb, ",\n");
+		strbuf_printf(sb, "\tremote_hostname = %s,\n", _ctx->remote_hostname);
+		strbuf_printf(sb, "\tremote_addrinfo_hint = ");
+		_muacc_print_addrinfo(sb, _ctx->remote_addrinfo_hint);
+		strbuf_printf(sb, ",\n");
+		strbuf_printf(sb, "\tremote_addrinfo_res = ");
+		_muacc_print_addrinfo(sb, _ctx->remote_addrinfo_res);
+		strbuf_printf(sb, ",\n");
+		strbuf_printf(sb, "\tremote_sa = ");
+		_muacc_print_sockaddr(sb, _ctx->remote_sa, _ctx->remote_sa_len);
+		strbuf_printf(sb, ",\n");
+		strbuf_printf(sb, "\tsockopts_current = ");
+		_muacc_print_socket_options(sb, _ctx->sockopts_current);
+		strbuf_printf(sb, ",\n");
+		strbuf_printf(sb, "\tsockopts_suggested = ");
+		_muacc_print_socket_options(sb, _ctx->sockopts_suggested);
+		strbuf_printf(sb, "\n}\n");
 }
 
 int _muacc_free_ctx (struct _muacc_ctx *_ctx)
@@ -305,7 +305,7 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 
 		default:
 			DLOG(MUACC_CTX_NOISY_DEBUG0, "_muacc_unpack_ctx: ignoring unknown tag %x\n", tag);
-			break;
+				return(-1);
 	}
 
 	return(0);

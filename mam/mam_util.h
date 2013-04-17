@@ -7,13 +7,13 @@
 #include "mam.h"
 
 /** Helper to print a list of sockaddrs to a string */
-size_t _mam_print_sockaddr_list(char *buf, size_t *buf_pos, size_t buf_len, const struct sockaddr_list *list);
+void _mam_print_sockaddr_list(strbuf_t *sb, const struct sockaddr_list *list);
 
 /** Helper to print a list of prefixes to a string */
-size_t _mam_print_prefix_list(char *buf, size_t *buf_pos, size_t buf_len, const struct src_prefix_list *prefixes);
+void _mam_print_prefix_list(strbuf_t *sb, const struct src_prefix_list *prefixes);
 
 /** Helper to print a mam context to a string */
-size_t _mam_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct mam_context *ctx);
+void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx);
 
 /** Helper that frees a source prefix list */
 int _free_src_prefix_list (struct src_prefix_list *spfxl);

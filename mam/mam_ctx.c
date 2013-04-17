@@ -2,6 +2,7 @@
 #include <errno.h>
 
 #include "../lib/dlog.h"
+#include "../lib/strbuf.h"
 #include "../lib/muacc_util.h"
 #include "../lib/muacc_ctx.h"
 
@@ -68,9 +69,7 @@ int mam_release_context(struct mam_context *ctx)
 
 void mam_print_context(mam_context_t *ctx)
 {
-	char buf[BUF_LEN] = {0};
-	size_t buf_len = BUF_LEN;
-	size_t buf_pos = 0;
+	strbuf_t sb;
 
 	if (ctx == NULL)
 	{
@@ -78,16 +77,17 @@ void mam_print_context(mam_context_t *ctx)
 	}
 	else
 	{
-		_mam_print_ctx(buf, &buf_pos, buf_len, ctx);
-		printf("/**************************************/\n%s\n/**************************************/\n", buf);
+		strbuf_init(&sb);
+		_mam_print_ctx(&sb, ctx);
+		printf("/**************************************/\n%s\n/**************************************/\n", strbuf_export(&sb));
+		strbuf_release(&sb);
 	}
 }
 
 void mam_print_request_context(request_context_t *ctx)
 {
-	char buf[BUF_LEN] = {0};
-	size_t buf_len = BUF_LEN;
-	size_t buf_pos = 0;
+	strbuf_t sb;
+
 	printf("/**************************************/\n");
 	if (ctx == NULL)
 	{
@@ -95,13 +95,15 @@ void mam_print_request_context(request_context_t *ctx)
 		return;
 	}
 
+	strbuf_init(&sb);
+	
 	if (ctx->ctx == NULL)
 	{
 		printf("ctx->ctx == NULL\n");
 	}
 	else
 	{
-		_muacc_print_ctx(buf, &buf_pos, buf_len, ctx->ctx);
+		_muacc_print_ctx(&sb, ctx->ctx);
 	}
 
 	if (ctx->mctx == NULL)
@@ -110,7 +112,11 @@ void mam_print_request_context(request_context_t *ctx)
 	}
 	else
 	{
-		_mam_print_ctx(buf, &buf_pos, buf_len, ctx->mctx);
+		strbuf_init(&sb);
+		_mam_print_ctx(&sb, ctx->mctx);
 	}
-	printf("%s\n/**************************************/\n", buf);
+	printf("%s\n", strbuf_export(&sb));
+	strbuf_release(&sb);
+	printf("/**************************************/\n", strbuf_export(&sb));
+
 }

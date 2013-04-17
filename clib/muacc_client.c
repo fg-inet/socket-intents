@@ -441,8 +441,8 @@ int muacc_connect(muacc_context_t *ctx,
 	/* set socketopts */
 	for(so = ctx->ctx->sockopts_suggested; so != NULL; so = so->next)
 	{
-		char print_buf[255];
-		size_t print_pos;
+		strbuf_t sb;
+		strbuf_init(&sb);
 
 		#ifdef USE_SO_INTENTS
 		if (so->level == SOL_INTENTS)
@@ -454,16 +454,16 @@ int muacc_connect(muacc_context_t *ctx,
 		#endif
 
 		#ifdef CLIB_IF_NOISY_DEBUG1
-		print_pos = 0; _muacc_print_socket_option(print_buf, &print_pos, sizeof(print_buf), so);
-		DLOG(CLIB_IF_NOISY_DEBUG1, "trying to setting suggested socketopt %s\n", print_buf);
+		strbuf_rewind(&sb); _muacc_print_socket_option(&sb, so);
+		DLOG(CLIB_IF_NOISY_DEBUG1, "trying to setting suggested socketopt %s\n", strbuf_export(&sb));
 		#endif
 
 		if ( (retval = setsockopt(socket, so->level, so->optname, so->optval, so->optlen)) == -1 )
 		{
-			print_pos = 0; _muacc_print_socket_option(print_buf, &print_pos, sizeof(print_buf), so);
-			DLOG(CLIB_IF_NOISY_DEBUG0, "setting suggested socketopt %s failed: %s\n", print_buf, strerror(errno));
+			strbuf_rewind(&sb); _muacc_print_socket_option(&sb, so);
+			DLOG(CLIB_IF_NOISY_DEBUG0, "setting suggested socketopt %s failed: %s\n", strbuf_export(&sb), strerror(errno));
 		}
-
+		strbuf_release(&sb);
 	}
 
 	/* unlock context and do request */

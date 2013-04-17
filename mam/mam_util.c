@@ -9,6 +9,7 @@
 #include "../lib/muacc_tlv.h"
 #include "../lib/muacc_ctx.h"
 #include "../lib/dlog.h"
+#include "../lib/strbuf.h"
 
 #ifndef MAM_UTIL_NOISY_DEBUG0
 #define MAM_UTIL_NOISY_DEBUG0 0
@@ -22,58 +23,52 @@
 #define MAM_UTIL_NOISY_DEBUG2 0
 #endif
 
-size_t _mam_print_sockaddr_list(char *buf, size_t *buf_pos, size_t buf_len, const struct sockaddr_list *list)
+void _mam_print_sockaddr_list(strbuf_t *sb, const struct sockaddr_list *list)
 {
-	size_t old_pos = *buf_pos;
 	const struct sockaddr_list *current = list;
 
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "{ ");
+	strbuf_printf(sb, "{ ");
 
 	while (current != NULL)
 	{
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\n\t\t{ ");
-		_muacc_print_sockaddr(buf, buf_pos, buf_len, current->addr, current->addr_len);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), " }, ");
+		strbuf_printf(sb, "\n\t\t{ ");
+		_muacc_print_sockaddr(sb, current->addr, current->addr_len);
+		strbuf_printf(sb, " }, ");
 		current = current->next;
 	}
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "NULL }");
-	return *buf_pos - old_pos;
+	strbuf_printf(sb, "NULL }");
 }
 
-size_t _mam_print_prefix_list(char *buf, size_t *buf_pos, size_t buf_len, const struct src_prefix_list *prefixes)
+void _mam_print_prefix_list(strbuf_t *sb, const struct src_prefix_list *prefixes)
 {
-	size_t old_pos = *buf_pos;
 	const struct src_prefix_list *current = prefixes;
 
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "{ ");
+	strbuf_printf(sb, "{ ");
 
 	while (current != NULL)
 	{
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\n\t{ ");
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "if_name = %s, ", current->if_name);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "if_flags = %d, ", current->if_flags);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "if_addrs = ");
-		_mam_print_sockaddr_list(buf, buf_pos, buf_len, current->if_addrs);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "if_netmask = ");
-		_muacc_print_sockaddr(buf, buf_pos, buf_len, current->if_netmask, current->if_netmask_len);
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "}, ");
+		strbuf_printf(sb, "\n\t{ ");
+		strbuf_printf(sb, "if_name = %s, ", current->if_name);
+		strbuf_printf(sb, "if_flags = %d, ", current->if_flags);
+		strbuf_printf(sb, "if_addrs = ");
+		_mam_print_sockaddr_list(sb, current->if_addrs);
+		strbuf_printf(sb, "if_netmask = ");
+		_muacc_print_sockaddr(sb, current->if_netmask, current->if_netmask_len);
+		strbuf_printf(sb, "}, ");
 		current = current->next;
 	}
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "NULL }");
+	strbuf_printf(sb, "NULL }");
 
-	return *buf_pos - old_pos;
 }
 
-size_t _mam_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct mam_context *ctx)
+void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx)
 {
-	size_t old_pos = *buf_pos;
-
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "ctx = {\n");
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\tusage = %d\n", ctx->usage);
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\tsrc_prefix_list = ");
-	_mam_print_prefix_list(buf, buf_pos, buf_len, ctx->prefixes);
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\n");
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\tpolicy = ");
+	strbuf_printf(sb, "ctx = {\n");
+	strbuf_printf(sb, "\tusage = %d\n", ctx->usage);
+	strbuf_printf(sb, "\tsrc_prefix_list = ");
+	_mam_print_prefix_list(sb, ctx->prefixes);
+	strbuf_printf(sb, "\n");
+	strbuf_printf(sb, "\tpolicy = ");
 	if (ctx->policy != 0)
 	{
 		const lt_dlinfo *policy_info = lt_dlgetinfo(ctx->policy);
@@ -81,30 +76,28 @@ size_t _mam_print_ctx(char *buf, size_t *buf_pos, size_t buf_len, const struct m
 		{
 			if (policy_info->name != NULL && policy_info->filename != NULL)
 			{
-				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "%s (%s)", policy_info->name, policy_info->filename);
+				strbuf_printf(sb, "%s (%s)", policy_info->name, policy_info->filename);
 			}
 			else if (policy_info->filename != NULL)
 			{
-				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "%s", policy_info->filename);
+				strbuf_printf(sb, "%s", policy_info->filename);
 			}
 			else
 			{
-				*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "(Cannot display module name)");
+				strbuf_printf(sb, "(Cannot display module name)");
 			}
 		}
 		else
 		{
-			*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "(Error fetching module information)");
+			strbuf_printf(sb, "(Error fetching module information)");
 		}
 	}
 	else
 	{
-		*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "0");
+		strbuf_printf(sb, "0");
 	}
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "\n");
-	*buf_pos += snprintf( (buf + *buf_pos), (buf_len - *buf_pos), "}\n");
-
-	return *buf_pos - old_pos;
+	strbuf_printf(sb, "\n");
+	strbuf_printf(sb, "}\n");
 }
 
 int _mam_free_ctx(struct mam_context *ctx)
