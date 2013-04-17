@@ -78,7 +78,6 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 {
 
 	int ret;
-	ctx->ctx->calls_performed |= MUACC_GETADDRINFO_CALLED;
 
 	/* check context and initialize if neccessary */
 	if(ctx == NULL)
@@ -100,7 +99,10 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 		_unlock_ctx(ctx);
 		goto muacc_getaddrinfo_fallback;
 	}
-
+	
+	/* flag call performed */
+	ctx->ctx->calls_performed |= MUACC_GETADDRINFO_CALLED;
+	
 	/* save hostname */
 	if(ctx->ctx->remote_hostname != NULL)
 		free(ctx->ctx->remote_hostname);
@@ -504,12 +506,11 @@ int muacc_close(muacc_context_t *ctx,
 
 	ret = close(socket);
 
-	if (ret == 0)
-	{
-		/* Release and deinitialize context */
-		if (0 == muacc_release_context(ctx))
-			ctx->ctx = NULL;
-	}
+	/* Release and deinitialize context */
+	if (0 == muacc_release_context(ctx))
+		ctx->ctx = NULL;
+	
+	_unlock_ctx(ctx);
 
 	return ret;
 

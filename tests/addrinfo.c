@@ -10,7 +10,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <err.h>
-#include "../clib/muacc.h"
+#include "../clib/muacc_client.h"
 #include "../config.h"
 
 
@@ -23,7 +23,6 @@ int main(int c, char **v) {
 	int i = 0;
 	
 	struct muacc_context ctx; 
-	muacc_init_context(&ctx);
 	
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = PF_UNSPEC;
@@ -58,7 +57,7 @@ int main(int c, char **v) {
 	}
 	
 	freeaddrinfo(res0);
-	muacc_release_context(&ctx);
+	muacc_close(&ctx, -1);
 	exit(0);
 			   
 }

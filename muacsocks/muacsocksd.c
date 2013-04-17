@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-#include "../clib/muacc.h"
+#include "../clib/muacc_client.h"
 #include "../config.h"
 
 #define SOCKSD_NOISY_DEBUG 0
@@ -211,11 +211,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 	struct addrinfo *ai_res = NULL;
 	union s5_inputbuffer s5_iobuffer;
 	
-	struct muacc_context ctx; 
-	muacc_init_context(&ctx);
-	#ifdef SOCKSD_NOISY_DEBUG
-	fprintf(stderr, "%6d: initalizing mucc context: done\n", (int) getpid());
-	#endif
+	struct muacc_context fd2_ctx; 
 
 	memset(&s5_iobuffer, 0x0, sizeof(s5_iobuffer));
 	
@@ -359,7 +355,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 			/* resolve */
 			ai_hints.ai_family = PF_UNSPEC;
 			ai_hints.ai_socktype = SOCK_STREAM;
-			ret = muacc_getaddrinfo(&ctx, nbuf, NULL, &ai_hints, &ai_res);
+			ret = muacc_getaddrinfo(&fd2_ctx, nbuf, NULL, &ai_hints, &ai_res);
 		    if (ret) {
 		        fprintf(stderr, "%6d: resolve error: %s\n", (int) getpid(), gai_strerror(ret));
 		        s5_iobuffer.cmd.command = SOCKS5_HOSTUNREACH;
@@ -405,7 +401,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 		}
 		
 		/* go ahead an connect */
-		ret = muacc_connect(&ctx, fd2, (struct sockaddr *) &remote_out, remote_out_len);
+		ret = muacc_connect(&fd2_ctx, fd2, (struct sockaddr *) &remote_out, remote_out_len);
 	 	if (ret == 0) 
 		{
 			#ifdef SOCKSD_NOISY_DEBUG
@@ -458,7 +454,7 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 
 		/* forward stuff */
 		s2s_forward(fd, fd2);
-
+		muacc_close(&fd2_ctx, fd2);
         goto do_socks_closed;
         
     }
@@ -484,7 +480,6 @@ do_socks_closed:
 	fprintf(stderr, "%6d: connection closed\n", (int) getpid());
 	#endif
 	close(fd);
-	muacc_release_context(&ctx);
 }
 
 int do_accept(int listener)
