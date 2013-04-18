@@ -5,7 +5,7 @@
 #ifndef __STRBUF_H__
 #define __STRBUF_H__
 
-#define STRBUF_DEFAULT_CHUNKSIZE	1024	
+#define STRBUF_DEFAULT_CHUNKSIZE	512	
 
 /** struct holding a string buffer */
 typedef struct strbuf {
