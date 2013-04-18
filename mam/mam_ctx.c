@@ -117,6 +117,6 @@ void mam_print_request_context(request_context_t *ctx)
 	}
 	printf("%s\n", strbuf_export(&sb));
 	strbuf_release(&sb);
-	printf("/**************************************/\n", strbuf_export(&sb));
+	printf("/**************************************/\n");
 
 }
