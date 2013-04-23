@@ -54,8 +54,6 @@ struct _muacc_ctx *_muacc_create_ctx()
 
 void _muacc_print_ctx(strbuf_t *sb, const struct _muacc_ctx *_ctx)
 {
-
-
 		strbuf_printf(sb, "_ctx = {\n");
 		strbuf_printf(sb, "\tctxid = (%6d,%6d ),\n", (uint32_t) (_ctx->ctxid>>32), (uint32_t) _ctx->ctxid & (0x00000000ffffffff));
 		strbuf_printf(sb, "\tcalls_performed = %x,\n", _ctx->calls_performed);

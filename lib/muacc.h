@@ -5,7 +5,13 @@
 #ifndef __MUACC_H__
 #define __MUACC_H__
 
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <netdb.h>
+
 #include "strbuf.h"
+#include "dlog.h"
 
 typedef enum
 {

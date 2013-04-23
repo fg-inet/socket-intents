@@ -5,12 +5,22 @@
 #ifndef __MAM_H__
 #define __MAM_H__
 
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <string.h>
+#include <errno.h>
+#include <assert.h>
+
+#include <event2/event.h>
 #include <event2/buffer.h>
+#include <event2/bufferevent.h>
+
 #include <ltdl.h>
 #include <glib.h>
 
 #include "../lib/muacc.h"
-
 
 /** Context of an incoming request to the MAM */
 typedef struct request_context {
@@ -51,6 +61,13 @@ typedef struct src_prefix_list {
 	GHashTable 				*policy_set_dict; 	/**< dictionary for policy configuration */
 } src_prefix_list_t;
 
+/** list of interfacses */
+typedef struct iface_list {
+	struct iface_list 		*next;				/**< Next item in list */
+	char 					*if_name;			/**< Name of the interface */
+	GHashTable 				*policy_set_dict; 	/**< dictionary for policy configuration */
+} iface_list_t;
+
 /** Context of the MAM */
 typedef struct mam_context {
 	int						usage;			/**< Reference counter */
@@ -88,5 +105,8 @@ struct src_prefix_list *lookup_source_prefix (
 
 /** config read function */
 void mam_read_config(int config_fd, char **p_file_out, struct mam_context *ctx);
+
+/* helper functions */
+#include "mam_util.h"
 
 #endif /* __MAM_H__ */

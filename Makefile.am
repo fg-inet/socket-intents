@@ -21,13 +21,6 @@ libmuacc_client_la_SOURCES = clib/muacc_client.h clib/muacc_client_util.h clib/m
 libmuacc_client_la_CFLAGS = -DUSE_SO_INTENTS $(AM_CFLAGS)
 libmuacc_client_la_LIBADD = libmuacc.a
 
-policy_sample_la_SOURCES = mam/policy_sample.c
-policy_sample_la_LDFLAGS = -module -avoid-version
-
-policy_intents_la_SOURCES = mam/policy_intents.c mam/policy_util.h mam/policy_util.c
-policy_intents_la_LDFLAGS = -module -avoid-version
-policy_intents_la_LIBADD = libmuacc.a
-
 bin_PROGRAMS = mamma muacsocksd addrinfo
 
 muacsocksd_SOURCES = muacsocks/muacsocksd.c
@@ -40,6 +33,13 @@ mamma_SOURCES = mam/mam_master.c mam/mam_ctx.c mam/mam_util.c mam/mam_iface.c ma
 mamma_CFLAGS = $(LTDLINCL) $(AM_CFLAGS)
 mamma_LDADD = $(LDADD) libmuacc.a
 mamma_LDFLAGS = -export-dynamic
+
+policy_sample_la_SOURCES = policies/policy_sample.c
+policy_sample_la_LDFLAGS = -module -avoid-version
+
+policy_intents_la_SOURCES = policies/policy_intents.c policies/policy_util.h policies/policy_util.c
+policy_intents_la_LDFLAGS = -module -avoid-version
+policy_intents_la_LIBADD = libmuacc.a
 
 TESTS = testmuacc tests/policy_test.sh
 check_PROGRAMS = testmuacc test_policy_generic

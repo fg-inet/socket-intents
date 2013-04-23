@@ -3,34 +3,17 @@
  *
  */
 
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <fcntl.h>
-#include <string.h>
-#include <errno.h>
-#include <assert.h>
+
 #include <signal.h>
-#include <ltdl.h>
-
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
 #include <sys/un.h>
-#include <netdb.h>
-
-#include <event2/event.h>
-#include <event2/buffer.h>
-#include <event2/bufferevent.h>
 
 #include "../config.h"
 
+#include "mam.h"
 #include "../lib/muacc.h"
 #include "../lib/muacc_ctx.h"
 #include "../lib/muacc_tlv.h"
-#include "../lib/dlog.h"
 
-#include "mam_util.h"
 #include "mam_configp.h"
 
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))
