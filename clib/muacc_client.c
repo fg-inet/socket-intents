@@ -34,7 +34,6 @@ int muacc_socket(muacc_context_t *ctx,
         int domain, int type, int protocol)
 {
 	int ret = -2;
-	ctx->ctx->calls_performed |= MUACC_SOCKET_CALLED;
 
 	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
 
@@ -58,6 +57,7 @@ int muacc_socket(muacc_context_t *ctx,
 		goto muacc_socket_fallback;
 	}
 
+	ctx->ctx->calls_performed |= MUACC_SOCKET_CALLED;
 	ctx->ctx->domain = domain;
 	ctx->ctx->type = type;
 	ctx->ctx->protocol = protocol;
@@ -78,6 +78,8 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 {
 
 	int ret;
+
+	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
 
 	/* check context and initialize if neccessary */
 	if(ctx == NULL)
@@ -119,16 +121,22 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 		ctx->ctx->remote_addrinfo_res = NULL;
 	}
 
+	DLOG(CLIB_IF_NOISY_DEBUG2, "contacting mam\n");
+
 	/* contact mam */
 	_muacc_contact_mam(muacc_act_getaddrinfo_resolve_req, ctx);
 
 	if(ctx->ctx->remote_addrinfo_res != NULL)
 	{
+		DLOG(CLIB_IF_NOISY_DEBUG2, "using result from mam\n");
+		
 		*res = _muacc_clone_addrinfo(ctx->ctx->remote_addrinfo_res);
 		ret = 0;
 	}
 	else
 	{
+		DLOG(CLIB_IF_NOISY_DEBUG2, "no result from mam - doing it on my own\n");
+		
 		/* do query on our own */
 		ret = 	 getaddrinfo(hostname, servname, hints, res);
 		if (ret == 0)
@@ -346,7 +354,6 @@ int muacc_getsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 int muacc_bind(muacc_context_t *ctx, int socket, const struct sockaddr *address, socklen_t address_len)
 {
 	int ret = -1;
-	ctx->ctx->calls_performed |= MUACC_BIND_CALLED;
 
 	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
 
@@ -370,6 +377,7 @@ int muacc_bind(muacc_context_t *ctx, int socket, const struct sockaddr *address,
 		goto muacc_bind_fallback;
 	}
 
+	ctx->ctx->calls_performed |= MUACC_BIND_CALLED;
 	ret = bind(socket, address, address_len);
 
 	if (ret == 0)
@@ -393,7 +401,6 @@ int muacc_connect(muacc_context_t *ctx,
 	int retval;
 
 	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
-	ctx->ctx->calls_performed |= MUACC_CONNECT_CALLED;
 
 	if( ctx == NULL )
 	{
@@ -414,6 +421,8 @@ int muacc_connect(muacc_context_t *ctx,
 		_unlock_ctx(ctx);
 		goto muacc_connect_fallback;
 	}
+
+	ctx->ctx->calls_performed |= MUACC_CONNECT_CALLED;
 
 	ctx->ctx->remote_sa     = _muacc_clone_sockaddr((struct sockaddr *)address, address_len);
 	ctx->ctx->remote_sa_len = address_len;

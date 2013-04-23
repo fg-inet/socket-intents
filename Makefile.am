@@ -11,7 +11,7 @@ BUILT_SOURCES = mam/mam_configp.h
 
 include_HEADERS = lib/intents.h
 
-lib_LTLIBRARIES = libmuacc_client.la policy_sample.la policy_intents.la
+lib_LTLIBRARIES = libmuacc_client.la policy_sample.la policy_intents.la policy_rr_naive.la
 noinst_LIBRARIES = libmuacc.a
 
 libmuacc_a_SOURCES = lib/muacc_ctx.h lib/muacc_tlv.h lib/muacc_util.h lib/dlog.h lib/strbuf.h lib/muacc_ctx.c lib/muacc_tlv.c lib/muacc_util.c lib/strbuf.c
@@ -34,11 +34,16 @@ mamma_CFLAGS = $(LTDLINCL) $(AM_CFLAGS)
 mamma_LDADD = $(LDADD) libmuacc.a
 mamma_LDFLAGS = -export-dynamic
 
+policy_la_LDFLAGS = -module -avoid-version
+
 policy_sample_la_SOURCES = policies/policy_sample.c
-policy_sample_la_LDFLAGS = -module -avoid-version
+policy_sample_la_LDFLAGS = $(policy_la_LDFLAGS)
+
+policy_rr_naive_la_SOURCES = policies/policy_rr_naive.c
+policy_rr_naive_la_LDFLAGS = $(policy_la_LDFLAGS)
 
 policy_intents_la_SOURCES = policies/policy_intents.c policies/policy_util.h policies/policy_util.c
-policy_intents_la_LDFLAGS = -module -avoid-version
+policy_intents_la_LDFLAGS = $(policy_la_LDFLAGS)
 policy_intents_la_LIBADD = libmuacc.a
 
 TESTS = testmuacc tests/policy_test.sh

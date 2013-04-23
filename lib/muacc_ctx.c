@@ -200,6 +200,9 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 				DLOG(MUACC_CTX_NOISY_DEBUG2, "unpacking calls_performed\n");
 				_ctx->calls_performed = *(int *) data;
 				break;
+		case action:
+				DLOG(MUACC_CTX_NOISY_DEBUG1, "unpacking action=%d\n", *((int *) data));
+				break;
 		case domain:
 				DLOG(MUACC_CTX_NOISY_DEBUG2, "unpacking domain\n");
 				_ctx->domain = *(int *) data;
@@ -299,7 +302,6 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct
 			else
 				return(-1);
 			break;
-
 
 		default:
 			DLOG(MUACC_CTX_NOISY_DEBUG0, "_muacc_unpack_ctx: ignoring unknown tag %x\n", tag);

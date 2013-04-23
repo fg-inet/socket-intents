@@ -12,7 +12,7 @@
 #include "../clib/muacc_client.h"
 #include "../config.h"
 
-#define SOCKSD_NOISY_DEBUG 0
+#define SOCKSD_NOISY_DEBUG 1
 
 /* socks 5 protocol stuff */
 #define SOCKS5_AUTHDONE	0x1000
@@ -211,7 +211,9 @@ void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, stru
 	struct addrinfo *ai_res = NULL;
 	union s5_inputbuffer s5_iobuffer;
 	
-	struct muacc_context fd2_ctx; 
+	struct muacc_context fd2_ctx;
+	memset(&fd2_ctx, 0, sizeof(struct muacc_context)); 
+
 
 	memset(&s5_iobuffer, 0x0, sizeof(s5_iobuffer));
 	
