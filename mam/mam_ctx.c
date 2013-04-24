@@ -99,7 +99,7 @@ void mam_print_request_context(request_context_t *ctx)
 	
 	if (ctx->ctx == NULL)
 	{
-		printf("ctx->ctx == NULL\n");
+		strbuf_printf(&sb, "ctx->ctx == NULL\n");
 	}
 	else
 	{
@@ -108,12 +108,12 @@ void mam_print_request_context(request_context_t *ctx)
 
 	if (ctx->mctx == NULL)
 	{
-		printf("ctx->mctx == NULL\n");
+		strbuf_printf(&sb, "ctx->mctx == NULL\n");
 	}
 	else
 	{
-		strbuf_init(&sb);
-		_mam_print_ctx(&sb, ctx->mctx);
+		strbuf_printf(&sb, "ctx->mctx == %p\n", ctx->mctx);
+		//_mam_print_ctx(&sb, ctx->mctx);
 	}
 	printf("%s\n", strbuf_export(&sb));
 	strbuf_release(&sb);

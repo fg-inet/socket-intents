@@ -40,4 +40,9 @@ int _muacc_proc_tlv_event(
  */
 int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason);
 
+/** helper to print a prefix list flags into a string
+ *
+ */
+void _mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags);
+
 #endif /* __MAM_UTIL_H__ */

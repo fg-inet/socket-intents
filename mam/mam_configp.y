@@ -13,11 +13,15 @@
 	extern void yyset_debug(int);
 	
 	extern FILE* yyin;
-	// int yydebug=1;
+	int yydebug=1;
 	
 	char *p_file = NULL;				/**< policy share library to load */
 	struct mam_context *yymctx;			/**< mam context to feed */
 	GHashTable *l_set_dict = NULL;		/**< per block set config holder */
+	unsigned int pfx_flags_set = 0;		/**< flags to set */
+	unsigned int pfx_flags_values = 0;	/**< values of the flags to set */
+	
+	char addr_str[INET6_ADDRSTRLEN];	/** string for debug / error printing */
 	
 	void yyerror(const char *str);
 	int yywrap();
@@ -26,7 +30,7 @@
 
 %token SEMICOLON OBRACE CBRACE EQUAL SLASH
 %token POLICYTOK IFACETOK PREFIXTOK 
-%token SETTOK NAMESERVERTOK SEARCHTOK
+%token SETTOK NAMESERVERTOK SEARCHTOK ENABLETOK
 
 %union
 {
@@ -36,7 +40,6 @@
 	struct sockaddr_in6 in6_sa;
 }
 
-%token <number> BOOL
 %token <number> NUMBER
 %token <string> LNAME QNAME
 %token <in_sa>  IN4ADDR
@@ -58,7 +61,7 @@ config_block:
 name:
 	LNAME | QNAME
 	;
-	
+
 policy_block:
 	POLICYTOK QNAME OBRACE policy_statements CBRACE
 	{ p_file = $2; }
@@ -85,24 +88,52 @@ policy_set:
 
 iface_block:
 	IFACETOK name OBRACE iface_statements CBRACE
+	{
+		printf("WARNING: interfaces configuration not implemented! \n");
+	}
+	;
 
 iface_statements:
 	/* empty */
 	;
 	
 prefix_block:
-	PREFIXTOK IN4ADDR SLASH NUMBER OBRACE prefix_statements CBRACE SEMICOLON
+	PREFIXTOK IN4ADDR SLASH NUMBER OBRACE prefix_statements CBRACE
 	{
- 		for( struct src_prefix_list *spl = lookup_source_prefix( yymctx->prefixes, NULL, AF_INET, (struct sockaddr *) &($2) ) ;
-		spl != NULL ;  spl = lookup_source_prefix( spl, NULL, AF_INET, (struct sockaddr *) &($2) ) )
-		{
+		// find matching prefixes
+		struct sockaddr_in *sa = &($2);
+		inet_ntop(AF_INET, &(sa->sin_addr), addr_str, sizeof(struct sockaddr_in));
+ 		struct src_prefix_list *spl = lookup_source_prefix( yymctx->prefixes, PFX_ANY,  NULL, AF_INET, (struct sockaddr *) sa ) ;
+		if (spl != NULL){
+			// set the set dictionary
 			spl->policy_set_dict = l_set_dict;
+			// flag them as configured
+			spl->pfx_flags &= (pfx_flags_set ^ spl->pfx_flags);
+			spl->pfx_flags |= pfx_flags_values;			
+			spl->pfx_flags |= PFX_CONF;
+			spl->pfx_flags |= PFX_CONF_PFX;
+			// print something
+			printf("prefix %s/%d configured\n", addr_str, $4);
+		} else {
+			printf("prefix %s/%d configured but not on any interface\n", addr_str, $4);
+			g_hash_table_destroy(l_set_dict);
 		}
+		pfx_flags_set = 0;
+		pfx_flags_values = 0;
 		l_set_dict = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
 	}
 	;
 
+
 prefix_statements:
+	/* empty */
+	|
+	prefix_statements prefix_statement SEMICOLON
+	|
+	error SEMICOLON
+	;
+
+prefix_statement:
 	/* empty */
 	|
 	SETTOK name name
@@ -110,6 +141,14 @@ prefix_statements:
 	|
 	SETTOK name EQUAL name
 	{g_hash_table_replace(l_set_dict, $2, $4);}
+	|
+	ENABLETOK NUMBER
+	{	pfx_flags_set |= PFX_ENABLED; 
+		if($2) 
+			pfx_flags_values |= PFX_ENABLED; 
+		else
+			pfx_flags_values &= PFX_ENABLED^PFX_ENABLED; 
+	}
 	|
 	NAMESERVERTOK
 	|

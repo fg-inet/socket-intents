@@ -70,6 +70,7 @@ int _cmp_in6_addr_with_mask(
 
 struct src_prefix_list *lookup_source_prefix (
 	struct src_prefix_list *spfxl,
+	unsigned int flags,
 	const char *if_name,
 	int family,
 	const struct sockaddr *addr
@@ -78,8 +79,31 @@ struct src_prefix_list *lookup_source_prefix (
 	/* scan through prefixes */
 	for(struct src_prefix_list *cur = spfxl; cur != NULL; cur = cur->next)
 	{
+		
+#ifdef MAM_IF_NOISY_DEBUG2
+		strbuf_t sb; 
+		strbuf_init(&sb);
+		strbuf_printf(&sb, "\ncompairing the following addresses: __cur__ = {");			
+		strbuf_printf(&sb, "if_name = %s, ", cur->if_name);
+		_mam_print_prefix_list_flags(&sb, cur->pfx_flags);
+		strbuf_printf(&sb, "if_addrs = ");
+		_mam_print_sockaddr_list(&sb, cur->if_addrs);
+		strbuf_printf(&sb, "if_netmask = ");
+		_muacc_print_sockaddr(&sb, cur->if_netmask, cur->if_netmask_len);
+		strbuf_printf(&sb, "}, \n with parameters = {");
+		strbuf_printf(&sb, "if_name = %s, ", (if_name!=NULL)?if_name:"ANY");
+		strbuf_printf(&sb, "if_addrs = ");
+		_muacc_print_sockaddr(&sb, addr, addr->sa_len);	
+		_mam_print_prefix_list_flags(&sb, flags);
+		strbuf_printf(&sb, "}\n");
+		printf("%s", strbuf_export(&sb));
+		strbuf_release(&sb);	
+#endif
+					
 		/* different interface or family */
-		if(cur->family != family)
+		if( ((cur->pfx_flags)^flags) & flags )
+			continue;
+		if(family != 0 && cur->family != family)
 			continue;
 		if(if_name != NULL && strcmp(cur->if_name, if_name) != 0)
 			continue;
@@ -88,14 +112,15 @@ struct src_prefix_list *lookup_source_prefix (
 			_cmp_in6_addr_with_mask(
 				&(((struct sockaddr_in6 *) addr)->sin6_addr), 
 				&(((struct sockaddr_in6 *) cur->if_addrs->addr)->sin6_addr),
-				&(((struct sockaddr_in6 *) cur->if_netmask)->sin6_addr))
-		    ) == 0|| (
+				&(((struct sockaddr_in6 *) cur->if_netmask)->sin6_addr)) == 0
+			) || (
 			family == AF_INET &&
 			_cmp_in_addr_with_mask(
 				&(((struct sockaddr_in *) addr)->sin_addr),
 				&(((struct sockaddr_in *) cur->if_addrs->addr)->sin_addr),
 				&(((struct sockaddr_in *) cur->if_netmask)->sin_addr)) == 0
-		))
+			)
+		)
 		{
 			return cur;			
 		}
@@ -135,7 +160,7 @@ void _scan_update_prefix (
 	
 	
 	/* scan through prefixes */
-	cur = lookup_source_prefix (*spfxl,	if_name, family, addr);
+	cur = lookup_source_prefix (*spfxl,	PFX_ANY, if_name, family, addr);
 	if (cur != NULL)
 	{
 		for(cus = cur->if_addrs; cus->next != NULL; cus = cus->next);; 

@@ -39,6 +39,19 @@ void _mam_print_sockaddr_list(strbuf_t *sb, const struct sockaddr_list *list)
 	strbuf_printf(sb, "NULL }");
 }
 
+_mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags)
+{
+	strbuf_printf(sb, "pfx_flags = ");
+	if(pfx_flags & PFX_ANY			 ) strbuf_printf(sb, "PFX_ANY ");
+	if(pfx_flags & PFX_ENABLED		 ) strbuf_printf(sb, "PFX_ENABLED ");
+	if(pfx_flags & PFX_CONF		     ) strbuf_printf(sb, "PFX_CONF ");
+	if(pfx_flags & PFX_CONF_PFX	     ) strbuf_printf(sb, "PFX_CONF_PFXL ");
+	if(pfx_flags & PFX_CONF_IF		 ) strbuf_printf(sb, "PFX_CONF_IF ");
+	if(pfx_flags & PFX_SCOPE_GLOBAL  ) strbuf_printf(sb, "PFX_SCOPE_GLOBAL ");
+	if(pfx_flags & PFX_SCOPE_LL	     ) strbuf_printf(sb, "PFX_SCOPE_LLL ");
+	strbuf_printf(sb, "\n");
+}
+
 void _mam_print_prefix_list(strbuf_t *sb, const struct src_prefix_list *prefixes)
 {
 	const struct src_prefix_list *current = prefixes;
@@ -49,6 +62,7 @@ void _mam_print_prefix_list(strbuf_t *sb, const struct src_prefix_list *prefixes
 	{
 		strbuf_printf(sb, "\n\t{ ");
 		strbuf_printf(sb, "if_name = %s, ", current->if_name);
+		_mam_print_prefix_list_flags(sb, current->pfx_flags);
 		strbuf_printf(sb, "if_flags = %d, ", current->if_flags);
 		strbuf_printf(sb, "if_addrs = ");
 		_mam_print_sockaddr_list(sb, current->if_addrs);
@@ -60,6 +74,9 @@ void _mam_print_prefix_list(strbuf_t *sb, const struct src_prefix_list *prefixes
 	strbuf_printf(sb, "NULL }");
 
 }
+
+
+
 
 void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx)
 {

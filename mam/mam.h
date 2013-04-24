@@ -40,6 +40,7 @@ typedef struct sockaddr_list {
 
 /** Flags used for a prefix */
 
+#define PFX_ANY				0x0000	/**< the flags doesn't matter */
 #define PFX_ENABLED			0x0001	/**< the prefix has been enabled */
 #define PFX_CONF			0x0002	/**< the prefix has been mentioned in the configuration */
 #define PFX_CONF_PFX		0x0004	/**< the prefix has been configured through an prefix statement */
@@ -98,6 +99,7 @@ int update_src_prefix_list (mam_context_t *ctx);
   */
 struct src_prefix_list *lookup_source_prefix (
  	struct src_prefix_list *spfxl,	/**< [in] list element to start scanning */
+	unsigned int pfx_flags,			/**< [in] prefix flags that have to be set */
 	const char *if_name,            /**< [in] interface name to look for – NULL ist a wildcard */
 	int family,                     /**< [in] address family to look for */
 	const struct sockaddr *addr     /**< [in] prefix to scan for (uses mask from spfxl)  – NULL ist a wildcard */
