@@ -122,6 +122,31 @@ prefix_block:
 		pfx_flags_values = 0;
 		l_set_dict = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
 	}
+	|
+	PREFIXTOK IN6ADDR SLASH NUMBER OBRACE prefix_statements CBRACE
+	{
+		// find matching prefixes
+		struct sockaddr_in6 *sa = &($2);
+		inet_ntop(AF_INET6, &(sa->sin6_addr), addr_str, sizeof(struct sockaddr_in6));
+ 		struct src_prefix_list *spl = lookup_source_prefix( yymctx->prefixes, PFX_ANY,  NULL, AF_INET6, (struct sockaddr *) sa ) ;
+		if (spl != NULL){
+			// set the set dictionary
+			spl->policy_set_dict = l_set_dict;
+			// flag them as configured
+			spl->pfx_flags &= (pfx_flags_set ^ spl->pfx_flags);
+			spl->pfx_flags |= pfx_flags_values;			
+			spl->pfx_flags |= PFX_CONF;
+			spl->pfx_flags |= PFX_CONF_PFX;
+			// print something
+			printf("prefix %s/%d configured\n", addr_str, $4);
+		} else {
+			printf("prefix %s/%d configured but not on any interface\n", addr_str, $4);
+			g_hash_table_destroy(l_set_dict);
+		}
+		pfx_flags_set = 0;
+		pfx_flags_values = 0;
+		l_set_dict = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
+	}
 	;
 
 

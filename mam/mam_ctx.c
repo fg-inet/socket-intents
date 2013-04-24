@@ -88,7 +88,7 @@ void mam_print_request_context(request_context_t *ctx)
 {
 	strbuf_t sb;
 
-	printf("/**************************************/\n");
+	// printf("/**************************************/\n");
 	if (ctx == NULL)
 	{
 		printf("ctx == NULL\n");
@@ -117,6 +117,6 @@ void mam_print_request_context(request_context_t *ctx)
 	}
 	printf("%s\n", strbuf_export(&sb));
 	strbuf_release(&sb);
-	printf("/**************************************/\n");
+	// printf("/**************************************/\n");
 
 }

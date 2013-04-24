@@ -6,12 +6,10 @@
 #include <stdlib.h>
 #include <event2/event.h>
 
-#include "mam.h"
-#include "mam_util.h"
+#include "policy.h"
 #include "policy_util.h"
 
 #include "../lib/intents.h"
-#include "../lib/muacc.h"
 
 int init(mam_context_t *mctx)
 {

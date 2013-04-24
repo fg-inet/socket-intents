@@ -234,7 +234,10 @@ int setup_policy_module(mam_context_t *ctx, const char *filename)
 		}
 		return -1;
 	}
-
+	
+	/* publish policy */
+	ctx->policy = mam_policy;
+	
 	if (_mam_fetch_policy_function(mam_policy, "init", (void **)&init_function) == 0)
 	{
 		init_function(ctx);
@@ -244,9 +247,7 @@ int setup_policy_module(mam_context_t *ctx, const char *filename)
 		DLOG(MAM_MASTER_NOISY_DEBUG1, "module %s could not be initialized", filename);
 		return -1;
 	}
-	
-	/* publish policy */
-	ctx->policy = mam_policy;
+
 	
 	return 0;
 }
@@ -297,10 +298,13 @@ void configure_mamma() {
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "updating interface list\n");	
 	update_src_prefix_list(ctx);
 	
+	if (MAM_MASTER_NOISY_DEBUG2) mam_print_context(ctx);
+	
 	/* load policy module if we have command line arguments */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "parsing config file\n");	
 	mam_read_config(config_fd, &policy_filename, ctx);
 	
+	if (MAM_MASTER_NOISY_DEBUG2) mam_print_context(ctx);
 	
 	/* initialize dynamic loader and load policy module */
 	if(policy_filename != NULL)

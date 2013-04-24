@@ -1,8 +1,5 @@
-#include <stdio.h>
-#include <string.h>
-
-#include "mam.h"
-#include "../lib/muacc_util.h"
+#include "policy.h"
+#include "policy_util.h"
 
 int mampol_get_socketopt(struct socketopt *list, int level, int optname, socklen_t *optlen, void *optval)
 {

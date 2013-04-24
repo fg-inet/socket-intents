@@ -75,12 +75,19 @@ struct src_prefix_list *lookup_source_prefix (
 	int family,
 	const struct sockaddr *addr
 ) {
+	
+	/* mollyguard */
+	if(spfxl == NULL)
+	{
+		DLOG(1, "WARNING: called with spfxl=NULL\n");
+		return NULL;
+	}
 
 	/* scan through prefixes */
 	for(struct src_prefix_list *cur = spfxl; cur != NULL; cur = cur->next)
 	{
 		
-#ifdef MAM_IF_NOISY_DEBUG2
+#if MAM_IF_NOISY_DEBUG2
 		strbuf_t sb; 
 		strbuf_init(&sb);
 		strbuf_printf(&sb, "\ncompairing the following addresses: __cur__ = {");			
@@ -93,7 +100,7 @@ struct src_prefix_list *lookup_source_prefix (
 		strbuf_printf(&sb, "}, \n with parameters = {");
 		strbuf_printf(&sb, "if_name = %s, ", (if_name!=NULL)?if_name:"ANY");
 		strbuf_printf(&sb, "if_addrs = ");
-		_muacc_print_sockaddr(&sb, addr, addr->sa_len);	
+		if(addr != NULL) _muacc_print_sockaddr(&sb, addr, addr->sa_len); else strbuf_printf(&sb, "ANY ");
 		_mam_print_prefix_list_flags(&sb, flags);
 		strbuf_printf(&sb, "}\n");
 		printf("%s", strbuf_export(&sb));
