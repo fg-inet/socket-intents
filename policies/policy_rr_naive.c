@@ -52,7 +52,7 @@ int init(mam_context_t *mctx)
 		(*csa)->addr_len = spl->if_addrs->addr_len;
 		(*csa)->addr     = spl->if_addrs->addr;
 
-		inet_ntop(AF_INET6, &( ((struct sockaddr_in *) ((*csa)->addr))->sin_addr ), addr_str, sizeof(struct sockaddr_in));
+		inet_ntop(AF_INET6, &( ((struct sockaddr_in6 *) ((*csa)->addr))->sin6_addr ), addr_str, sizeof(struct sockaddr_in6));
 		printf("%s ", addr_str);
 
 		csa = &((*csa)->next);
