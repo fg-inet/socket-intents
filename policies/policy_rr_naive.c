@@ -6,14 +6,62 @@
 #include "policy.h"
 #include "../lib/muacc_util.h"
 
+#include <arpa/inet.h>
 
-src_prefix_list_t *spfx_cur;
+struct sockaddr_list *in4_rr_list = NULL; /* circular list of ipv4 addresses */ 
+struct sockaddr_list *in6_rr_list = NULL; /* circular list of ipv6 addresses */ 
+
+char addr_str[INET6_ADDRSTRLEN];	/** string for debug / error printing */
 
 int init(mam_context_t *mctx)
 {
-	printf("Policy module \"naive round robin\" has been loaded.\n");
-	mam_print_context(mctx);
-	spfx_cur = NULL;
+	
+	struct sockaddr_list **csa;
+		
+	printf("Policy module \"naive round robin\" is loading.\n");
+		
+	printf("Building socket address lists: ");
+	
+	printf("\n\tAF_INET  ( ");
+	csa = &in4_rr_list;
+	for(struct src_prefix_list *spl = mctx->prefixes; spl != NULL; spl = spl->next)
+	{
+		spl = lookup_source_prefix( spl, PFX_ENABLED, NULL, AF_INET, NULL );
+		if (spl == NULL) break;
+		
+		 *csa = malloc(sizeof (struct sockaddr_list));
+		(*csa)->addr_len = spl->if_addrs->addr_len;
+		(*csa)->addr     = spl->if_addrs->addr;
+
+		inet_ntop(AF_INET, &( ((struct sockaddr_in *) ((*csa)->addr))->sin_addr ), addr_str, sizeof(struct sockaddr_in));
+		printf("%s ", addr_str);
+
+		csa = &((*csa)->next);
+	}
+	if (in4_rr_list != NULL) *csa = in4_rr_list;
+	printf(") ");
+	
+	printf("\n\tAF_INET6 ( ");
+	csa = &in6_rr_list;
+	for(struct src_prefix_list *spl = mctx->prefixes; spl != NULL; spl = spl->next)
+	{
+		spl = lookup_source_prefix( spl, PFX_ENABLED, NULL, AF_INET6, NULL );
+		if (spl == NULL) break;
+		
+		 *csa = malloc(sizeof (struct sockaddr_list));
+		(*csa)->addr_len = spl->if_addrs->addr_len;
+		(*csa)->addr     = spl->if_addrs->addr;
+
+		inet_ntop(AF_INET6, &( ((struct sockaddr_in *) ((*csa)->addr))->sin_addr ), addr_str, sizeof(struct sockaddr_in));
+		printf("%s ", addr_str);
+
+		csa = &((*csa)->next);
+	}
+	if (in6_rr_list != NULL) *csa = in4_rr_list;
+	printf(") ");
+		
+	printf("\nPolicy module \"naive round robin\" has been loaded.\n");
+
 	return 0;
 }
 
@@ -25,7 +73,7 @@ int cleanup(mam_context_t *mctx)
 
 int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
-	printf("Resolve request - just replaing\n");
+	printf("Resolve request: just replaing\n");
 	_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
 	return 0;
 }
@@ -36,55 +84,41 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 
 	strbuf_t sb;
 	strbuf_init(&sb);
-	strbuf_printf(&sb, "Connect request - dest=AF=");
+	strbuf_printf(&sb, "Connect request: dest=");
 	_muacc_print_sockaddr(&sb, rctx->ctx->remote_sa, rctx->ctx->remote_sa_len);
-	strbuf_printf(&sb, "\n");
 		
 	if(rctx->ctx->bind_sa_req != NULL)
 	{	// already bound
-		printf("Already bound to ");
+		printf(" already bound to src=");
 		_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
-		strbuf_printf(&sb, "\n");
-		_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
-		printf("%s", strbuf_export(&sb));
-		strbuf_release(&sb);
-		return 0;
 	}
-
-	// initalize from context if empty
-	if(spfx_cur == NULL)
-		spfx_cur = rctx->mctx->prefixes;
-			
-	// try to find matching address
-	spfx_cur = lookup_source_prefix( spfx_cur, PFX_ENABLED, NULL, rctx->ctx->remote_sa->sa_family, NULL );
-	
-	// handle wrap around
-	if(spfx_cur == NULL)
-	{
-		spfx_cur = rctx->mctx->prefixes;
-		spfx_cur = lookup_source_prefix( spfx_cur, PFX_ENABLED, NULL, rctx->ctx->remote_sa->sa_family, NULL );
+	else if(family == AF_INET && in4_rr_list != NULL)
+	{	// something to bind to
+		strbuf_printf(&sb, " found src=");
+		_muacc_print_sockaddr(&sb, in4_rr_list->addr, in4_rr_list->addr_len);
+		
+		rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(in4_rr_list->addr, in4_rr_list->addr_len);
+		rctx->ctx->bind_sa_suggested_len = in4_rr_list->addr_len;
+		
+		in4_rr_list = in4_rr_list->next;
 	}
-
-	if(spfx_cur != NULL)
-	{	// found matching prefix
-		sockaddr_list_t *target = spfx_cur->if_addrs;
+	else if(family == AF_INET6 && in6_rr_list != NULL)
+	{	// something to bind to
+		strbuf_printf(&sb, " found src=");
+		_muacc_print_sockaddr(&sb, in6_rr_list->addr, in6_rr_list->addr_len);
 		
-		strbuf_printf(&sb, "\tsuccess finding source address:\n");
-		_muacc_print_sockaddr(&sb, target->addr, target->addr_len);
+		rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(in6_rr_list->addr, in6_rr_list->addr_len);
+		rctx->ctx->bind_sa_suggested_len = in6_rr_list->addr_len;
 		
-		rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(target->addr, target->addr_len);
-		rctx->ctx->bind_sa_suggested_len = target->addr_len;
-		
-		spfx_cur = spfx_cur->next;
+		in4_rr_list = in6_rr_list->next;
 	}
 	else
 	{	// failed
-		strbuf_printf(&sb, "\tfailed finding source address\n");
+		strbuf_printf(&sb, " failed finding src");
 	}	
 	
-
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
-	printf("%s", strbuf_export(&sb));
+	printf("%s\n", strbuf_export(&sb));
 	strbuf_release(&sb);
 	return 0;
 }
