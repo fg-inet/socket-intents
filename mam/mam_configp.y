@@ -6,14 +6,16 @@
     #include <stdio.h>
 	#include <netinet/in.h>
     #include <arpa/inet.h>
-	
+	 
 	#include "mam.h"
 	
 	extern int yylex (void);
 	extern void yyset_debug(int);
 	
 	extern FILE* yyin;
-	int yydebug=1;
+	
+	#define MAM_CONFIGP_NOISY_DEBUG 1
+	int yydebug=0;
 	
 	char *p_file = NULL;				/**< policy share library to load */
 	struct mam_context *yymctx;			/**< mam context to feed */
@@ -113,9 +115,9 @@ prefix_block:
 			spl->pfx_flags |= PFX_CONF;
 			spl->pfx_flags |= PFX_CONF_PFX;
 			// print something
-			printf("prefix %s/%d configured\n", addr_str, $4);
+			DLOG(MAM_CONFIGP_NOISY_DEBUG, "prefix %s/%d configured\n", addr_str, $4);
 		} else {
-			printf("prefix %s/%d configured but not on any interface\n", addr_str, $4);
+			DLOG(MAM_CONFIGP_NOISY_DEBUG, "prefix %s/%d configured but not on any interface\n", addr_str, $4);
 			g_hash_table_destroy(l_set_dict);
 		}
 		pfx_flags_set = 0;
@@ -138,9 +140,9 @@ prefix_block:
 			spl->pfx_flags |= PFX_CONF;
 			spl->pfx_flags |= PFX_CONF_PFX;
 			// print something
-			printf("prefix %s/%d configured\n", addr_str, $4);
+			DLOG(MAM_CONFIGP_NOISY_DEBUG, "prefix %s/%d configured\n", addr_str, $4);
 		} else {
-			printf("prefix %s/%d configured but not on any interface\n", addr_str, $4);
+			DLOG(MAM_CONFIGP_NOISY_DEBUG, "prefix %s/%d configured but not on any interface\n", addr_str, $4);
 			g_hash_table_destroy(l_set_dict);
 		}
 		pfx_flags_set = 0;
@@ -184,7 +186,7 @@ prefix_statement:
 
 void yyerror(const char *str)
 {
-        fprintf(stderr,"error: %s\n",str);
+        DLOG(0 ,"error: %s\n",str);
 }
 
 int yywrap()

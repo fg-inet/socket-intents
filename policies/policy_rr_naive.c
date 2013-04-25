@@ -89,12 +89,12 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 		
 	if(rctx->ctx->bind_sa_req != NULL)
 	{	// already bound
-		printf(" already bound to src=");
+		printf("\n                 already bound to src=");
 		_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
 	}
 	else if(family == AF_INET && in4_rr_list != NULL)
 	{	// something to bind to
-		strbuf_printf(&sb, " found src=");
+		strbuf_printf(&sb, "\n                 set src=");
 		_muacc_print_sockaddr(&sb, in4_rr_list->addr, in4_rr_list->addr_len);
 		
 		rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(in4_rr_list->addr, in4_rr_list->addr_len);
@@ -104,7 +104,7 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	}
 	else if(family == AF_INET6 && in6_rr_list != NULL)
 	{	// something to bind to
-		strbuf_printf(&sb, " found src=");
+		strbuf_printf(&sb, "\n                 set src=");
 		_muacc_print_sockaddr(&sb, in6_rr_list->addr, in6_rr_list->addr_len);
 		
 		rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(in6_rr_list->addr, in6_rr_list->addr_len);
@@ -114,7 +114,7 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	}
 	else
 	{	// failed
-		strbuf_printf(&sb, " failed finding src");
+		strbuf_printf(&sb, "\n                 cannot provide src");
 	}	
 	
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
