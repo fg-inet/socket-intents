@@ -11,6 +11,7 @@
 *.dirstamp
 *.dSYM
 .libs/
+*.swp
 
 # lex/yacc stuff
 lex.yy.c
@@ -50,3 +51,6 @@ stamp-h1
 .cproject
 .project
 tags
+.Tpo
+ylwrap
+libltdl/
