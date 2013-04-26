@@ -79,7 +79,7 @@ void mam_print_context(mam_context_t *ctx)
 	{
 		strbuf_init(&sb);
 		_mam_print_ctx(&sb, ctx);
-		printf("/**************************************/\n%s\n/**************************************/\n", strbuf_export(&sb));
+		printf("%s\n/*eof*/\n", strbuf_export(&sb));
 		strbuf_release(&sb);
 	}
 }

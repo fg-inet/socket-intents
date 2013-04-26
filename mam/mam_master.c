@@ -323,24 +323,31 @@ void configure_mamma() {
 
 /** signal handler the libevent-way 
  */
-static void do_graceful_shutdown(evutil_socket_t _, short what, void* ctx) {
-    struct event_base *evb = (struct event_base*) ctx;
+static void do_graceful_shutdown(evutil_socket_t _, short what, void* evctx) {
+    struct event_base *evb = (struct event_base*) evctx;
 	DLOG(MAM_MASTER_NOISY_DEBUG0, "got signal - terminating...\n");
     event_base_loopexit(evb, NULL);
 }
 
 /** signal handler the libevent-way 
  */
-static void do_reconfigure(evutil_socket_t _, short what, void* ctx) {
+static void do_reconfigure(evutil_socket_t _, short what, void* evctx) {
 	DLOG(MAM_MASTER_NOISY_DEBUG0, "got hangup signal - reconfigureing\n");
 	configure_mamma();
+}
+
+/** signal handler the libevent-way 
+ */
+static void do_print_state(evutil_socket_t _, short what, void* evctx) {
+	DLOG(1, "got USR1 signal - dumping state\n");
+	mam_print_context(ctx);
 }
 
 int
 main(int c, char **v)
 {
     evutil_socket_t listener;
-    struct event *term_event, *int_event, *hup_event;
+    struct event *term_event, *int_event, *hup_event, *usr1_event;
     struct sockaddr_un sun;
 	int ret;
 
@@ -380,6 +387,8 @@ main(int c, char **v)
 	event_add(int_event, NULL);
 	hup_event = evsignal_new(base, SIGHUP, do_reconfigure, base);
 	event_add(hup_event, NULL);
+	usr1_event = evsignal_new(base, SIGUSR1, do_print_state, base);
+	event_add(usr1_event, NULL);
 	
 	/* open config file */
 	if ( c < 2 )

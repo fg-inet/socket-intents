@@ -39,7 +39,7 @@ void _mam_print_sockaddr_list(strbuf_t *sb, const struct sockaddr_list *list)
 	strbuf_printf(sb, "NULL }");
 }
 
-_mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags)
+void _mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags)
 {
 	strbuf_printf(sb, "pfx_flags = ");
 	if(pfx_flags & PFX_ANY			 ) strbuf_printf(sb, "PFX_ANY ");
@@ -52,6 +52,11 @@ _mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags)
 	strbuf_printf(sb, "\n");
 }
 
+void _mam_print_dict_kv (gpointer key,  gpointer val, gpointer sb)
+{
+	strbuf_printf((strbuf_t *) sb, " %s -> %s", (char *) key, (char *) val);
+}
+
 void _mam_print_prefix_list(strbuf_t *sb, const struct src_prefix_list *prefixes)
 {
 	const struct src_prefix_list *current = prefixes;
@@ -61,14 +66,20 @@ void _mam_print_prefix_list(strbuf_t *sb, const struct src_prefix_list *prefixes
 	while (current != NULL)
 	{
 		strbuf_printf(sb, "\n\t{ ");
-		strbuf_printf(sb, "if_name = %s, ", current->if_name);
+		strbuf_printf(sb, " if_name = %s, ", current->if_name);
 		_mam_print_prefix_list_flags(sb, current->pfx_flags);
-		strbuf_printf(sb, "if_flags = %d, ", current->if_flags);
-		strbuf_printf(sb, "if_addrs = ");
+		strbuf_printf(sb, " if_flags = %d, ", current->if_flags);
+		strbuf_printf(sb, " if_addrs = ");
 		_mam_print_sockaddr_list(sb, current->if_addrs);
-		strbuf_printf(sb, "if_netmask = ");
+		strbuf_printf(sb, " if_netmask = ");
 		_muacc_print_sockaddr(sb, current->if_netmask, current->if_netmask_len);
-		strbuf_printf(sb, "}, ");
+		if(current->policy_set_dict != NULL) 
+		{
+			strbuf_printf(sb, " policy_set_dict = {");
+			g_hash_table_foreach(current->policy_set_dict, &_mam_print_dict_kv, sb);
+			strbuf_printf(sb, " }");
+		}
+		strbuf_printf(sb, " }, ");
 		current = current->next;
 	}
 	strbuf_printf(sb, "NULL }");
@@ -85,6 +96,12 @@ void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx)
 	strbuf_printf(sb, "\tsrc_prefix_list = ");
 	_mam_print_prefix_list(sb, ctx->prefixes);
 	strbuf_printf(sb, "\n");
+	if(ctx->policy_set_dict != NULL) 
+	{
+		strbuf_printf(sb, "\tpolicy_set_dict = {");
+		g_hash_table_foreach(ctx->policy_set_dict, &_mam_print_dict_kv, sb);
+		strbuf_printf(sb, " }\n");
+	}
 	strbuf_printf(sb, "\tpolicy = ");
 	if (ctx->policy != 0)
 	{
