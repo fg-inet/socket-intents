@@ -1,6 +1,6 @@
 AUTOMAKE_OPTIONS = subdir-objects
 ACLOCAL_AMFLAGS = ${ACLOCAL_FLAGS}
-AM_CFLAGS =-g --pedantic -Wall -std=c99 -O0 -D_GNU_SOURCE
+AM_CFLAGS = -fPIC -g --pedantic -Wall -std=c99 -O0 -D_GNU_SOURCE
 AM_YFLAGS = -d -v --debug --verbose
 
 LDADD = $(libevent_LIBS) $(glib2_LIBS) $(LIBLTDL)
