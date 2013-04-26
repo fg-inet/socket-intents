@@ -10,12 +10,14 @@ AM_CFLAGS += $(libevent_CFLAGS) $(glib2_CFLAGS)
 BUILT_SOURCES = mam/mam_configp.h
 
 include_HEADERS = lib/intents.h
+
 lib_LTLIBRARIES = libmuacc_client.la
 noinst_LIBRARIES = libmuacc.a
 bin_PROGRAMS = mamma muacsocksd addrinfo
-
-
 pkglib_LTLIBRARIES = policy_sample.la policy_intents.la policy_rr_naive.la
+
+mammaconfdir=$(sysconfdir)/mamma
+mammaconf_DATA = mamma-rr-naive.conf mamma-sample.conf
 
 libmuacc_a_SOURCES = lib/muacc_ctx.h lib/muacc_tlv.h lib/muacc_util.h lib/dlog.h lib/strbuf.h lib/muacc_ctx.c lib/muacc_tlv.c lib/muacc_util.c lib/strbuf.c
 libmuacc_a_CFLAGS = -DUSE_SO_INTENTS $(AM_CFLAGS)
