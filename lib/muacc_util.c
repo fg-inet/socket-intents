@@ -47,7 +47,7 @@ char *_muacc_clone_string(const char *src)
 		if( ( ret = malloc(sl) ) == NULL )
 			return(NULL);
 		memcpy( ret, src, sl);
-		ret[sl] = 0x00;
+		ret[sl-1] = 0x00;
 	}
 
 	return(ret);
