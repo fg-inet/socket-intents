@@ -73,7 +73,7 @@ int cleanup(mam_context_t *mctx)
 
 int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
-	printf("Resolve request: just replaing\n");
+	printf("Resolve request: just replaying\n");
 	_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
 	return 0;
 }
