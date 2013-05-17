@@ -76,7 +76,7 @@ void muacc_print_context(struct muacc_context *ctx)
 	{
 		printf("ctx = NULL\n");
 	}
-	if (ctx->ctx == NULL)
+	else if (ctx->ctx == NULL)
 	{
 		printf("ctx->ctx = NULL\n");
 	}
