@@ -20,6 +20,7 @@
 	char *p_file = NULL;				/**< policy share library to load */
 	struct mam_context *yymctx;			/**< mam context to feed */
 	GHashTable *l_set_dict = NULL;		/**< per block set config holder */
+	struct evdns_base *l_evdns_base = NULL;	/**< use a special resolvconf for that prefix */
 	unsigned int pfx_flags_set = 0;		/**< flags to set */
 	unsigned int pfx_flags_values = 0;	/**< values of the flags to set */
 	
@@ -32,7 +33,7 @@
 
 %token SEMICOLON OBRACE CBRACE EQUAL SLASH
 %token POLICYTOK IFACETOK PREFIXTOK 
-%token SETTOK NAMESERVERTOK SEARCHTOK ENABLETOK
+%token SETTOK RESOLVCONFTOK ENABLETOK
 
 %union
 {
@@ -107,8 +108,9 @@ prefix_block:
 		inet_ntop(AF_INET, &(sa->sin_addr), addr_str, sizeof(struct sockaddr_in));
  		struct src_prefix_list *spl = lookup_source_prefix( yymctx->prefixes, PFX_ANY,  NULL, AF_INET, (struct sockaddr *) sa ) ;
 		if (spl != NULL){
-			// set the set dictionary
+			// set the dns base and set dictionary
 			spl->policy_set_dict = l_set_dict;
+			spl->evdns_base = l_evdns_base;
 			// flag them as configured
 			spl->pfx_flags &= (pfx_flags_set ^ spl->pfx_flags);
 			spl->pfx_flags |= pfx_flags_values;			
@@ -118,10 +120,12 @@ prefix_block:
 			DLOG(MAM_CONFIGP_NOISY_DEBUG, "prefix %s/%d configured\n", addr_str, $4);
 		} else {
 			DLOG(MAM_CONFIGP_NOISY_DEBUG, "prefix %s/%d configured but not on any interface\n", addr_str, $4);
+			evdns_base_free(l_evdns_base, 0);
 			g_hash_table_destroy(l_set_dict);
 		}
 		pfx_flags_set = 0;
 		pfx_flags_values = 0;
+		l_evdns_base = NULL;
 		l_set_dict = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
 	}
 	|
@@ -132,8 +136,9 @@ prefix_block:
 		inet_ntop(AF_INET6, &(sa->sin6_addr), addr_str, sizeof(struct sockaddr_in6));
  		struct src_prefix_list *spl = lookup_source_prefix( yymctx->prefixes, PFX_ANY,  NULL, AF_INET6, (struct sockaddr *) sa ) ;
 		if (spl != NULL){
-			// set the set dictionary
+			// set the dns base and set dictionary
 			spl->policy_set_dict = l_set_dict;
+			spl->evdns_base = l_evdns_base;
 			// flag them as configured
 			spl->pfx_flags &= (pfx_flags_set ^ spl->pfx_flags);
 			spl->pfx_flags |= pfx_flags_values;			
@@ -143,10 +148,12 @@ prefix_block:
 			DLOG(MAM_CONFIGP_NOISY_DEBUG, "prefix %s/%d configured\n", addr_str, $4);
 		} else {
 			DLOG(MAM_CONFIGP_NOISY_DEBUG, "prefix %s/%d configured but not on any interface\n", addr_str, $4);
+			if(l_evdns_base != NULL) evdns_base_free(l_evdns_base, 0);
 			g_hash_table_destroy(l_set_dict);
 		}
 		pfx_flags_set = 0;
 		pfx_flags_values = 0;
+		l_evdns_base = NULL;
 		l_set_dict = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
 	}
 	;
@@ -177,9 +184,11 @@ prefix_statement:
 			pfx_flags_values &= PFX_ENABLED^PFX_ENABLED; 
 	}
 	|
-	NAMESERVERTOK
-	|
-	SEARCHTOK
+	RESOLVCONFTOK QNAME 
+	{
+		if((l_evdns_base = evdns_base_new(yymctx->ev_base, 0)) != NULL)
+			evdns_base_resolv_conf_parse(l_evdns_base, DNS_OPTIONS_ALL, $2);
+	}
 	;
 	
 %%

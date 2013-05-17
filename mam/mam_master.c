@@ -31,13 +31,11 @@
 #define MAM_MASTER_NOISY_DEBUG2 0
 #endif
 
-struct event_base *base = NULL;
 struct mam_context *ctx = NULL;
 int config_fd = -1;
 
 void process_mam_request(struct request_context *ctx)
 {
-	struct _muacc_ctx *_new_ctx;
 	int (*callback_function)(request_context_t *ctx, struct event_base *base) = NULL;
 	int ret;
 
@@ -49,7 +47,7 @@ void process_mam_request(struct request_context *ctx)
 		{
 			/* Call policy module function */
 			DLOG(MAM_MASTER_NOISY_DEBUG2, "calling on_resolve_request callback\n");
-			ret = callback_function(ctx, base);
+			ret = callback_function(ctx, ctx->mctx->ev_base);
 			if (ret != 0)
 			{
 				DLOG(MAM_MASTER_NOISY_DEBUG1, "on_resolve_request callback returned %d\n", ret);
@@ -69,7 +67,7 @@ void process_mam_request(struct request_context *ctx)
 		{
 			/* Call policy module function */
 			DLOG(MAM_MASTER_NOISY_DEBUG2, "calling on_connect_request callback\n");
-			ret = callback_function(ctx, base);
+			ret = callback_function(ctx, ctx->mctx->ev_base);
 			if (ret != 0)
 			{
 				DLOG(MAM_MASTER_NOISY_DEBUG1, "on_connect_request callback returned %d\n", ret);
@@ -87,13 +85,7 @@ void process_mam_request(struct request_context *ctx)
 		DLOG(MAM_MASTER_NOISY_DEBUG1, "received unknown request (action id: %d\n", ctx->action);
 	}
 	
-	/* re-initialize muacc context to back up further communication */
-	_new_ctx = _muacc_create_ctx();
 
-	/* clean up old _muacc_ctx */
-	_muacc_free_ctx(ctx->ctx);
-
-	ctx->ctx = _new_ctx;
 
 }
 
@@ -102,25 +94,32 @@ void process_mam_request(struct request_context *ctx)
  */
 void mamsock_readcb(struct bufferevent *bev, void *ctx)
 {
-	struct request_context *rctx = (struct request_context *) ctx;
-
-    rctx->in = bufferevent_get_input(bev);
-    rctx->out = bufferevent_get_output(bev);
+	struct request_context **rctx = (struct request_context **) ctx;
 
     for(;;)
-    switch( _muacc_proc_tlv_event(rctx) )
-    {
-    	case _muacc_proc_tlv_event_too_short:
-    		/* need more data - wait for next read event */
-    		return;
-    	case _muacc_proc_tlv_event_eof:
-    		/* done processing - do MAM's magic */
-			process_mam_request(rctx);
-    		continue;
-    	default:
-    		/* read a TLV - are there more out there? */
-    		continue;
-    }
+	{
+		/* prepair stuff of this round */
+		struct request_context *crctx = *rctx; 	
+	    crctx->in = bufferevent_get_input(bev);
+	    crctx->out = bufferevent_get_output(bev);
+		
+    	switch( _muacc_proc_tlv_event(crctx) )
+    	{
+    		case _muacc_proc_tlv_event_too_short:
+    			/* need more data - wait for next read event */
+    			return;
+    		case _muacc_proc_tlv_event_eof:
+				/* re-initialize muacc context to back up further communication */
+				 *rctx = malloc(sizeof(struct request_context));
+				(*rctx)->ctx = _muacc_create_ctx();
+    			/* done processing - do MAM's magic */
+				process_mam_request(crctx);
+    			continue;
+    		default:
+    			/* read a TLV - are there more out there? */
+    			continue;
+    	}
+	}
 }
 
 /** handle errors on one of mam's client sockets
@@ -128,7 +127,7 @@ void mamsock_readcb(struct bufferevent *bev, void *ctx)
  */
 void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
 {
-	struct request_context *rctx = (struct request_context *) ctx;
+	struct request_context **rctx = (struct request_context **) ctx;
 
     if (error & BEV_EVENT_EOF) {
         /* connection has been closed, do any clean up here */
@@ -140,8 +139,8 @@ void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
         /* must be a timeout event handle, handle it */
         /* ... */
     }
-	if (rctx->ctx != NULL)		_muacc_free_ctx(rctx->ctx);
-	if (rctx != NULL)			free(rctx);
+	if (*rctx != NULL)			mam_release_request_context(*rctx);
+	free(rctx);
     bufferevent_free(bev);
 }
 
@@ -162,16 +161,17 @@ void do_accept(evutil_socket_t listener, short event, void *arg)
 
 		DLOG(MAM_MASTER_NOISY_DEBUG2, "Accepted client %d\n", fd);
     	struct bufferevent *bev;
-		request_context_t *ctx;
+		request_context_t **ctx;
 
 		/* initialize request context to back up communication */
-		ctx = malloc(sizeof(struct request_context));
-		ctx->ctx = _muacc_create_ctx();
-		ctx->mctx = mctx;
+		ctx = malloc(sizeof(struct request_context *));		
+		*ctx = malloc(sizeof(struct request_context));
+		(*ctx)->ctx = _muacc_create_ctx();
+		(*ctx)->mctx = mctx;
 
     	/* set up bufferevent magic */
         evutil_make_socket_nonblocking(fd);
-        bev = bufferevent_socket_new(base, fd, BEV_OPT_CLOSE_ON_FREE);
+        bev = bufferevent_socket_new(mctx->ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
         bufferevent_setcb(bev, mamsock_readcb, NULL, mamsock_errorcb, (void *) ctx);
         bufferevent_setwatermark(bev, EV_READ, MIN_BUF, MAX_BUF);
         bufferevent_enable(bev, EV_READ|EV_WRITE);
@@ -196,7 +196,7 @@ int do_listen(mam_context_t *ctx, evutil_socket_t listener, struct sockaddr *sin
         return -1;
     }
 
-    listener_event = event_new(base, listener, EV_READ|EV_PERSIST, do_accept, (void*) ctx);
+    listener_event = event_new(ctx->ev_base, listener, EV_READ|EV_PERSIST, do_accept, (void*) ctx);
     event_add(listener_event, NULL);
 
 	return 0;
@@ -363,8 +363,8 @@ main(int c, char **v)
 	
 	/* set up libevent */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "setting up event base\n");
-    base = event_base_new();
-    if (!base) {
+    ctx->ev_base = event_base_new();
+    if (!ctx->ev_base) {
 		/* will log error on it's own */
         exit(1);
     }
@@ -378,16 +378,19 @@ main(int c, char **v)
 	}
 	lt_dladdsearchdir(".");
 	
+	/* configure default/fallback DNS base */
+	ctx->evdns_default_base = evdns_base_new(ctx->ev_base, 1);
+	
 	/* register signal handlers with libevent */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "registering signal handlers\n");
 	/* call term function on a INT or TERM signal */
-	term_event = evsignal_new(base, SIGTERM, do_graceful_shutdown, base);
+	term_event = evsignal_new(ctx->ev_base, SIGTERM, do_graceful_shutdown, ctx->ev_base);
 	event_add(term_event, NULL);
-	int_event = evsignal_new(base, SIGINT, do_graceful_shutdown, base);
+	int_event = evsignal_new(ctx->ev_base, SIGINT, do_graceful_shutdown, ctx->ev_base);
 	event_add(int_event, NULL);
-	hup_event = evsignal_new(base, SIGHUP, do_reconfigure, base);
+	hup_event = evsignal_new(ctx->ev_base, SIGHUP, do_reconfigure, ctx->ev_base);
 	event_add(hup_event, NULL);
-	usr1_event = evsignal_new(base, SIGUSR1, do_print_state, base);
+	usr1_event = evsignal_new(ctx->ev_base, SIGUSR1, do_print_state, ctx->ev_base);
 	event_add(usr1_event, NULL);
 	
 	/* open config file */
@@ -426,7 +429,7 @@ main(int c, char **v)
 	
 	/* run libevent */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "running event loop\n");
-    event_base_dispatch(base);
+    event_base_dispatch(ctx->ev_base);
 
     /* clean up */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "cleaning up\n");

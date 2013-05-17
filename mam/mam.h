@@ -16,6 +16,7 @@
 #include <event2/event.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
+#include <event2/dns.h>
 
 #include <ltdl.h>
 #include <glib.h>
@@ -59,6 +60,7 @@ typedef struct src_prefix_list {
 	struct sockaddr_list 	*if_addrs;			/**< List of socket addresses for this prefix */
 	struct sockaddr			*if_netmask;		/**< Netmask of interface */
 	socklen_t				if_netmask_len;		/**< Length of netmask */
+	struct evdns_base 		*evdns_base; 		/**< DNS base to do look ups for that prefix */
 	GHashTable 				*policy_set_dict; 	/**< dictionary for policy configuration */
 } src_prefix_list_t;
 
@@ -74,6 +76,8 @@ typedef struct mam_context {
 	int						usage;			/**< Reference counter */
 	struct src_prefix_list	*prefixes;		/**< Possible source prefixes on this system */
 	lt_dlhandle				policy;			/**< Handle of policy module */
+	struct event_base 		*ev_base;			/**< Libevent Event Base */
+	struct evdns_base 		*evdns_default_base; /**< DNS base to do look ups if all other fails */
 	GHashTable 				*policy_set_dict; /**< dictionary for policy configuration */
 } mam_context_t;
 
@@ -91,6 +95,9 @@ void mam_print_context(mam_context_t *ctx);
 
 /** Print contents of a request context: associated _muacc_ctx and mam_context */
 void mam_print_request_context(request_context_t *ctx);
+
+/** Release request context */
+void mam_release_request_context(request_context_t *ctx);
 
 /** update the source prefix list within the mam_context using getifaddrs()*/
 int update_src_prefix_list (mam_context_t *ctx);

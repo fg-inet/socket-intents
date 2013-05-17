@@ -299,6 +299,12 @@ int _free_src_prefix_list (struct src_prefix_list *spfxl)
 		
 		if (currp->if_netmask != NULL)
 			free(currp->if_netmask);
+	
+		if(currp->evdns_base != NULL)
+			evdns_base_free(currp->evdns_base, 0);
+	
+		if(currp->policy_set_dict != NULL)
+			g_hash_table_destroy(currp->policy_set_dict);
 		
 		free(currp);
 	}

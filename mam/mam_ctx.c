@@ -120,3 +120,11 @@ void mam_print_request_context(request_context_t *ctx)
 	// printf("/**************************************/\n");
 
 }
+
+void mam_release_request_context(request_context_t *ctx)
+{
+	/* clean up old _muacc_ctx */
+	_muacc_free_ctx(ctx->ctx);
+	free(ctx);
+}
+

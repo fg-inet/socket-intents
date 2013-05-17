@@ -25,8 +25,7 @@ iface                   return IFACETOK;
 set                		return SETTOK;
 enabled					return ENABLETOK;
 
-nameserver              return NAMESERVERTOK;
-search                	return SEARCHTOK;
+resolvconf              return RESOLVCONFTOK;
 
 \{                      return OBRACE;
 \}                      return CBRACE;
