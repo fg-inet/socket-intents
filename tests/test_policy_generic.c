@@ -179,7 +179,37 @@ void connect_request(dfixture *df, const void *param)
 	muacc_print_context(df->context);
 }
 
-/** Add test cases to the test harness */
+void testfilesize1(dfixture *df, const void *param)
+{
+	ctx_set_filesize(df->context->ctx, 5000);
+	connect_request(df, param);
+}
+
+void testfilesize2(dfixture *df, const void *param)
+{
+	ctx_set_filesize(df->context->ctx, 10);
+	connect_request(df, param);
+}
+
+void testfilesize3(dfixture *df, const void *param)
+{
+	ctx_set_filesize(df->context->ctx, 121423214242);
+	connect_request(df, param);
+}
+
+void testfilesize4(dfixture *df, const void *param)
+{
+	ctx_set_filesize(df->context->ctx, 20);
+	connect_request(df, param);
+}
+
+void testfilesize5(dfixture *df, const void *param)
+{
+	ctx_set_filesize(df->context->ctx, 0);
+	connect_request(df, param);
+}
+
+/* Add test cases to the test harness */
 int main(int argc, char *argv[])
 {
 	g_test_init(&argc, &argv, NULL);
@@ -189,5 +219,10 @@ int main(int argc, char *argv[])
 	g_test_add("/ctx/getaddrinfo_remote", dfixture, create_actx_remote(1337, "www.maunz.org"), ctx_empty_setup, getaddrinfo_request, ctx_destroy);
 	g_test_add("/ctx/connect_remote_v4_google", dfixture, create_cctx_remote(AF_INET, SOCK_STREAM, 0, 80, "www.google.com"), ctx_empty_setup, connect_request, ctx_destroy);
 	g_test_add("/ctx/connect_stream_v4_google", dfixture, create_cctx_remote(AF_INET, SOCK_STREAM, 0, 80, "www.google.com"), ctx_stream_setup, connect_request, ctx_destroy);
+	g_test_add("/fs/fs1", dfixture, create_cctx_remote(AF_INET, SOCK_STREAM, 0, 80, "www.google.com"), ctx_stream_setup, testfilesize1, ctx_destroy);
+	g_test_add("/fs/fs2", dfixture, create_cctx_remote(AF_INET, SOCK_STREAM, 0, 80, "www.google.com"), ctx_stream_setup, testfilesize2, ctx_destroy);
+	g_test_add("/fs/fs3", dfixture, create_cctx_remote(AF_INET, SOCK_STREAM, 0, 80, "www.google.com"), ctx_stream_setup, testfilesize3, ctx_destroy);
+	g_test_add("/fs/fs4", dfixture, create_cctx_remote(AF_INET, SOCK_STREAM, 0, 80, "www.google.com"), ctx_stream_setup, testfilesize4, ctx_destroy);
+	g_test_add("/fs/fs5", dfixture, create_cctx_remote(AF_INET, SOCK_STREAM, 0, 80, "www.google.com"), ctx_stream_setup, testfilesize5, ctx_destroy);
 	return g_test_run();
 }

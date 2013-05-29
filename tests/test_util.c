@@ -100,6 +100,26 @@ void ctx_set_category(struct _muacc_ctx *ctx, intent_category_t cat)
 	}
 }
 
+void ctx_set_filesize(struct _muacc_ctx *ctx, int filesize)
+{
+	struct socketopt *current = ctx->sockopts_current;
+	printf("setting filesize %d\n", filesize);
+	while (current != NULL)
+	{
+		if (current->level == SOL_INTENTS && current->optname == INTENT_FILESIZE)
+		{
+			/* Intent category exists - overwrite with new value */
+			memcpy(current->optval, &filesize, sizeof(int));
+			break;
+		}
+		current = current->next;
+	}
+	struct socketopt newopt = { .level = SOL_INTENTS, .optname = INTENT_FILESIZE, .optval=malloc(sizeof(int)), .optlen = sizeof(int) };
+	memcpy(newopt.optval, &filesize, sizeof(int));
+	ctx_add_socketopts(ctx, &newopt);
+	free(newopt.optval);
+}
+
 void ctx_stream_setup(dfixture *df, const void *test_data)
 {
 	ctx_empty_setup(df, test_data);
