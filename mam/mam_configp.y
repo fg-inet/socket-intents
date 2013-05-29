@@ -29,6 +29,7 @@
 	void yyerror(const char *str);
 	int yywrap();
 		
+	int *idup(int i);
 %}
 
 %token SEMICOLON OBRACE CBRACE EQUAL SLASH
@@ -87,6 +88,12 @@ policy_set:
 	|
 	SETTOK name EQUAL name
 	{g_hash_table_replace(yymctx->policy_set_dict, $2, $4);}
+	|
+	SETTOK name NUMBER
+	{g_hash_table_replace(yymctx->policy_set_dict, $2, idup($3));}
+	|
+	SETTOK name EQUAL NUMBER
+	{g_hash_table_replace(yymctx->policy_set_dict, $2, idup($4));}
 	;
 
 iface_block:
@@ -178,6 +185,12 @@ prefix_statement:
 	SETTOK name EQUAL name
 	{g_hash_table_replace(l_set_dict, $2, $4);}
 	|
+	SETTOK name NUMBER
+	{g_hash_table_replace(l_set_dict, $2, idup($3));}
+	|
+	SETTOK name EQUAL NUMBER
+	{g_hash_table_replace(l_set_dict, $2, idup($4));}
+	|
 	ENABLETOK NUMBER
 	{	pfx_flags_set |= PFX_ENABLED; 
 		if($2) 
@@ -232,3 +245,10 @@ void mam_read_config(int config_fd, char **p_file_out, struct mam_context *ctx)
 
 }
 
+int *idup (int i)
+{
+	int *p = malloc(sizeof(int));
+	if (p != NULL)
+		*p = i;
+	return p;
+}
