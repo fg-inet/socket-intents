@@ -120,7 +120,8 @@ prefix_block:
 			DLOG(MAM_CONFIGP_NOISY_DEBUG, "prefix %s/%d configured\n", addr_str, $4);
 		} else {
 			DLOG(MAM_CONFIGP_NOISY_DEBUG, "prefix %s/%d configured but not on any interface\n", addr_str, $4);
-			evdns_base_free(l_evdns_base, 0);
+			if (l_evdns_base != NULL)
+				evdns_base_free(l_evdns_base, 0);
 			g_hash_table_destroy(l_set_dict);
 		}
 		pfx_flags_set = 0;
@@ -148,7 +149,8 @@ prefix_block:
 			DLOG(MAM_CONFIGP_NOISY_DEBUG, "prefix %s/%d configured\n", addr_str, $4);
 		} else {
 			DLOG(MAM_CONFIGP_NOISY_DEBUG, "prefix %s/%d configured but not on any interface\n", addr_str, $4);
-			if(l_evdns_base != NULL) evdns_base_free(l_evdns_base, 0);
+			if(l_evdns_base != NULL)
+				evdns_base_free(l_evdns_base, 0);
 			g_hash_table_destroy(l_set_dict);
 		}
 		pfx_flags_set = 0;
