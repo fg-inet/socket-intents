@@ -31,7 +31,7 @@
 #define MAM_MASTER_NOISY_DEBUG2 0
 #endif
 
-struct mam_context *ctx = NULL;
+struct mam_context *global_mctx = NULL;
 int config_fd = -1;
 
 void process_mam_request(struct request_context *ctx)
@@ -92,9 +92,9 @@ void process_mam_request(struct request_context *ctx)
 /** read next tlvs on one of mam's client sockets
  *
  */
-void mamsock_readcb(struct bufferevent *bev, void *ctx)
+void mamsock_readcb(struct bufferevent *bev, void *prctx)
 {
-	struct request_context **rctx = (struct request_context **) ctx;
+	struct request_context **rctx = (struct request_context **) prctx;
 
     for(;;)
 	{
@@ -111,6 +111,7 @@ void mamsock_readcb(struct bufferevent *bev, void *ctx)
     		case _muacc_proc_tlv_event_eof:
 				/* re-initialize muacc context to back up further communication */
 				 *rctx = malloc(sizeof(struct request_context));
+				(*rctx)->mctx = global_mctx;
 				(*rctx)->ctx = _muacc_create_ctx();
     			/* done processing - do MAM's magic */
 				process_mam_request(crctx);
@@ -288,29 +289,29 @@ void configure_mamma() {
 	char *policy_filename = NULL;
 	
 	/* clean up old policy module of present */
-	if(ctx->policy != NULL)
+	if(global_mctx->policy != NULL)
 	{
 		DLOG(MAM_MASTER_NOISY_DEBUG1, "unloading old policy module\n");
-		cleanup_policy_module(ctx);
+		cleanup_policy_module(global_mctx);
 	}
 	
 	/* get interface config from system */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "updating interface list\n");	
-	update_src_prefix_list(ctx);
+	update_src_prefix_list(global_mctx);
 	
-	if (MAM_MASTER_NOISY_DEBUG2) mam_print_context(ctx);
+	if (MAM_MASTER_NOISY_DEBUG2) mam_print_context(global_mctx);
 	
 	/* load policy module if we have command line arguments */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "parsing config file\n");	
-	mam_read_config(config_fd, &policy_filename, ctx);
+	mam_read_config(config_fd, &policy_filename, global_mctx);
 	
-	if (MAM_MASTER_NOISY_DEBUG2) mam_print_context(ctx);
+	if (MAM_MASTER_NOISY_DEBUG2) mam_print_context(global_mctx);
 	
 	/* initialize dynamic loader and load policy module */
 	if(policy_filename != NULL)
 	{
 		DLOG(MAM_MASTER_NOISY_DEBUG1, "loading policy module\n");
-		setup_policy_module(ctx, policy_filename);
+		setup_policy_module(global_mctx, policy_filename);
 	}
 	else
 	{
@@ -340,7 +341,7 @@ static void do_reconfigure(evutil_socket_t _, short what, void* evctx) {
  */
 static void do_print_state(evutil_socket_t _, short what, void* evctx) {
 	DLOG(1, "got USR1 signal - dumping state\n");
-	mam_print_context(ctx);
+	mam_print_context(global_mctx);
 }
 
 int
@@ -355,16 +356,16 @@ main(int c, char **v)
 
 	/* create mam context */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "setting up mam context\n");
-	ctx = mam_create_context();
-    if (ctx == NULL) {
+	global_mctx = mam_create_context();
+    if (global_mctx == NULL) {
 		DLOG(1, "failed to create mam context\n");
         exit(1);
     }
 	
 	/* set up libevent */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "setting up event base\n");
-    ctx->ev_base = event_base_new();
-    if (!ctx->ev_base) {
+    global_mctx->ev_base = event_base_new();
+    if (!global_mctx->ev_base) {
 		/* will log error on it's own */
         exit(1);
     }
@@ -379,18 +380,18 @@ main(int c, char **v)
 	lt_dladdsearchdir(".");
 	
 	/* configure default/fallback DNS base */
-	ctx->evdns_default_base = evdns_base_new(ctx->ev_base, 1);
+	global_mctx->evdns_default_base = evdns_base_new(global_mctx->ev_base, 1);
 	
 	/* register signal handlers with libevent */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "registering signal handlers\n");
 	/* call term function on a INT or TERM signal */
-	term_event = evsignal_new(ctx->ev_base, SIGTERM, do_graceful_shutdown, ctx->ev_base);
+	term_event = evsignal_new(global_mctx->ev_base, SIGTERM, do_graceful_shutdown, global_mctx->ev_base);
 	event_add(term_event, NULL);
-	int_event = evsignal_new(ctx->ev_base, SIGINT, do_graceful_shutdown, ctx->ev_base);
+	int_event = evsignal_new(global_mctx->ev_base, SIGINT, do_graceful_shutdown, global_mctx->ev_base);
 	event_add(int_event, NULL);
-	hup_event = evsignal_new(ctx->ev_base, SIGHUP, do_reconfigure, ctx->ev_base);
+	hup_event = evsignal_new(global_mctx->ev_base, SIGHUP, do_reconfigure, global_mctx->ev_base);
 	event_add(hup_event, NULL);
-	usr1_event = evsignal_new(ctx->ev_base, SIGUSR1, do_print_state, ctx->ev_base);
+	usr1_event = evsignal_new(global_mctx->ev_base, SIGUSR1, do_print_state, global_mctx->ev_base);
 	event_add(usr1_event, NULL);
 	
 	/* open config file */
@@ -421,7 +422,7 @@ main(int c, char **v)
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 	
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "setting up listener\n");
-	if( 0 > do_listen(ctx, listener, (struct sockaddr *)&sun, sizeof(sun)))
+	if( 0 > do_listen(global_mctx, listener, (struct sockaddr *)&sun, sizeof(sun)))
 	{
 		DLOG(1, "listen failed\n");
 		return 1;
@@ -429,14 +430,14 @@ main(int c, char **v)
 	
 	/* run libevent */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "running event loop\n");
-    event_base_dispatch(ctx->ev_base);
+    event_base_dispatch(global_mctx->ev_base);
 
     /* clean up */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "cleaning up\n");
     close(listener);
     unlink(MUACC_SOCKET);
-	cleanup_policy_module(ctx);
-	mam_release_context(ctx);
+	cleanup_policy_module(global_mctx);
+	mam_release_context(global_mctx);
 	lt_dlexit();
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "exiting\n");
 
