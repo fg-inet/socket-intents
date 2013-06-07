@@ -211,44 +211,54 @@ int muacc_setsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 
 	/* we have set successfully an socket option or checked an intend - save for MAM */
 
-	/* Create a new socketopt entry for the socket option list */
-	struct socketopt *newopt = malloc(sizeof(struct socketopt));
-	newopt->level = level;
-	newopt->optname = option_name;
-	newopt->optlen = option_len;
-	if(option_len > 0 && option_value != NULL)
+	/* Go through sockopt list and look for this option */
+	struct socketopt *current = ctx->ctx->sockopts_current;
+	struct socketopt *prev = current;
+
+	while (current != NULL && current->optname != option_name)
 	{
-		newopt->optval = malloc(option_len);
-		if (newopt->optval == NULL)
+		prev = current;
+		current = current->next;
+	}
+
+	if (current != NULL)
+	{
+		/* Option already exists: overwrite value */
+		memcpy(current->optval, option_value, current->optlen);
+		DLOG(CLIB_IF_NOISY_DEBUG2, "Changed existing sockopt:\n\t\t\t");
+		if (CLIB_IF_NOISY_DEBUG2) _muacc_print_socket_option_list(current);
+	}
+	else
+	{
+		/* Option did not exist: create new option in list */
+		struct socketopt *newopt = malloc(sizeof(struct socketopt));
+		newopt->level = level;
+		newopt->optname = option_name;
+		newopt->optlen = option_len;
+		if(option_len > 0 && option_value != NULL)
 		{
-			perror("__function__ malloc failed");
-			_unlock_ctx(ctx);
-			return retval;
+			newopt->optval = malloc(option_len);
+			if (newopt->optval == NULL)
+			{
+				perror("__function__ malloc failed");
+				_unlock_ctx(ctx);
+				return retval;
+			}
+			memcpy(newopt->optval, option_value, option_len);
 		}
-		memcpy(newopt->optval, option_value, option_len);
-	}
-	else
-		newopt->optval = (void *) option_value;
+		else
+			newopt->optval = (void *) option_value;
+		newopt->next = NULL;
 
-	newopt->next = NULL;
+		if (current == ctx->ctx->sockopts_current)
+			ctx->ctx->sockopts_current = newopt;
+		else
+			prev->next = newopt;
 
-	/* put it in the context */
-	if (ctx->ctx->sockopts_current == NULL)
-	{
-		/* Add first socket option to the empty list */
-		ctx->ctx->sockopts_current = newopt;
+		DLOG(CLIB_IF_NOISY_DEBUG2, "Added new option to the end of the list:\n\t\t\t");
+		if (CLIB_IF_NOISY_DEBUG2) _muacc_print_socket_option_list(newopt);
+		if (CLIB_IF_NOISY_DEBUG2) _muacc_print_socket_option_list(ctx->ctx->sockopts_current);
 	}
-	else
-	{
-		/* Search for last socket option of the current list */
-		struct socketopt *current = ctx->ctx->sockopts_current;
-		while (current->next != NULL)
-			current = current->next;
-		/* Add new option to the end of the socket_option list */
-		current->next = newopt;
-	}
-	DLOG(CLIB_IF_NOISY_DEBUG2, "Added new option to the end of the list:\n\t\t\t");
-	if (CLIB_IF_NOISY_DEBUG2) _muacc_print_socket_option_list(newopt);
 
 	retval = 0;
 
