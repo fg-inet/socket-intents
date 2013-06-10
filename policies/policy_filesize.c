@@ -67,6 +67,7 @@ int init(mam_context_t *mctx)
 {
 	struct sa_fs **csa;
 	struct sa_fs *prevsa = NULL;
+	struct sa_fs *newsa = NULL;
 
 	printf("Policy module \"filesize\" is loading.\n");
 	printf("Building socket address lists with filesize policies: ");
@@ -79,44 +80,49 @@ int init(mam_context_t *mctx)
 		spl = lookup_source_prefix( spl, PFX_ENABLED, NULL, AF_INET, NULL );
 		if (spl == NULL) break;
 
-		 *csa = malloc(sizeof (struct sa_fs));
-		 memset(*csa, 0, sizeof(struct sa_fs));
-		 if (prevsa != NULL)
-			prevsa->next = *csa;
+		newsa = malloc(sizeof (struct sa_fs));
+		memset(newsa, 0, sizeof(struct sa_fs));
+		if (prevsa != NULL)
+			prevsa->next = newsa;
+		else
+			(*csa) = newsa;
 
-		(*csa)->addr_len = spl->if_addrs->addr_len;
-		(*csa)->addr_list = spl->if_addrs;
-		setfilesize(spl, *csa);
+		newsa->addr_len = spl->if_addrs->addr_len;
+		newsa->addr_list = spl->if_addrs;
+		setfilesize(spl, newsa);
 
-		inet_ntop(AF_INET, &( ((struct sockaddr_in *) ((*csa)->addr_list->addr))->sin_addr ), addr_str, sizeof(struct sockaddr_in));
-		printf("\n\t\t%s\t(for filesize %4d < n < %6d)", addr_str, (*csa)->minfilesize, (*csa)->maxfilesize);
+		inet_ntop(AF_INET, &( ((struct sockaddr_in *) (newsa->addr_list->addr))->sin_addr ), addr_str, sizeof(struct sockaddr_in));
+		printf("\n\t\t%s\t(for filesize %4d < n < %6d)", addr_str, newsa->minfilesize, newsa->maxfilesize);
 
-		(*csa)->next = NULL;
-		prevsa = (*csa);
+		newsa->next = NULL;
+		prevsa = newsa;
 	}
 	printf(") ");
 
 	printf("\n\tAF_INET6 ( ");
+	prevsa = NULL;
 	csa = &in6_fs_list;
 	for(struct src_prefix_list *spl = mctx->prefixes; spl != NULL; spl = spl->next)
 	{
 		spl = lookup_source_prefix( spl, PFX_ENABLED, NULL, AF_INET6, NULL );
 		if (spl == NULL) break;
 
-		 *csa = malloc(sizeof (struct sockaddr_list));
-		 memset(*csa, 0, sizeof(struct sa_fs));
-		 if (prevsa != NULL)
+		newsa = malloc(sizeof (struct sockaddr_list));
+		memset(newsa, 0, sizeof(struct sa_fs));
+		if (prevsa != NULL)
 			prevsa->next = *csa;
+		else
+			(*csa) = newsa;
 
-		(*csa)->addr_len = spl->if_addrs->addr_len;
-		(*csa)->addr_list = spl->if_addrs;
-		setfilesize(spl, *csa);
+		newsa->addr_len = spl->if_addrs->addr_len;
+		newsa->addr_list = spl->if_addrs;
+		setfilesize(spl, newsa);
 
-		inet_ntop(AF_INET6, &( ((struct sockaddr_in6 *) ((*csa)->addr_list->addr))->sin6_addr ), addr_str, sizeof(struct sockaddr_in6));
-		printf("\n\t\t%s\t(for filesize %4d < n < %6d)", addr_str, (*csa)->minfilesize, (*csa)->maxfilesize);
+		inet_ntop(AF_INET6, &( ((struct sockaddr_in6 *) (newsa->addr_list->addr))->sin6_addr ), addr_str, sizeof(struct sockaddr_in6));
+		printf("\n\t\t%s\t(for filesize %4d < n < %6d)", addr_str, newsa->minfilesize, newsa->maxfilesize);
 
-		(*csa)->next = NULL;
-		prevsa = (*csa);
+		newsa->next = NULL;
+		prevsa = newsa;
 	}
 	printf(") ");
 	printf("\nPolicy module \"filesize\" has been loaded.\n");
