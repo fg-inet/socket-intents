@@ -21,6 +21,8 @@ struct sa_fs {
 
 struct sa_fs *in4_fs_list = NULL; /* list of ipv4 addresses */
 struct sa_fs *in6_fs_list = NULL; /* list of ipv6 addresses */
+struct sockaddr_list *default4 = NULL;
+struct sockaddr_list *default6 = NULL;
 
 char addr_str[INET6_ADDRSTRLEN];	/** string for debug / error printing */
 
@@ -37,6 +39,50 @@ void setfilesize(struct src_prefix_list *spl, struct sa_fs *csa)
 	{
 		csa->maxfilesize = *((int *) value);
 	}
+	if (((value = g_hash_table_lookup(spl->policy_set_dict, "default")) != NULL) && value)
+	{
+		if (csa->addr_list->addr->sa_family == AF_INET && default4 == NULL)
+		{
+			default4 = malloc(sizeof(struct sockaddr_list));
+			memset(default4, 0, sizeof(struct sockaddr_list));
+			default4->addr = _muacc_clone_sockaddr(csa->addr_list->addr, csa->addr_list->addr_len);
+			default4->addr_len = csa->addr_list->addr_len;
+		}
+		if (csa->addr_list->addr->sa_family == AF_INET6 && default6 == NULL)
+		{
+			default6 = malloc(sizeof(struct sockaddr_list));
+			memset(default6, 0, sizeof(struct sockaddr_list));
+			default6->addr = _muacc_clone_sockaddr(csa->addr_list->addr, csa->addr_list->addr_len);
+			default6->addr_len = csa->addr_list->addr_len;
+		}
+	}
+}
+
+void set_default_sa(sa_family_t family, strbuf_t sb, request_context_t *rctx)
+{
+	if (family == AF_INET && default4 != NULL)
+	{
+		strbuf_printf(&sb, "\n\t\tSet src=");
+		_muacc_print_sockaddr(&sb, default4->addr, default4->addr_len);
+		strbuf_printf(&sb, " (default)");
+
+		rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(default4->addr, default4->addr_len);
+		rctx->ctx->bind_sa_suggested_len = default4->addr_len;
+	}
+	else if (family == AF_INET6 && default6 != NULL)
+	{
+		strbuf_printf(&sb, "\n\t\tSet src=");
+		_muacc_print_sockaddr(&sb, default6->addr, default6->addr_len);
+		strbuf_printf(&sb, " (default)");
+
+		rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(default6->addr, default6->addr_len);
+		rctx->ctx->bind_sa_suggested_len = default6->addr_len;
+	}
+	else
+	{
+		strbuf_printf(&sb, "\n\t\tCannot set source address (no filesize and/or defaults given)");
+	}
+
 }
 
 void set_sa_for_fs(struct sa_fs *list, int filesize, strbuf_t sb, request_context_t *rctx)
@@ -45,7 +91,7 @@ void set_sa_for_fs(struct sa_fs *list, int filesize, strbuf_t sb, request_contex
 
 	while (current != NULL)
 	{
-		if (current->minfilesize < filesize && current->maxfilesize > filesize)
+		if (current->minfilesize <= filesize && current->maxfilesize >= filesize)
 			break;
 		current = current->next;
 	}
@@ -60,8 +106,12 @@ void set_sa_for_fs(struct sa_fs *list, int filesize, strbuf_t sb, request_contex
 		rctx->ctx->bind_sa_suggested_len = current->addr_list->addr_len;
 	}
 	else
-		strbuf_printf(&sb, "\n\t\tDid not find a suitable src address for filesize %d", filesize);
+	{
+		strbuf_printf(&sb, "\n\t\tCannot find suitable address for filesize %d", filesize);
+		set_default_sa(list->addr_list->addr->sa_family, sb, rctx);
+	}
 }
+
 
 int init(mam_context_t *mctx)
 {
@@ -92,7 +142,9 @@ int init(mam_context_t *mctx)
 		setfilesize(spl, newsa);
 
 		inet_ntop(AF_INET, &( ((struct sockaddr_in *) (newsa->addr_list->addr))->sin_addr ), addr_str, sizeof(struct sockaddr_in));
-		printf("\n\t\t%s\t(for filesize %4d < n < %6d)", addr_str, newsa->minfilesize, newsa->maxfilesize);
+		printf("\n\t\t%s\t(for filesize %4d =< n =< %6d)", addr_str, newsa->minfilesize, newsa->maxfilesize);
+		if (default4 != NULL && (0 == memcmp(default4->addr, newsa->addr_list->addr, sizeof(struct sockaddr))))
+			printf(" (default)");
 
 		newsa->next = NULL;
 		prevsa = newsa;
@@ -119,7 +171,9 @@ int init(mam_context_t *mctx)
 		setfilesize(spl, newsa);
 
 		inet_ntop(AF_INET6, &( ((struct sockaddr_in6 *) (newsa->addr_list->addr))->sin6_addr ), addr_str, sizeof(struct sockaddr_in6));
-		printf("\n\t\t%s\t(for filesize %4d < n < %6d)", addr_str, newsa->minfilesize, newsa->maxfilesize);
+		printf("\n\t\t%s\t(for filesize %4d =< n =< %6d)", addr_str, newsa->minfilesize, newsa->maxfilesize);
+		if (default6 == newsa->addr_list)
+			printf(" (default)");
 
 		newsa->next = NULL;
 		prevsa = newsa;
@@ -157,7 +211,7 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	if (mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_FILESIZE, &fslen, &fs) != 0)
 	{
 		// no filesize given
-		strbuf_printf(&sb, "\n\t\tNo filesize given - Policy does not apply.");
+		set_default_sa(family, sb, rctx);
 	}
 	else if(rctx->ctx->bind_sa_req != NULL)
 	{	// already bound
