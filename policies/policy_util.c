@@ -22,44 +22,24 @@ int mampol_get_socketopt(struct socketopt *list, int level, int optname, socklen
 	return ret;
 }
 
-int mampol_get_prefix_by_name(struct src_prefix_list *list, const char *name, int family, struct src_prefix_list **pref)
+void print_pfx_addr (gpointer element, gpointer data)
 {
-	struct src_prefix_list *current = list;
+	struct src_prefix_list *pfx = element;
+	char addr_str[INET6_ADDRSTRLEN]; /** String for debug / error printing */
 
-	if (name == NULL)
+	/* Print first address of this prefix */
+	if (pfx->family == AF_INET)
 	{
-		fprintf(stderr, "WARNING: Supplied NULL name to mampol_get_prefix_by_name\n");
-		return -1;
+		inet_ntop(AF_INET, &( ((struct sockaddr_in *) (pfx->if_addrs->addr))->sin_addr ), addr_str, sizeof(struct sockaddr_in));
+		printf("\n\t\t%s", addr_str);
+	}
+	else if (pfx->family == AF_INET6)
+	{
+		inet_ntop(AF_INET6, &( ((struct sockaddr_in6 *) (pfx->if_addrs->addr))->sin6_addr ), addr_str, sizeof(struct sockaddr_in6));
+		printf("\n\t\t%s", addr_str);
 	}
 
-	while (current != NULL)
-	{
-		if (0 == strcmp(current->if_name, name) && current->family == family)
-		{
-			// found
-			*pref = current;
-			return 0;
-		}
-		current = current->next;
-	}
-	return -1;
-}
-
-int mampol_suggest_bind_sa(request_context_t *rctx, const char *name)
-{
-	struct src_prefix_list *preferred = NULL;
-
-	if (name == NULL)
-	{
-		fprintf(stderr, "WARNING: Supplied NULL name to mampol_suggest_bind_sa\n");
-		return -1;
-	}
-
-	if (0 == mampol_get_prefix_by_name(rctx->mctx->prefixes, name, rctx->ctx->domain, &preferred))
-	{
-		rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(preferred->if_addrs->addr, preferred->if_addrs->addr_len);
-		rctx->ctx->bind_sa_suggested_len = preferred->if_addrs->addr_len;
-		return 0;
-	}
-	return -1;
+	/* Print policy info if available */
+	if (pfx->policy_info != NULL)
+		print_policy_info((void*) pfx->policy_info);
 }

@@ -9,11 +9,13 @@
  */
 int mampol_get_socketopt(struct socketopt *list, int level, int optname, socklen_t *optlen, void *optval);
 
-/** Look up a prefix of a certain interface name and address family in the prefix list
- *
- *  \return 0 if a suitable prefix is found, -1 otherwise
+/** Print the information of a policy_info struct
+ *  Implementation is policy-specific
  */
-int mampol_get_prefix_by_name(struct src_prefix_list *list, const char *name, int family, struct src_prefix_list **pref);
+void print_policy_info(void *policy_info);
 
-/** Suggest a sockaddr with this interface name to the client */
-int mampol_suggest_bind_sa(request_context_t *rctx, const char *name);
+/** For an element from the prefix list, print its first address
+ *  and its policy data if available
+ */
+void print_pfx_addr (gpointer element, gpointer data);
+

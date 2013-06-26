@@ -52,7 +52,6 @@ typedef struct sockaddr_list {
 
 /** List of source prefixes */
 typedef struct src_prefix_list {
-	struct src_prefix_list 	*next;				/**< Next item in list */
 	unsigned int			pfx_flags;			/**< Flags of that prefix */
 	char 					*if_name;			/**< Name of the interface */
 	int 					family;				/**< Address family */
@@ -62,6 +61,7 @@ typedef struct src_prefix_list {
 	socklen_t				if_netmask_len;		/**< Length of netmask */
 	struct evdns_base 		*evdns_base; 		/**< DNS base to do look ups for that prefix */
 	GHashTable 				*policy_set_dict; 	/**< dictionary for policy configuration */
+	void					*policy_info;		/**< Policy-internal data structure for additional information */
 } src_prefix_list_t;
 
 /** list of interfacses */
@@ -74,12 +74,21 @@ typedef struct iface_list {
 /** Context of the MAM */
 typedef struct mam_context {
 	int						usage;			/**< Reference counter */
-	struct src_prefix_list	*prefixes;		/**< Possible source prefixes on this system */
+	GSList					*prefixes;		/**< Possible source prefixes on this system */
 	lt_dlhandle				policy;			/**< Handle of policy module */
 	struct event_base 		*ev_base;			/**< Libevent Event Base */
 	struct evdns_base 		*evdns_default_base; /**< DNS base to do look ups if all other fails */
 	GHashTable 				*policy_set_dict; /**< dictionary for policy configuration */
 } mam_context_t;
+
+/** Model that describes a prefix, used for lookup in the list */
+struct src_prefix_model {
+	unsigned int			flags;
+	const char				*if_name;
+	int						family;
+	const struct sockaddr	*addr;
+	size_t					addr_len;
+};
 
 /** Create and initialize the MAM context */
 struct mam_context *mam_create_context();
@@ -111,6 +120,26 @@ struct src_prefix_list *lookup_source_prefix (
 	int family,                     /**< [in] address family to look for */
 	const struct sockaddr *addr     /**< [in] prefix to scan for (uses mask from spfxl)  – NULL ist a wildcard */
 );
+
+/** Helper function for finding a specific prefix from the prefix list
+ *  Returns 0 for the matching element, 1 otherwise
+ *  To be called from g_slist_find_custom() */
+int compare_src_prefix(
+	gconstpointer listelement, 		/**< [in] list element to start scanning */
+	gconstpointer model				/**< [in] src_prefix_model that contains properties to look for */
+);
+
+/** Helper function for comparing all elements of a list against the model
+ *  From this elements, makes a new list (only the data pointers, no deep copy!)
+ */
+void filter_prefix_list (
+	GSList *old, 					/**< [in] list to filter */
+	GSList **new,					/**< [out] pointer to the filtered list */
+	unsigned int pfx_flags,			/**< [in] flags to filter for, or PFX_ANY */
+	const char *if_name,			/**< [in] interface name to filter for, or NULL (any) */
+	int family,						/**< [in] protocol family to filter for, or AF_UNSPEC (any) */
+	const struct sockaddr *addr		/**< [in] socket address to filter for, or NULL (any) */
+	);
 
 /** config read function */
 void mam_read_config(int config_fd, char **p_file_out, struct mam_context *ctx);

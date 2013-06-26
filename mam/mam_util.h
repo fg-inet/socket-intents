@@ -10,13 +10,13 @@
 void _mam_print_sockaddr_list(strbuf_t *sb, const struct sockaddr_list *list);
 
 /** Helper to print a list of prefixes to a string */
-void _mam_print_prefix_list(strbuf_t *sb, const struct src_prefix_list *prefixes);
+void _mam_print_prefix_list(strbuf_t *sb, GSList *prefixes);
 
 /** Helper to print a mam context to a string */
 void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx);
 
-/** Helper that frees a source prefix list */
-int _free_src_prefix_list (struct src_prefix_list *spfxl);
+/** Helper that frees a source prefix list - to be called using g_slist_free_full */
+void _free_src_prefix_list (gpointer data);
 
 /** Helper that frees a context */
 int _mam_free_ctx(struct mam_context *ctx);

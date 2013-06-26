@@ -315,7 +315,7 @@ void configure_mamma() {
 	}
 	else
 	{
-		DLOG(1, "not policy module given - mamma is useless...\n");
+		DLOG(1, "no policy module given - mamma is useless...\n");
 	}
 	
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "(re)configuration done\n");

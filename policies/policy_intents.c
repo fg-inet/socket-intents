@@ -5,8 +5,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <event2/event.h>
-#include <arpa/inet.h>
 
 #include "policy.h"
 #include "policy_util.h"
@@ -14,133 +12,136 @@
 
 #include "../lib/intents.h"
 
-struct sa_cat {
-	struct sa_cat 			*next;
-	struct sockaddr_list 	*addr_list;
-	socklen_t				addr_len;
+/* policy-specific data structure */
+struct intents_info {
 	enum intent_category	category;
-	char 					*category_string;
+	char					*category_string;
+	int						is_default;
 };
 
-struct sa_cat *in4_list = NULL;
-struct sa_cat *in6_list = NULL;
+GSList *in4_enabled = NULL;
+GSList *in6_enabled = NULL;
 
 char addr_str[INET6_ADDRSTRLEN]; /** String for debug / error printing */
 
-void setcategory(struct src_prefix_list *spl, struct sa_cat *csa)
+void print_policy_info(void *policy_info)
 {
-	csa->category = -1;
-	gpointer value = NULL;
-	if ((value = g_hash_table_lookup(spl->policy_set_dict, "category")) != NULL)
+	struct intents_info *info = policy_info;
+	if (info->category_string != NULL)
+		printf("\t for category %s (%d)", info->category_string, (int) info->category);
+	if (info->is_default)
+		printf(" (default)");
+}
+
+/* Parse category information from config file and place it into policy_info of prefix */
+void set_policy_info(gpointer elem, gpointer data)
+{
+	struct src_prefix_list *spl = elem;
+
+	struct intents_info *new = malloc(sizeof(struct intents_info));
+	memset(new, 0, sizeof(struct intents_info));
+	new->category = -1;
+
+	if (spl->policy_set_dict != NULL)
 	{
-		enum intent_category cat = -1;
-		asprintf(&(csa->category_string), "%s", (char *) value);
+		/* Set category */
+		gpointer value = NULL;
+		if ((value = g_hash_table_lookup(spl->policy_set_dict, "category")) != NULL)
+		{
+			enum intent_category cat = -1;
+			if (strcmp(value, "bulktransfer") == 0)
+				cat = INTENT_BULKTRANSFER;
+			else if (strcmp(value, "query") == 0)
+				cat = INTENT_QUERY;
+			else if (strcmp(value, "controltraffic") == 0)
+				cat = INTENT_CONTROLTRAFFIC;
+			else if (strcmp(value, "keepalives") == 0)
+				cat = INTENT_KEEPALIVES;
+			else if (strcmp(value, "stream") == 0)
+				cat = INTENT_STREAM;
+			else
+				printf("WARNING: Cannot set invalid category %s\n", (char *)value);
 
-		if (strcmp(value, "bulktransfer") == 0)
-			cat = INTENT_BULKTRANSFER;
-		else if (strcmp(value, "query") == 0)
-			cat = INTENT_QUERY;
-		else if (strcmp(value, "controltraffic") == 0)
-			cat = INTENT_CONTROLTRAFFIC;
-		else if (strcmp(value, "keepalives") == 0)
-			cat = INTENT_KEEPALIVES;
-		else if (strcmp(value, "stream") == 0)
-			cat = INTENT_STREAM;
-		else
-			printf("WARNING: Cannot set invalid category %s\n", (char *)value);
+			if (cat >= 0 && cat <= INTENT_STREAM)
+			{
+				/* found valid category in config file */
+				new->category = cat;
+				asprintf(&(new->category_string), "%s", (char *) value);
+			}
+		}
 
-		if (cat >= 0 && cat <= INTENT_STREAM)
-			csa->category = cat;
+		/* Set default interface */
+		if (((value = g_hash_table_lookup(spl->policy_set_dict, "default")) != NULL) && value)
+			new->is_default = 1;
+	}
+
+	spl->policy_info = (void *) new;
+}
+
+/** Free the policy data structures */
+void freepolicyinfo(gpointer elem, gpointer data)
+{
+	struct src_prefix_list *spl = elem;
+
+	if(spl->policy_info != NULL)
+	{
+		if(((struct intents_info *)spl->policy_info)->category_string != NULL)
+			free(((struct intents_info *)spl->policy_info)->category_string);
+		free(spl->policy_info);
 	}
 }
 
-void set_sa_for_category(struct sa_cat *list, enum intent_category cat, strbuf_t sb, request_context_t *rctx)
-{
-	struct sa_cat *current = list;
 
-	while (current != NULL)
+/* Set the matching source address for a given category */
+void set_sa_for_category(GSList *spl, enum intent_category given, request_context_t *rctx, strbuf_t sb)
+{
+	struct src_prefix_list *cur = NULL;
+
+	while (spl != NULL)
 	{
-		if (current->category == cat)
+		cur = spl->data;
+		enum intent_category cat = ((struct intents_info *)cur->policy_info)->category;
+
+		if (cat == given)
+		{
+			/* Category matches. Set source address */
+			strbuf_printf(&sb, "\n\tSet src=");
+			_muacc_print_sockaddr(&sb, cur->if_addrs->addr, cur->if_addrs->addr_len);
+			strbuf_printf(&sb, " for category %s (%d)", ((struct intents_info *)cur->policy_info)->category_string, given);
+
+			rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(cur->if_addrs->addr, cur->if_addrs->addr_len);
+			rctx->ctx->bind_sa_suggested_len = cur->if_addrs->addr_len;
 			break;
-		current = current->next;
+		}
+		else
+			spl = spl->next;
 	}
 
-	if (current != NULL)
-	{
-		strbuf_printf(&sb, "\n\t\tSet src=");
-		_muacc_print_sockaddr(&sb, current->addr_list->addr, current->addr_list->addr_len);
-		strbuf_printf(&sb, " for category %s (%d)", current->category_string, cat);
-
-		rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(current->addr_list->addr, current->addr_list->addr_len);
-		rctx->ctx->bind_sa_suggested_len = current->addr_list->addr_len;
-	}
-	else
-		strbuf_printf(&sb, "\n\t\tDid not find a suitable src address for category %d", cat);
+	if (spl == NULL)
+		strbuf_printf(&sb, "\n\tDid not find a suitable src address for category %d", given);
 }
-
 
 int init(mam_context_t *mctx)
 {
-	struct sa_cat **csa;
-	struct sa_cat *prevsa = NULL;
-	struct sa_cat *newsa = NULL;
-
 	printf("Policy module \"intents\" is loading.\n");
-	printf("Building socket address lists with intent policies: ");
 
-	printf("\n\tAF_INET( ");
-	csa = &in4_list;
+	g_slist_foreach(mctx->prefixes, &set_policy_info, NULL);
 
-	for(struct src_prefix_list *spl = mctx->prefixes; spl != NULL; spl = spl->next)
-	{
-		spl = lookup_source_prefix( spl, PFX_ENABLED, NULL, AF_INET, NULL );
-		if (spl == NULL) break;
+	printf("Configured addresses:");
+	printf("\n\tAF_INET: ");
+	filter_prefix_list (mctx->prefixes, &in4_enabled, PFX_ENABLED, NULL, AF_INET, NULL);
+	if (in4_enabled != NULL)
+		g_slist_foreach(in4_enabled, &print_pfx_addr, NULL);
+	else
+		printf("\n\t\t(none)");
 
-		newsa = malloc(sizeof (struct sa_cat));
-		memset(newsa, 0, sizeof(struct sa_cat));
-		if (prevsa != NULL)
-			prevsa->next = newsa;
-		else
-			(*csa) = newsa;
+	printf("\n\tAF_INET6: ");
+	filter_prefix_list (mctx->prefixes, &in6_enabled, PFX_ENABLED, NULL, AF_INET6, NULL);
+	if (in6_enabled != NULL)
+		g_slist_foreach(in6_enabled, &print_pfx_addr, NULL);
+	else
+		printf("\n\t\t(none)");
 
-		newsa->addr_len = spl->if_addrs->addr_len;
-		newsa->addr_list = spl->if_addrs;
-		setcategory(spl, newsa);
-
-		inet_ntop(AF_INET, &( ((struct sockaddr_in *) (newsa->addr_list->addr))->sin_addr ), addr_str, sizeof(struct sockaddr_in));
-		printf("\n\t\t%s\t(for category %s (%d))", addr_str, newsa->category_string, (int) newsa->category);
-
-		newsa->next = NULL;
-		prevsa = newsa;
-	}
-	printf(") ");
-
-	printf("\n\tAF_INET6 ( ");
-	prevsa = NULL;
-	csa = &in6_list;
-	for(struct src_prefix_list *spl = mctx->prefixes; spl != NULL; spl = spl->next)
-	{
-		spl = lookup_source_prefix( spl, PFX_ENABLED, NULL, AF_INET6, NULL );
-		if (spl == NULL) break;
-
-		newsa = malloc(sizeof (struct sa_cat));
-		memset(newsa, 0, sizeof(struct sa_cat));
-		if (prevsa != NULL)
-			prevsa->next = newsa;
-		else
-			(*csa) = newsa;
-
-		newsa->addr_len = spl->if_addrs->addr_len;
-		newsa->addr_list = spl->if_addrs;
-		setcategory(spl, newsa);
-
-		inet_ntop(AF_INET6, &( ((struct sockaddr_in6 *) (newsa->addr_list->addr))->sin6_addr ), addr_str, sizeof(struct sockaddr_in6));
-		printf("\n\t\t%s\t(for category %s (%d))", addr_str, newsa->category_string, (int) newsa->category);
-
-		newsa->next = NULL;
-		prevsa = newsa;
-	}
-	printf(") ");
 	printf("\nPolicy module \"intents\" has been loaded.\n");
 
 	return 0;
@@ -148,13 +149,16 @@ int init(mam_context_t *mctx)
 
 int cleanup(mam_context_t *mctx)
 {
+	g_slist_free(in4_enabled);
+	g_slist_free(in6_enabled);
+	g_slist_foreach(mctx->prefixes, &freepolicyinfo, NULL);
 	printf("Policy module \"intents\" cleaned up.\n");
 	return 0;
 }
 
 int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
-	printf("Got resolve request: \n");
+	printf("\tResolve request: \n\n");
 	_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
 	return 0;
 }
@@ -165,7 +169,7 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 
 	strbuf_t sb;
 	strbuf_init(&sb);
-	strbuf_printf(&sb, "\t\tConnect request: dest=");
+	strbuf_printf(&sb, "\tConnect request: dest=");
 	_muacc_print_sockaddr(&sb, rctx->ctx->remote_sa, rctx->ctx->remote_sa_len);
 
 	intent_category_t c = 0;
@@ -174,32 +178,25 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	if (0 != mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_CATEGORY, &option_length, &c))
 	{
 		// no category given
-		strbuf_printf(&sb, "\n\t\tNo category intent given - Policy does not apply.");
+		strbuf_printf(&sb, "\n\tNo category intent given - Policy does not apply.");
 	}
 	else if(rctx->ctx->bind_sa_req != NULL)
 	{	// already bound
-		strbuf_printf(&sb, "\t\tAlready bound to src=");
+		strbuf_printf(&sb, "\tAlready bound to src=");
 		_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
 	}
 
 	else
 	{
-		if(family == AF_INET && in4_list != NULL)
-		{	// search address to bind to
-			set_sa_for_category(in4_list, c, sb, rctx);
-		}
-		else if(family == AF_INET6 && in6_list != NULL)
-		{	// search address to bind to
-			set_sa_for_category(in6_list, c, sb, rctx);
-		}
-		else
-		{	// failed
-			strbuf_printf(&sb, "\n\t\tCannot provide src address");
-		}
+		// search address to bind to
+		if (family == AF_INET && in4_enabled != NULL)
+			set_sa_for_category(in4_enabled, c, rctx, sb);
+		else if (family == AF_INET6 && in6_enabled != NULL)
+			set_sa_for_category(in6_enabled, c, rctx, sb);
 	}
 
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
-	printf("%s\n", strbuf_export(&sb));
+	printf("%s\n\n", strbuf_export(&sb));
 	strbuf_release(&sb);
 	return 0;
 }

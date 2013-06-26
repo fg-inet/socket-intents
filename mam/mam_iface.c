@@ -45,7 +45,7 @@
 #endif
 
 
-/** check wheather two ipv4 addresses are in the same subnet */
+/** check whether two ipv4 addresses are in the same subnet */
 int _cmp_in_addr_with_mask(
 	struct in_addr *a,		
 	struct in_addr *b,
@@ -54,7 +54,7 @@ int _cmp_in_addr_with_mask(
 	return( (a->s_addr ^ b->s_addr) & mask->s_addr );	
 }
 
-/** check wheather two ipv6 addresses are in the same subnet */
+/** check whether two ipv6 addresses are in the same subnet */
 int _cmp_in6_addr_with_mask(
 	struct in6_addr *a,		
 	struct in6_addr *b,
@@ -68,73 +68,81 @@ int _cmp_in6_addr_with_mask(
 	return(0);	
 }
 
-struct src_prefix_list *lookup_source_prefix (
-	struct src_prefix_list *spfxl,
-	unsigned int flags,
-	const char *if_name,
-	int family,
-	const struct sockaddr *addr
-) {
-	
-	/* mollyguard */
-	if(spfxl == NULL)
+int compare_src_prefix (gconstpointer listelement, gconstpointer model)
+{
+	struct src_prefix_model *m = (struct src_prefix_model *) model;
+	struct src_prefix_list *cur = (struct src_prefix_list *) listelement;
+	if (cur == NULL || model == NULL)
 	{
-		DLOG(1, "WARNING: called with spfxl=NULL\n");
-		return NULL;
+		DLOG(1, "WARNING: called with NULL argument\n");
+		return -1;
 	}
 
-	/* scan through prefixes */
-	for(struct src_prefix_list *cur = spfxl; cur != NULL; cur = cur->next)
-	{
-		
 #if MAM_IF_NOISY_DEBUG2
-		strbuf_t sb; 
-		strbuf_init(&sb);
-		strbuf_printf(&sb, "\ncompairing the following addresses: __cur__ = {");			
-		strbuf_printf(&sb, "if_name = %s, ", cur->if_name);
-		_mam_print_prefix_list_flags(&sb, cur->pfx_flags);
-		strbuf_printf(&sb, "if_addrs = ");
-		_mam_print_sockaddr_list(&sb, cur->if_addrs);
-		strbuf_printf(&sb, "if_netmask = ");
-		_muacc_print_sockaddr(&sb, cur->if_netmask, cur->if_netmask_len);
-		strbuf_printf(&sb, "}, \n with parameters = {");
-		strbuf_printf(&sb, "if_name = %s, ", (if_name!=NULL)?if_name:"ANY");
-		strbuf_printf(&sb, "if_addrs = ");
-		if(addr != NULL) _muacc_print_sockaddr(&sb, addr, addr->sa_len); else strbuf_printf(&sb, "ANY ");
-		_mam_print_prefix_list_flags(&sb, flags);
-		strbuf_printf(&sb, "}\n");
-		printf("%s", strbuf_export(&sb));
-		strbuf_release(&sb);	
+	strbuf_t sb;
+	strbuf_init(&sb);
+	strbuf_printf(&sb, "\ncomparing __cur__ = \t{");
+	strbuf_printf(&sb, "if_name = %s, ", cur->if_name);
+	strbuf_printf(&sb, "if_addrs = ");
+	_mam_print_sockaddr_list(&sb, cur->if_addrs);
+	strbuf_printf(&sb, "if_netmask = ");
+	_muacc_print_sockaddr(&sb, cur->if_netmask, cur->if_netmask_len);
+	_mam_print_prefix_list_flags(&sb, cur->pfx_flags);
+	strbuf_printf(&sb, "}, \n with parameters = \t{");
+	strbuf_printf(&sb, "if_name = %s, ", (m->if_name!=NULL)?m->if_name:"ANY");
+	strbuf_printf(&sb, "if_addrs = \n\t\t");
+	if(m->addr != NULL) _muacc_print_sockaddr(&sb, m->addr, m->addr_len); else strbuf_printf(&sb, "ANY ");
+	_mam_print_prefix_list_flags(&sb, m->flags);
+	strbuf_printf(&sb, "}\n");
+	printf("%s", strbuf_export(&sb));
+	strbuf_release(&sb);
 #endif
-					
-		/* different interface or family */
-		if( ((cur->pfx_flags)^flags) & flags )
-			continue;
-		if(family != 0 && cur->family != family)
-			continue;
-		if(if_name != NULL && strcmp(cur->if_name, if_name) != 0)
-			continue;
-		if( addr == NULL ||
-			(family == AF_INET6 &&
-			_cmp_in6_addr_with_mask(
-				&(((struct sockaddr_in6 *) addr)->sin6_addr), 
-				&(((struct sockaddr_in6 *) cur->if_addrs->addr)->sin6_addr),
-				&(((struct sockaddr_in6 *) cur->if_netmask)->sin6_addr)) == 0
-			) || (
-			family == AF_INET &&
-			_cmp_in_addr_with_mask(
-				&(((struct sockaddr_in *) addr)->sin_addr),
-				&(((struct sockaddr_in *) cur->if_addrs->addr)->sin_addr),
-				&(((struct sockaddr_in *) cur->if_netmask)->sin_addr)) == 0
-			)
+
+	/* different interface or family */
+	if( ((cur->pfx_flags)^m->flags) & m->flags )
+		return 1;
+	if(m->family != 0 && cur->family != m->family)
+		return 1;
+	if(m->if_name != NULL && strcmp(cur->if_name, m->if_name) != 0)
+		return 1;
+	if( m->addr == NULL ||
+		(m->family == AF_INET6 &&
+		_cmp_in6_addr_with_mask(
+			&(((struct sockaddr_in6 *) m->addr)->sin6_addr),
+			&(((struct sockaddr_in6 *) cur->if_addrs->addr)->sin6_addr),
+			&(((struct sockaddr_in6 *) cur->if_netmask)->sin6_addr)) == 0
+		) || (
+		m->family == AF_INET &&
+		_cmp_in_addr_with_mask(
+			&(((struct sockaddr_in *) m->addr)->sin_addr),
+			&(((struct sockaddr_in *) cur->if_addrs->addr)->sin_addr),
+			&(((struct sockaddr_in *) cur->if_netmask)->sin_addr)) == 0
 		)
-		{
-			return cur;			
-		}
+	)
+	{
+		DLOG(MAM_IF_NOISY_DEBUG2, "Match!\n");
+		return 0;
 	}
-	return NULL;	
+	else
+		return 1;
 }
 
+void filter_prefix_list (GSList *old, GSList **new, unsigned int pfx_flags, const char *if_name, int family, const struct sockaddr *addr)
+{
+	/* Set criteria for matching addresses */
+	struct src_prefix_model m = { pfx_flags, if_name, family, addr };
+
+	/* Go through the prefix list */
+	while (old != NULL)
+	{
+		/* Find next element that matches our criteria */
+		old = g_slist_find_custom(old->next, (gconstpointer) &m, &compare_src_prefix);
+		if (old == NULL) break;
+
+		/* Append matching element to new list */
+		*new = g_slist_append(*new, old->data);
+	}
+}
 
 int _append_sockaddr_list (
 	struct sockaddr_list **dst,
@@ -151,15 +159,13 @@ int _append_sockaddr_list (
 	
 																																																	   
 void _scan_update_prefix (
-	struct src_prefix_list **spfxl,
+	GSList **spfxl,
 	char *if_name, unsigned int if_flags,
 	int family,
 	struct sockaddr *addr,
 	struct sockaddr *mask)
 {
-	struct src_prefix_list *cur;
-	struct src_prefix_list *last;
-	struct src_prefix_list *new;
+	GSList *cur = NULL;
 	size_t family_size = (family == AF_INET)  ? sizeof(struct sockaddr_in)  :
 	 					 (family == AF_INET6) ? sizeof(struct sockaddr_in6) :
 						 -1;
@@ -167,17 +173,22 @@ void _scan_update_prefix (
 	
 	
 	/* scan through prefixes */
-	cur = lookup_source_prefix (*spfxl,	PFX_ANY, if_name, family, addr);
+	struct src_prefix_model model = {PFX_ANY, if_name, family, addr, family_size};
+	cur = g_slist_find_custom(*spfxl, (gconstpointer) &model, &compare_src_prefix);
+
 	if (cur != NULL)
 	{
-		for(cus = cur->if_addrs; cus->next != NULL; cus = cus->next);; 
+		/* Prefix already exists within the list: append this address to its address list */
+
+		for(cus = ((struct src_prefix_list *)cur->data)->if_addrs; cus->next != NULL; cus = cus->next);; 
 		_append_sockaddr_list( &(cus->next), addr, family_size);
 		return;			
 	}
 	
-	/* we have a new prefix */
+	/* we have a new prefix: append it to the prefix list */
 	
 	/* allocate memory */
+	struct src_prefix_list *new = NULL;
 	new = malloc(sizeof(struct src_prefix_list));
 	if(new == NULL)
 		{ DLOG(1, "malloc failed"); return; } 
@@ -191,21 +202,15 @@ void _scan_update_prefix (
 	new->if_netmask = _muacc_clone_sockaddr(mask, family_size);
 	new->if_netmask_len = family_size;
 	
-	/* save new one */
-	if(*spfxl != NULL) 
-	{
-		for(last = *spfxl; last->next != NULL; last = last->next);; 
-		last->next = new;
-	}
-	else
-		*spfxl = new;
-	
+	/* append to list */
+	*spfxl = g_slist_append(*spfxl, (gpointer) new);
+
 	return;
 }
 
-int update_src_prefix_list (mam_context_t *ctx ){
-
-	struct src_prefix_list **spfxl = &(ctx->prefixes);
+int update_src_prefix_list (mam_context_t *ctx )
+{
+	GSList **spfxl = &ctx->prefixes;
     struct ifaddrs *ifaddr, *ifa;
     int family;
 
@@ -215,11 +220,8 @@ int update_src_prefix_list (mam_context_t *ctx ){
     }
 	
 	if(*spfxl != NULL) 
-	{
-		_free_src_prefix_list(*spfxl);
-		*spfxl = NULL;		
-	}
-	
+		g_slist_free_full(*spfxl, &_free_src_prefix_list);
+
     /* Walk through linked list, maintaining head pointer so we
        can free list later */
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) 
@@ -269,46 +271,38 @@ int update_src_prefix_list (mam_context_t *ctx ){
     return(0);
 }
 
-int _free_src_prefix_list (struct src_prefix_list *spfxl) 
+void _free_src_prefix_list (gpointer data)
 {
-	struct src_prefix_list *nextp = NULL;
-	struct src_prefix_list *currp = NULL;
-	struct sockaddr_list *nexta = NULL;
+	struct src_prefix_list *element = (struct src_prefix_list *) data;
+	struct sockaddr_list *addrlist = NULL;
 	struct sockaddr_list *curra = NULL;
 	
-	nextp = spfxl;
-	while (nextp != NULL)
+	if (element->if_name != NULL)
+		free(element->if_name);
+
+	addrlist = element->if_addrs;
+	while (addrlist != NULL)
 	{
-		currp = nextp;
-		nextp = currp->next;
+		curra = addrlist;
+		addrlist = curra->next;
 		
-		if (currp->if_name != NULL)		
-			free(currp->if_name);
+		if (curra->addr != NULL)
+			free(curra->addr);
 		
-		nexta = currp->if_addrs;
-		while (nexta != NULL)
-		{
-			curra = nexta;
-			nexta = curra->next;
-			
-			if (curra->addr != NULL)	
-				free(curra->addr);
-			
-			free(curra);
-		}
-		
-		if (currp->if_netmask != NULL)
-			free(currp->if_netmask);
-	
-		if(currp->evdns_base != NULL)
-			evdns_base_free(currp->evdns_base, 0);
-	
-		if(currp->policy_set_dict != NULL)
-			g_hash_table_destroy(currp->policy_set_dict);
-		
-		free(currp);
+		free(curra);
 	}
 	
-	return(0);
+	if (element->if_netmask != NULL)
+		free(element->if_netmask);
+
+	if(element->evdns_base != NULL)
+		evdns_base_free(element->evdns_base, 0);
+
+	if(element->policy_set_dict != NULL)
+		g_hash_table_destroy(element->policy_set_dict);
+
+	free(element);
+
+	return;
 }
 

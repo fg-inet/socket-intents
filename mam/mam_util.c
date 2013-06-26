@@ -57,14 +57,15 @@ void _mam_print_dict_kv (gpointer key,  gpointer val, gpointer sb)
 	strbuf_printf((strbuf_t *) sb, " %s -> %s", (char *) key, (char *) val);
 }
 
-void _mam_print_prefix_list(strbuf_t *sb, const struct src_prefix_list *prefixes)
+void _mam_print_prefix_list(strbuf_t *sb, GSList *prefixes)
 {
-	const struct src_prefix_list *current = prefixes;
+	GSList *p = prefixes;
 
 	strbuf_printf(sb, "{ ");
 
-	while (current != NULL)
+	while (p != NULL)
 	{
+		struct src_prefix_list *current = (struct src_prefix_list *) p->data;
 		strbuf_printf(sb, "\n\t{ ");
 		strbuf_printf(sb, " if_name = %s, ", current->if_name);
 		_mam_print_prefix_list_flags(sb, current->pfx_flags);
@@ -80,7 +81,7 @@ void _mam_print_prefix_list(strbuf_t *sb, const struct src_prefix_list *prefixes
 			strbuf_printf(sb, " }");
 		}
 		strbuf_printf(sb, " }, ");
-		current = current->next;
+		p = p->next;
 	}
 	strbuf_printf(sb, "NULL }");
 
@@ -143,7 +144,7 @@ int _mam_free_ctx(struct mam_context *ctx)
 		return -1;
 	}
 
-	_free_src_prefix_list(ctx->prefixes);
+	g_slist_free_full(ctx->prefixes, &_free_src_prefix_list);
 	free(ctx);
 
 	return 0;
