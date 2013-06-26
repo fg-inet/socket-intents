@@ -40,7 +40,7 @@ mamma_LDFLAGS = -export-dynamic
 
 policy_la_LDFLAGS = -module -avoid-version
 
-policy_sample_la_SOURCES = policies/policy_sample.c
+policy_sample_la_SOURCES = policies/policy_sample.c policies/policy_util.h policies/policy_util.c
 policy_sample_la_LDFLAGS = $(policy_la_LDFLAGS)
 
 policy_rr_naive_la_SOURCES = policies/policy_rr_naive.c

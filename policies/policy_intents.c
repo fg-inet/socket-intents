@@ -93,32 +93,47 @@ void freepolicyinfo(gpointer elem, gpointer data)
 
 
 /* Set the matching source address for a given category */
-void set_sa_for_category(GSList *spl, enum intent_category given, request_context_t *rctx, strbuf_t sb)
+void set_sa_for_category(request_context_t *rctx, enum intent_category given, strbuf_t sb)
 {
+	GSList *spl = NULL;
 	struct src_prefix_list *cur = NULL;
+	struct src_prefix_list *defaultaddr = NULL;
+
+	if (rctx->ctx->domain == AF_INET)
+		spl = in4_enabled;
+	else if (rctx->ctx->domain == AF_INET6)
+		spl = in6_enabled;
 
 	while (spl != NULL)
 	{
 		cur = spl->data;
-		enum intent_category cat = ((struct intents_info *)cur->policy_info)->category;
+		struct intents_info *info = cur->policy_info;
 
-		if (cat == given)
+		if (info->category == given)
 		{
 			/* Category matches. Set source address */
-			strbuf_printf(&sb, "\n\tSet src=");
-			_muacc_print_sockaddr(&sb, cur->if_addrs->addr, cur->if_addrs->addr_len);
-			strbuf_printf(&sb, " for category %s (%d)", ((struct intents_info *)cur->policy_info)->category_string, given);
-
-			rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(cur->if_addrs->addr, cur->if_addrs->addr_len);
-			rctx->ctx->bind_sa_suggested_len = cur->if_addrs->addr_len;
+			set_bind_sa(rctx, cur, &sb);
+			strbuf_printf(&sb, " for category %s (%d)", info->category_string, given);
 			break;
 		}
-		else
-			spl = spl->next;
+		if (info->is_default)
+		{
+			/* Configured as default. Store for fallback */
+			defaultaddr = cur;
+		}
+		spl = spl->next;
 	}
 
 	if (spl == NULL)
+	{
+		/* No suitable address for this category was found */
 		strbuf_printf(&sb, "\n\tDid not find a suitable src address for category %d", given);
+		if (defaultaddr != NULL)
+		{
+			set_bind_sa(rctx, defaultaddr, &sb);
+			strbuf_printf(&sb, " (default)");
+		}
+	}
 }
 
 int init(mam_context_t *mctx)
@@ -127,20 +142,7 @@ int init(mam_context_t *mctx)
 
 	g_slist_foreach(mctx->prefixes, &set_policy_info, NULL);
 
-	printf("Configured addresses:");
-	printf("\n\tAF_INET: ");
-	filter_prefix_list (mctx->prefixes, &in4_enabled, PFX_ENABLED, NULL, AF_INET, NULL);
-	if (in4_enabled != NULL)
-		g_slist_foreach(in4_enabled, &print_pfx_addr, NULL);
-	else
-		printf("\n\t\t(none)");
-
-	printf("\n\tAF_INET6: ");
-	filter_prefix_list (mctx->prefixes, &in6_enabled, PFX_ENABLED, NULL, AF_INET6, NULL);
-	if (in6_enabled != NULL)
-		g_slist_foreach(in6_enabled, &print_pfx_addr, NULL);
-	else
-		printf("\n\t\t(none)");
+	make_v4v6_enabled_lists (mctx->prefixes, &in4_enabled, &in6_enabled);
 
 	printf("\nPolicy module \"intents\" has been loaded.\n");
 
@@ -158,15 +160,13 @@ int cleanup(mam_context_t *mctx)
 
 int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
-	printf("\tResolve request: \n\n");
+	printf("\tResolve request: Not resolving\n\n");
 	_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
 	return 0;
 }
 
 int on_connect_request(request_context_t *rctx, struct event_base *base)
 {
-	sa_family_t family =  rctx->ctx->remote_sa->sa_family;
-
 	strbuf_t sb;
 	strbuf_init(&sb);
 	strbuf_printf(&sb, "\tConnect request: dest=");
@@ -189,12 +189,10 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	else
 	{
 		// search address to bind to
-		if (family == AF_INET && in4_enabled != NULL)
-			set_sa_for_category(in4_enabled, c, rctx, sb);
-		else if (family == AF_INET6 && in6_enabled != NULL)
-			set_sa_for_category(in6_enabled, c, rctx, sb);
+		set_sa_for_category(rctx, c, sb);
 	}
 
+	// send response
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
 	printf("%s\n\n", strbuf_export(&sb));
 	strbuf_release(&sb);
