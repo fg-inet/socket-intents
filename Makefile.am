@@ -14,7 +14,7 @@ include_HEADERS = lib/intents.h
 lib_LTLIBRARIES = libmuacc_client.la
 noinst_LIBRARIES = libmuacc.a
 bin_PROGRAMS = mamma muacsocksd addrinfo
-pkglib_LTLIBRARIES = policy_sample.la policy_intents.la policy_filesize.la #policy_rr_naive.la
+pkglib_LTLIBRARIES = policy_sample.la policy_intents.la policy_filesize.la policy_rr_naive.la
 
 mammaconfdir=$(sysconfdir)/mamma
 mammaconf_DATA = mamma-rr-naive.conf mamma-sample.conf
@@ -43,7 +43,7 @@ policy_la_LDFLAGS = -module -avoid-version
 policy_sample_la_SOURCES = policies/policy_sample.c policies/policy_util.h policies/policy_util.c
 policy_sample_la_LDFLAGS = $(policy_la_LDFLAGS)
 
-policy_rr_naive_la_SOURCES = policies/policy_rr_naive.c
+policy_rr_naive_la_SOURCES = policies/policy_rr_naive.c policies/policy_util.h policies/policy_util.c
 policy_rr_naive_la_LDFLAGS = $(policy_la_LDFLAGS)
 
 policy_filesize_la_SOURCES = policies/policy_filesize.c policies/policy_util.h policies/policy_util.c

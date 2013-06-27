@@ -45,7 +45,7 @@ void set_policy_info(gpointer elem, gpointer data)
 		if (((value = g_hash_table_lookup(spl->policy_set_dict, "default")) != NULL) && value)
             new->is_default = 1;
 	}
-	
+
 	spl->policy_info = (void *) new;
 }
 
