@@ -3,14 +3,8 @@
 #define on_resolve_request policy_intents_LTX_on_resolve_request
 #define on_connect_request policy_intents_LTX_on_connect_request
 
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "policy.h"
 #include "policy_util.h"
-#include "../lib/muacc_util.h"
-
-#include "../lib/intents.h"
 
 /* policy-specific data structure */
 struct intents_info {
@@ -95,39 +89,40 @@ void freepolicyinfo(gpointer elem, gpointer data)
 /* Set the matching source address for a given category */
 void set_sa_for_category(request_context_t *rctx, enum intent_category given, strbuf_t sb)
 {
-	GSList *spl = NULL;
-	struct src_prefix_list *cur = NULL;
+	GSList *elem = NULL;
+	struct src_prefix_list *spl = NULL;
 	struct src_prefix_list *defaultaddr = NULL;
 
 	if (rctx->ctx->domain == AF_INET)
-		spl = in4_enabled;
+		elem = in4_enabled;
 	else if (rctx->ctx->domain == AF_INET6)
-		spl = in6_enabled;
+		elem = in6_enabled;
 
-	while (spl != NULL)
+	while (elem != NULL)
 	{
-		cur = spl->data;
-		struct intents_info *info = cur->policy_info;
+		spl = elem->data;
+		struct intents_info *info = spl->policy_info;
 
 		if (info->category == given)
 		{
 			/* Category matches. Set source address */
-			set_bind_sa(rctx, cur, &sb);
+			set_bind_sa(rctx, spl, &sb);
 			strbuf_printf(&sb, " for category %s (%d)", info->category_string, given);
 			break;
 		}
 		if (info->is_default)
 		{
 			/* Configured as default. Store for fallback */
-			defaultaddr = cur;
+			defaultaddr = spl;
 		}
-		spl = spl->next;
+		elem = elem->next;
 	}
 
-	if (spl == NULL)
+	if (elem == NULL)
 	{
 		/* No suitable address for this category was found */
-		strbuf_printf(&sb, "\n\tDid not find a suitable src address for category %d", given);
+		if (given >= 0 && given <= INTENT_STREAM)
+			strbuf_printf(&sb, "\n\tDid not find a suitable src address for category %d", given);
 		if (defaultaddr != NULL)
 		{
 			set_bind_sa(rctx, defaultaddr, &sb);
@@ -138,7 +133,7 @@ void set_sa_for_category(request_context_t *rctx, enum intent_category given, st
 
 int init(mam_context_t *mctx)
 {
-	printf("Policy module \"intents\" is loading.\n");
+	printf("\nPolicy module \"intents\" is loading.\n");
 
 	g_slist_foreach(mctx->prefixes, &set_policy_info, NULL);
 
@@ -154,7 +149,7 @@ int cleanup(mam_context_t *mctx)
 	g_slist_free(in4_enabled);
 	g_slist_free(in6_enabled);
 	g_slist_foreach(mctx->prefixes, &freepolicyinfo, NULL);
-	printf("Policy module \"intents\" cleaned up.\n");
+	printf("\nPolicy module \"intents\" cleaned up.\n");
 	return 0;
 }
 
@@ -178,7 +173,8 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	if (0 != mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_CATEGORY, &option_length, &c))
 	{
 		// no category given
-		strbuf_printf(&sb, "\n\tNo category intent given - Policy does not apply.");
+		strbuf_printf(&sb, "\n\tNo category intent given - Setting default if applicable.");
+		set_sa_for_category(rctx, -1, sb);
 	}
 	else if(rctx->ctx->bind_sa_req != NULL)
 	{	// already bound

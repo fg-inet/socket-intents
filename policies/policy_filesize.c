@@ -5,180 +5,109 @@
 
 #include "policy.h"
 #include "policy_util.h"
-#include "../lib/muacc_util.h"
-#include "../lib/intents.h"
 
-#include <arpa/inet.h>
-
-/* List of sockaddrs that also contains their associated filesize policies */
-struct sa_fs {
-	struct sa_fs			*next;
-	struct sockaddr_list	*addr_list;
-	socklen_t				addr_len;
-	int						maxfilesize;
-	int						minfilesize;
+/* Per-prefix info about filesize range */
+struct filesize_info {
+	int 		minfilesize;
+	int			maxfilesize;
+	int			is_default;
 };
 
-struct sa_fs *in4_fs_list = NULL; /* list of ipv4 addresses */
-struct sa_fs *in6_fs_list = NULL; /* list of ipv6 addresses */
-struct sockaddr_list *default4 = NULL;
-struct sockaddr_list *default6 = NULL;
+GSList *in4_enabled = NULL;
+GSList *in6_enabled = NULL;
 
 char addr_str[INET6_ADDRSTRLEN];	/** string for debug / error printing */
 
-void setfilesize(struct src_prefix_list *spl, struct sa_fs *csa)
+void print_policy_info(void *policy_info)
 {
-	csa->minfilesize = 0;
-	csa->maxfilesize = INT_MAX;
-	gpointer value = NULL;
-	if ((value = g_hash_table_lookup(spl->policy_set_dict, "minfilesize")) != NULL)
-	{
-		csa->minfilesize = *((int *) value);
-	}
-	if ((value = g_hash_table_lookup(spl->policy_set_dict, "maxfilesize")) != NULL)
-	{
-		csa->maxfilesize = *((int *) value);
-	}
-	if (((value = g_hash_table_lookup(spl->policy_set_dict, "default")) != NULL) && value)
-	{
-		if (csa->addr_list->addr->sa_family == AF_INET && default4 == NULL)
-		{
-			default4 = malloc(sizeof(struct sockaddr_list));
-			memset(default4, 0, sizeof(struct sockaddr_list));
-			default4->addr = _muacc_clone_sockaddr(csa->addr_list->addr, csa->addr_list->addr_len);
-			default4->addr_len = csa->addr_list->addr_len;
-		}
-		if (csa->addr_list->addr->sa_family == AF_INET6 && default6 == NULL)
-		{
-			default6 = malloc(sizeof(struct sockaddr_list));
-			memset(default6, 0, sizeof(struct sockaddr_list));
-			default6->addr = _muacc_clone_sockaddr(csa->addr_list->addr, csa->addr_list->addr_len);
-			default6->addr_len = csa->addr_list->addr_len;
-		}
-	}
+	struct filesize_info *info = policy_info;
+	printf("\t(for filesize %6d =< n =< %6d)", info->minfilesize, info->maxfilesize);
+	if (info->is_default)
+		printf(" (default)");
 }
 
-void set_default_sa(sa_family_t family, strbuf_t sb, request_context_t *rctx)
+void set_policy_info(gpointer elem, gpointer data)
 {
-	if (family == AF_INET && default4 != NULL)
-	{
-		strbuf_printf(&sb, "\n\t\tSet src=");
-		_muacc_print_sockaddr(&sb, default4->addr, default4->addr_len);
-		strbuf_printf(&sb, " (default)");
+	struct src_prefix_list *spl = elem;
 
-		rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(default4->addr, default4->addr_len);
-		rctx->ctx->bind_sa_suggested_len = default4->addr_len;
-	}
-	else if (family == AF_INET6 && default6 != NULL)
-	{
-		strbuf_printf(&sb, "\n\t\tSet src=");
-		_muacc_print_sockaddr(&sb, default6->addr, default6->addr_len);
-		strbuf_printf(&sb, " (default)");
+	struct filesize_info *new = malloc(sizeof(struct filesize_info));
+	memset(new, 0, sizeof(struct filesize_info));
+	new->maxfilesize = INT_MAX;
 
-		rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(default6->addr, default6->addr_len);
-		rctx->ctx->bind_sa_suggested_len = default6->addr_len;
-	}
-	else
+	if (spl->policy_set_dict != NULL)
 	{
-		strbuf_printf(&sb, "\n\t\tCannot set source address (no filesize and/or defaults given)");
+		/* Set filesize from config file */
+		gpointer value = NULL;
+		if ((value = g_hash_table_lookup(spl->policy_set_dict, "minfilesize")) != NULL)
+			new->minfilesize = *(int *) value;
+		if ((value = g_hash_table_lookup(spl->policy_set_dict, "maxfilesize")) != NULL)
+			new->maxfilesize = *(int *) value;
+		if (((value = g_hash_table_lookup(spl->policy_set_dict, "default")) != NULL) && value)
+            new->is_default = 1;
 	}
-
+	
+	spl->policy_info = (void *) new;
 }
 
-void set_sa_for_fs(struct sa_fs *list, int filesize, strbuf_t sb, request_context_t *rctx)
+void freepolicyinfo(gpointer elem, gpointer data)
 {
-	struct sa_fs *current = list;
+	struct src_prefix_list *spl = elem;
 
-	while (current != NULL)
+	if(spl->policy_info != NULL)
+		free(spl->policy_info);
+}
+
+void set_sa_for_filesize(request_context_t *rctx, int filesize, strbuf_t sb)
+{
+	GSList *elem = NULL;
+	struct src_prefix_list *spl = NULL;
+	struct src_prefix_list *defaultaddr = NULL;
+
+	if (rctx->ctx->domain == AF_INET)
+		elem = in4_enabled;
+	else if (rctx->ctx->domain == AF_INET6)
+		elem = in6_enabled;
+
+	while (elem != NULL)
 	{
-		if (current->minfilesize <= filesize && current->maxfilesize >= filesize)
+		spl = elem->data;
+		struct filesize_info *info = spl->policy_info;
+
+		if (info->minfilesize <= filesize && info->maxfilesize >= filesize)
+		{
+			/* Filesizes falls within this prefixes' configuration: Set source address */
+			set_bind_sa(rctx, spl, &sb);
+			strbuf_printf(&sb, " for filesize %d", filesize);
 			break;
-		current = current->next;
+		}
+		if (info->is_default)
+		{
+			/* This prefix is default. Store it for eventual fallback. */
+			defaultaddr = spl;
+		}
+		elem = elem->next;
 	}
 
-	if (current != NULL)
+	if (elem == NULL)
 	{
-		strbuf_printf(&sb, "\n\t\tSet src=");
-		_muacc_print_sockaddr(&sb, current->addr_list->addr, current->addr_list->addr_len);
-		strbuf_printf(&sb, " for filesize %d", filesize);
-
-		rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(current->addr_list->addr, current->addr_list->addr_len);
-		rctx->ctx->bind_sa_suggested_len = current->addr_list->addr_len;
-	}
-	else
-	{
-		strbuf_printf(&sb, "\n\t\tCannot find suitable address for filesize %d", filesize);
-		set_default_sa(list->addr_list->addr->sa_family, sb, rctx);
+		if (filesize > 0)
+			strbuf_printf(&sb, "\n\tCould not find suitable address for filesize %d", filesize);
+		if (defaultaddr != NULL)
+		{
+			set_bind_sa(rctx, defaultaddr, &sb);
+			strbuf_printf(&sb, " (default)");
+		}
 	}
 }
-
 
 int init(mam_context_t *mctx)
 {
-	struct sa_fs **csa;
-	struct sa_fs *prevsa = NULL;
-	struct sa_fs *newsa = NULL;
+	printf("\nPolicy module \"filesize\" is loading.\n");
 
-	printf("Policy module \"filesize\" is loading.\n");
-	printf("Building socket address lists with filesize policies: ");
+	g_slist_foreach(mctx->prefixes, &set_policy_info, NULL);
 
-	printf("\n\tAF_INET( ");
-	csa = &in4_fs_list;
+	make_v4v6_enabled_lists (mctx->prefixes, &in4_enabled, &in6_enabled);
 
-	for(struct src_prefix_list *spl = mctx->prefixes; spl != NULL; spl = spl->next)
-	{
-		spl = lookup_source_prefix( spl, PFX_ENABLED, NULL, AF_INET, NULL );
-		if (spl == NULL) break;
-
-		newsa = malloc(sizeof (struct sa_fs));
-		memset(newsa, 0, sizeof(struct sa_fs));
-		if (prevsa != NULL)
-			prevsa->next = newsa;
-		else
-			(*csa) = newsa;
-
-		newsa->addr_len = spl->if_addrs->addr_len;
-		newsa->addr_list = spl->if_addrs;
-		setfilesize(spl, newsa);
-
-		inet_ntop(AF_INET, &( ((struct sockaddr_in *) (newsa->addr_list->addr))->sin_addr ), addr_str, sizeof(struct sockaddr_in));
-		printf("\n\t\t%s\t(for filesize %4d =< n =< %6d)", addr_str, newsa->minfilesize, newsa->maxfilesize);
-		if (default4 != NULL && (0 == memcmp(default4->addr, newsa->addr_list->addr, sizeof(struct sockaddr))))
-			printf(" (default)");
-
-		newsa->next = NULL;
-		prevsa = newsa;
-	}
-	printf(") ");
-
-	printf("\n\tAF_INET6 ( ");
-	prevsa = NULL;
-	csa = &in6_fs_list;
-	for(struct src_prefix_list *spl = mctx->prefixes; spl != NULL; spl = spl->next)
-	{
-		spl = lookup_source_prefix( spl, PFX_ENABLED, NULL, AF_INET6, NULL );
-		if (spl == NULL) break;
-
-		newsa = malloc(sizeof (struct sockaddr_list));
-		memset(newsa, 0, sizeof(struct sa_fs));
-		if (prevsa != NULL)
-			prevsa->next = *csa;
-		else
-			(*csa) = newsa;
-
-		newsa->addr_len = spl->if_addrs->addr_len;
-		newsa->addr_list = spl->if_addrs;
-		setfilesize(spl, newsa);
-
-		inet_ntop(AF_INET6, &( ((struct sockaddr_in6 *) (newsa->addr_list->addr))->sin6_addr ), addr_str, sizeof(struct sockaddr_in6));
-		printf("\n\t\t%s\t(for filesize %4d =< n =< %6d)", addr_str, newsa->minfilesize, newsa->maxfilesize);
-		if (default6 == newsa->addr_list)
-			printf(" (default)");
-
-		newsa->next = NULL;
-		prevsa = newsa;
-	}
-	printf(") ");
 	printf("\nPolicy module \"filesize\" has been loaded.\n");
 
 	return 0;
@@ -186,32 +115,34 @@ int init(mam_context_t *mctx)
 
 int cleanup(mam_context_t *mctx)
 {
-	printf("Policy module \"filesize\" cleaned up.\n");
+	g_slist_free(in4_enabled);
+	g_slist_free(in6_enabled);
+	g_slist_foreach(mctx->prefixes, &freepolicyinfo, NULL);
+	printf("\nPolicy module \"filesize\" cleaned up.\n");
 	return 0;
 }
 
 int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
-	printf("Resolve request: just replaying\n");
+	printf("\tResolve request: Not resolving\n\n");
 	_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
 	return 0;
 }
 
 int on_connect_request(request_context_t *rctx, struct event_base *base)
 {
-	sa_family_t family =  rctx->ctx->remote_sa->sa_family;
-
 	strbuf_t sb;
 	strbuf_init(&sb);
-	strbuf_printf(&sb, "\t\tConnect request: dest=");
+	strbuf_printf(&sb, "\tConnect request: dest=");
 	_muacc_print_sockaddr(&sb, rctx->ctx->remote_sa, rctx->ctx->remote_sa_len);
 
 	int fs = 0;
 	socklen_t fslen = sizeof(int);
 	if (mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_FILESIZE, &fslen, &fs) != 0)
 	{
-		// no filesize given
-		set_default_sa(family, sb, rctx);
+		// no filesize given - Setting default address
+		strbuf_printf(&sb, "\n\tNo filesize intent given - Using default if applicable.");
+		set_sa_for_filesize(rctx, -1, sb);
 	}
 	else if(rctx->ctx->bind_sa_req != NULL)
 	{	// already bound
@@ -221,22 +152,11 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 
 	else
 	{
-		if(family == AF_INET && in4_fs_list != NULL)
-		{	// search address to bind to
-			set_sa_for_fs(in4_fs_list, fs, sb, rctx);
-		}
-		else if(family == AF_INET6 && in6_fs_list != NULL)
-		{	// search address to bind to
-			set_sa_for_fs(in6_fs_list, fs, sb, rctx);
-		}
-		else
-		{	// failed
-			strbuf_printf(&sb, "\n\t\tCannot provide src address");
-		}
+		set_sa_for_filesize(rctx, fs, sb);
 	}
 
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
-	printf("%s\n", strbuf_export(&sb));
+	printf("%s\n\n", strbuf_export(&sb));
 	strbuf_release(&sb);
 	return 0;
 }

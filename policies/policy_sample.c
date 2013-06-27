@@ -51,6 +51,14 @@ void print_policy_info(void *policy_info)
 		printf(" (default)");
 }
 
+void freepolicyinfo(gpointer elem, gpointer data)
+{
+	struct src_prefix_list *spl = elem;
+
+	if (spl->policy_info != NULL)
+		free(spl->policy_info);
+}
+
 /** Helper to set the source address to the default interface,
  *  if any exists for the requested address family
  */
@@ -98,9 +106,14 @@ int init(mam_context_t *mctx)
 
 /** Cleanup function (mandatory)
  *  Is called once the policy is torn down, e.g. if MAM is terminates
+ *  Tear down lists of candidate addresses (no deep free) and policy infos
  */
 int cleanup(mam_context_t *mctx)
 {
+	g_slist_free(in4_enabled);
+	g_slist_free(in6_enabled);
+	g_slist_foreach(mctx->prefixes, &freepolicyinfo, NULL);
+
 	printf("Policy sample library cleaned up.\n");
 	return 0;
 }
