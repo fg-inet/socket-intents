@@ -57,6 +57,8 @@ void freepolicyinfo(gpointer elem, gpointer data)
 
 	if (spl->policy_info != NULL)
 		free(spl->policy_info);
+
+	spl->policy_info = NULL;
 }
 
 /** Helper to set the source address to the default interface,
@@ -191,8 +193,18 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	strbuf_printf(&sb, "\tConnect request: dest=");
 	_muacc_print_sockaddr(&sb, rctx->ctx->remote_sa, rctx->ctx->remote_sa_len);
 
-	set_sa_if_default(rctx, sb);
+	if(rctx->ctx->bind_sa_req != NULL)
+	{	// already bound
+		strbuf_printf(&sb, "\tAlready bound to src=");
+		_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
+	}
+	else
+	{
+		// search address to bind to
+		set_sa_if_default(rctx, sb);
+	}
 
+	// send response back
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
 	mam_release_request_context(rctx);
     printf("%s\n\n", strbuf_export(&sb));
