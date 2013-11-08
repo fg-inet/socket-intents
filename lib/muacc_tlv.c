@@ -406,7 +406,7 @@ size_t _muacc_extract_socketopt_tlv( const char *data, size_t data_len, struct s
 			memcpy(so->optval, (void *) (data + data_pos), so->optlen );
 			data_pos += so->optlen;
 
-			DLOG(MUACC_TLV_NOISY_DEBUG2, "copied %zd bytes of data to %p\n", so->optlen, (void *) so->optval);
+			DLOG(MUACC_TLV_NOISY_DEBUG2, "copied %u bytes of data to %p\n", so->optlen, (void *) so->optval);
 		}
 
 		/* weave pointer magic */
