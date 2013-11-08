@@ -44,7 +44,7 @@
 
 
 /** check whether two ipv4 addresses are in the same subnet */
-int _cmp_in_addr_with_mask(
+static int _cmp_in_addr_with_mask(
 	struct in_addr *a,		
 	struct in_addr *b,
 	struct in_addr *mask	/**< the subnet mask */
@@ -53,7 +53,7 @@ int _cmp_in_addr_with_mask(
 }
 
 /** check whether two ipv6 addresses are in the same subnet */
-int _cmp_in6_addr_with_mask(
+static int _cmp_in6_addr_with_mask(
 	struct in6_addr *a,		
 	struct in6_addr *b,
 	struct in6_addr *mask	/**< the subnet mask */
@@ -142,7 +142,7 @@ void filter_prefix_list (GSList *old, GSList **new, unsigned int pfx_flags, cons
 	}
 }
 
-int _append_sockaddr_list (
+static int _append_sockaddr_list (
 	struct sockaddr_list **dst,
     struct sockaddr *addr, 
 	socklen_t addr_len )
@@ -156,7 +156,7 @@ int _append_sockaddr_list (
 }
 	
 																																																	   
-void _scan_update_prefix (
+static void _scan_update_prefix (
 	GSList **spfxl,
 	char *if_name, unsigned int if_flags,
 	int family,

@@ -66,7 +66,7 @@ union s5_inputbuffer
 } __attribute__((__packed__));
 
 
-int s5_replay(int fd, u_int8_t response, const struct sockaddr *addr)
+static int s5_replay(int fd, u_int8_t response, const struct sockaddr *addr)
 {
 	union s5_inputbuffer s5_iobuffer = {{0}};
 	int rlen = sizeof(s5_iobuffer);
@@ -113,7 +113,7 @@ int s5_replay(int fd, u_int8_t response, const struct sockaddr *addr)
   return resp;
 }
 
-int s2s_forward(int fda, int fdb)
+static int s2s_forward(int fda, int fdb)
 {
 	int ret;
 	fd_set read_fds;
@@ -192,7 +192,7 @@ int s2s_forward(int fda, int fdb)
 	
 }
 
-void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, struct sockaddr *local_in, socklen_t local_in_len)
+static void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_len, struct sockaddr *local_in, socklen_t local_in_len)
 {
 	int fd2;
     int flags = 0;
@@ -484,7 +484,7 @@ do_socks_closed:
 	close(fd);
 }
 
-int do_accept(int listener)
+static int do_accept(int listener)
 {
     struct sockaddr_storage sa = {0};
 	socklen_t salen = sizeof(sa);	

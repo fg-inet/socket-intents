@@ -57,7 +57,7 @@ void freepolicyinfo(gpointer elem, gpointer data)
 		free(spl->policy_info);
 }
 
-void set_sa_for_filesize(request_context_t *rctx, int filesize, strbuf_t sb)
+static void set_sa_for_filesize(request_context_t *rctx, int filesize, strbuf_t sb)
 {
 	GSList *elem = NULL;
 	struct src_prefix_list *spl = NULL;

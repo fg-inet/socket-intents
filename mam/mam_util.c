@@ -52,7 +52,7 @@ void _mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags)
 	strbuf_printf(sb, "\n");
 }
 
-void _mam_print_dict_kv (gpointer key,  gpointer val, gpointer sb)
+static void _mam_print_dict_kv (gpointer key,  gpointer val, gpointer sb)
 {
 	strbuf_printf((strbuf_t *) sb, " %s -> %s", (char *) key, (char *) val);
 }

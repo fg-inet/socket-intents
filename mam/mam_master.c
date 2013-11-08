@@ -32,7 +32,7 @@
 struct mam_context *global_mctx = NULL;
 int config_fd = -1;
 
-void process_mam_request(struct request_context *ctx)
+static void process_mam_request(struct request_context *ctx)
 {
 	int (*callback_function)(request_context_t *ctx, struct event_base *base) = NULL;
 	int ret;
@@ -90,7 +90,7 @@ void process_mam_request(struct request_context *ctx)
 /** read next tlvs on one of mam's client sockets
  *
  */
-void mamsock_readcb(struct bufferevent *bev, void *prctx)
+static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 {
 	struct request_context **rctx = (struct request_context **) prctx;
 
@@ -124,7 +124,7 @@ void mamsock_readcb(struct bufferevent *bev, void *prctx)
 /** handle errors on one of mam's client sockets
  *
  */
-void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
+static void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
 {
 	struct request_context **rctx = (struct request_context **) ctx;
 
@@ -146,7 +146,7 @@ void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
 /** accept new clients of mam
  *
  */
-void do_accept(evutil_socket_t listener, short event, void *arg)
+static void do_accept(evutil_socket_t listener, short event, void *arg)
 {
     mam_context_t *mctx = arg;
     struct sockaddr_storage ss;
@@ -179,7 +179,7 @@ void do_accept(evutil_socket_t listener, short event, void *arg)
 }
 
 
-int do_listen(mam_context_t *ctx, evutil_socket_t listener, struct sockaddr *sin, size_t sin_z)
+static int do_listen(mam_context_t *ctx, evutil_socket_t listener, struct sockaddr *sin, size_t sin_z)
 {
     struct event *listener_event;
 
@@ -206,7 +206,7 @@ int do_listen(mam_context_t *ctx, evutil_socket_t listener, struct sockaddr *sin
  *  load the policy module from a file given by filename
  *  and call its init() function
  */
-int setup_policy_module(mam_context_t *ctx, const char *filename)
+static int setup_policy_module(mam_context_t *ctx, const char *filename)
 {
 	DLOG(MAM_MASTER_NOISY_DEBUG2, "setting up policy module %s \n", filename);
 
@@ -253,7 +253,7 @@ int setup_policy_module(mam_context_t *ctx, const char *filename)
 
 /** call policy cleanup callback and trash pointer
   */
-int cleanup_policy_module(mam_context_t *ctx) {
+static int cleanup_policy_module(mam_context_t *ctx) {
 	
 	int ret;
 	int (*cleanup_function)() = NULL;
@@ -282,7 +282,7 @@ int cleanup_policy_module(mam_context_t *ctx) {
 
 /** read config an (re)load policy module
  */
-void configure_mamma() {
+static void configure_mamma() {
 	
 	char *policy_filename = NULL;
 	

@@ -238,7 +238,7 @@ void _muacc_print_addrinfo(strbuf_t *sb, const struct addrinfo *addr)
 
 }
 
-char *_muacc_get_socket_level (int level)
+static char *_muacc_get_socket_level (int level)
 {
 	struct protoent *p;
 

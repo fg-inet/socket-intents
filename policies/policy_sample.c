@@ -64,7 +64,7 @@ void freepolicyinfo(gpointer elem, gpointer data)
 /** Helper to set the source address to the default interface,
  *  if any exists for the requested address family
  */
-void set_sa_if_default(request_context_t *rctx, strbuf_t sb)
+static void set_sa_if_default(request_context_t *rctx, strbuf_t sb)
 {
 	GSList *spl = NULL;
 	struct src_prefix_list *cur = NULL;
@@ -124,7 +124,7 @@ int cleanup(mam_context_t *mctx)
  *  Invoked once a response to the resolver query has been received
  *  Sends back a reply to the client with the received answer
  */
-void resolve_request_result(int errcode, struct evutil_addrinfo *addr, void *ptr) 
+static void resolve_request_result(int errcode, struct evutil_addrinfo *addr, void *ptr)
 {
 	
 	request_context_t *rctx = ptr;
