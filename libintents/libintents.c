@@ -25,7 +25,6 @@
 #include <netdb.h>
 #include <errno.h>
 
-#include "../config.h"
 #include "../clib/muacc.h"
 #include "../clib/dlog.h"
 
