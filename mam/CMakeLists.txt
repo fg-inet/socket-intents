@@ -48,3 +48,8 @@ LEX_FILE(mam_configs.l)
 
 ADD_EXECUTABLE(mam mam_configp.c mam_configs.c mam_ctx.c mam_iface.c  mam_util.c mam_master.c)
 TARGET_LINK_LIBRARIES(mam muacc y ltdl ${LIBEVENT_LIBRARIES} ${GLIB2_LIBRARIES})
+
+INSTALL(TARGETS mam
+    LIBRARY DESTINATION lib
+    RUNTIME DESTINATION bin
+)
