@@ -8,8 +8,6 @@
 #include <netdb.h>
 #include <errno.h>
 
-#include "../config.h"
-
 #include "../lib/dlog.h"
 
 #include "muacc_client_util.h"

@@ -6,8 +6,6 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 
-#include "../config.h"
-
 #include "../lib/dlog.h"
 
 #ifdef USE_SO_INTENTS

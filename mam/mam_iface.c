@@ -23,8 +23,6 @@
 #include <net/route.h>
 #include <netinet/if_ether.h>
 
-#include "../config.h"
-
 #include "mam.h"
 #include "mam_util.h"
 

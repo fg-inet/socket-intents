@@ -6,8 +6,6 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 
-#include "../config.h"
-
 #include "dlog.h"
 
 #include "muacc_ctx.h"

@@ -7,8 +7,6 @@
 #include <signal.h>
 #include <sys/un.h>
 
-#include "../config.h"
-
 #include "mam.h"
 #include "../lib/muacc.h"
 #include "../lib/muacc_ctx.h"

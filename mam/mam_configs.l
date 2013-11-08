@@ -4,7 +4,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "mam_configp.h"
-#include "../config.h"
 
 %}
 
