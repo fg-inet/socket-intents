@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 
 PROJECT(muacc C)
 ADD_DEFINITIONS(-Os -Wall --std=gnu99 -g3 -Wmissing-declarations)
-ADD_DEFINITIONS(-DGNU_SOURCE)
+ADD_DEFINITIONS(-D_GNU_SOURCE)
 
 ADD_DEFINITIONS(-DMUACC_SOCKET="/tmp/muacc")
 # AM_CFLAGS = -fPIC -g --pedantic -Wall -std=c99 -O0 -D_GNU_SOURCE
