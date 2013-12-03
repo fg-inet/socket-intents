@@ -25,8 +25,8 @@
 #include <netdb.h>
 #include <errno.h>
 
-#include "../clib/muacc.h"
-#include "../clib/dlog.h"
+#include "clib/muacc.h"
+#include "clib/dlog.h"
 
 #ifndef LIBINTENTS_NOISY_DEBUG0
 #define LIBINTENTS_NOISY_DEBUG0 1

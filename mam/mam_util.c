@@ -3,13 +3,13 @@
 #include <ltdl.h>
 #include <assert.h>
 
-#include "mam_util.h"
+#include "lib/muacc_util.h"
+#include "lib/muacc_tlv.h"
+#include "lib/muacc_ctx.h"
+#include "lib/dlog.h"
+#include "lib/strbuf.h"
 
-#include "../lib/muacc_util.h"
-#include "../lib/muacc_tlv.h"
-#include "../lib/muacc_ctx.h"
-#include "../lib/dlog.h"
-#include "../lib/strbuf.h"
+#include "mam_util.h"
 
 #ifndef MAM_UTIL_NOISY_DEBUG0
 #define MAM_UTIL_NOISY_DEBUG0 0

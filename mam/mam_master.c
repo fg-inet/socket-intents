@@ -3,16 +3,15 @@
  *
  */
 
-
 #include <signal.h>
 #include <sys/un.h>
 
-#include "mam.h"
-#include "../lib/muacc.h"
-#include "../lib/muacc_ctx.h"
-#include "../lib/muacc_tlv.h"
+#include "lib/muacc.h"
+#include "lib/muacc_ctx.h"
+#include "lib/muacc_tlv.h"
 
 #include "mam_configp.h"
+#include "mam.h"
 
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))
 #define MAX_BUF 0

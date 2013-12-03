@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#include "../lib/muacc.h"
+#include "lib/muacc.h"
 
 #ifndef __MUACC_CLIENT_H__
 #define __MUACC_CLIENT_H__

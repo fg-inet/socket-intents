@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "../lib/dlog.h"
-#include "../lib/strbuf.h"
-#include "../lib/muacc_util.h"
-#include "../lib/muacc_ctx.h"
+#include "lib/dlog.h"
+#include "lib/strbuf.h"
+#include "lib/muacc_util.h"
+#include "lib/muacc_ctx.h"
 
 #include "mam.h"
 #include "mam_util.h"

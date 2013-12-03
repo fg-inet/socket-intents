@@ -8,13 +8,12 @@
 #include <netdb.h>
 #include <errno.h>
 
-#include "../lib/dlog.h"
+#include "lib/dlog.h"
+#include "lib/muacc_ctx.h"
+#include "lib/muacc_tlv.h"
+#include "lib/muacc_util.h"
 
 #include "muacc_client_util.h"
-
-#include "../lib/muacc_ctx.h"
-#include "../lib/muacc_tlv.h"
-#include "../lib/muacc_util.h"
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG0
 #define MUACC_CLIENT_UTIL_NOISY_DEBUG0 0

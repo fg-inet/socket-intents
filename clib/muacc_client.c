@@ -6,15 +6,15 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 
-#include "../lib/dlog.h"
+#include "lib/dlog.h"
 
 #ifdef USE_SO_INTENTS
-#include "../lib/intents.h"
+#include "lib/intents.h"
 #endif
 
-#include "muacc_client_util.h"
+#include "lib/muacc_util.h"
 
-#include "../lib/muacc_util.h"
+#include "muacc_client_util.h"
 
 #ifndef CLIB_IF_NOISY_DEBUG0
 #define CLIB_IF_NOISY_DEBUG0 1

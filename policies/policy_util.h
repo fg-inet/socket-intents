@@ -2,8 +2,8 @@
  *  \brief Utilities for writing MAM policies
  */
 
-#include "../mam/mam.h"
-#include "../lib/muacc_util.h"
+#include "mam/mam.h"
+#include "lib/muacc_util.h"
 #include "policy.h"
 
 /** Look up a socket option in a list of socketopts, copy its value into optval

@@ -9,7 +9,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
-#include "../clib/muacc_client.h"
+
+#include "clib/muacc_client.h"
 
 #define SOCKSD_NOISY_DEBUG 1
 

@@ -23,12 +23,11 @@
 #include <net/route.h>
 #include <netinet/if_ether.h>
 
+#include "lib/dlog.h"
+#include "lib/muacc_util.h"
+
 #include "mam.h"
 #include "mam_util.h"
-
-#include "../lib/dlog.h"
-#include "../lib/muacc_util.h"
-
 
 #ifndef MAM_IF_NOISY_DEBUG0
 #define MAM_IF_NOISY_DEBUG0 0

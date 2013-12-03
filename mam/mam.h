@@ -21,7 +21,7 @@
 #include <ltdl.h>
 #include <glib.h>
 
-#include "../lib/muacc.h"
+#include "lib/muacc.h"
 
 /** Context of an incoming request to the MAM */
 typedef struct request_context {
