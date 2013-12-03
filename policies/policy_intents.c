@@ -1,8 +1,3 @@
-#define init policy_intents_LTX_init
-#define cleanup policy_intents_LTX_cleanup
-#define on_resolve_request policy_intents_LTX_on_resolve_request
-#define on_connect_request policy_intents_LTX_on_connect_request
-
 #include <stdio.h>
 
 #include "policy.h"

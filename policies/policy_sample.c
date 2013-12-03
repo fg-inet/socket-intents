@@ -1,7 +1,3 @@
-#define init policy_sample_LTX_init
-#define cleanup policy_sample_LTX_cleanup
-#define on_resolve_request policy_sample_LTX_on_resolve_request
-#define on_connect_request policy_sample_LTX_on_connect_request
 
 /** Dummy to illustrate how policies work
  *  Policy_info: Whether interface has been specified as default in the config file

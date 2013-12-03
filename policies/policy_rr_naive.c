@@ -1,7 +1,3 @@
-#define init policy_rr_naive_LTX_init
-#define cleanup policy_rr_naive_LTX_cleanup
-#define on_resolve_request policy_rr_naive_LTX_on_resolve_request
-#define on_connect_request policy_rr_naive_LTX_on_connect_request
 
 #include "policy.h"
 #include "policy_util.h"
