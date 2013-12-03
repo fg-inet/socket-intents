@@ -1,7 +1,7 @@
 
-ADD_LIBRARY(clib SHARED muacc_client.c muacc_client_util.c)
-TARGET_LINK_LIBRARIES(clib muacc)
+ADD_LIBRARY(muacc-client SHARED muacc_client.c muacc_client_util.c)
+TARGET_LINK_LIBRARIES(muacc-client muacc)
 
-INSTALL(TARGETS clib
+INSTALL(TARGETS muacc-client
     LIBRARY DESTINATION lib
     RUNTIME DESTINATION bin)
