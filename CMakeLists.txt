@@ -3,22 +3,23 @@ cmake_minimum_required(VERSION 2.6)
 PROJECT(muacc C)
 ADD_DEFINITIONS(-Os -Wall --std=gnu99 -g3 -Wmissing-declarations)
 ADD_DEFINITIONS(-D_GNU_SOURCE)
-
 ADD_DEFINITIONS(-DMUACC_SOCKET="/tmp/muacc")
-# AM_CFLAGS = -fPIC -g --pedantic -Wall -std=c99 -O0 -D_GNU_SOURCE
-# AM_YFLAGS = -d -v --debug --verbose
 
 IF(APPLE)
   INCLUDE_DIRECTORIES(/opt/local/include)
   LINK_DIRECTORIES(/opt/local/lib)
 ENDIF()
 
+IF(NOT CMAKE_BUILD_TYPE)
+    SET(CMAKE_BUILD_TYPE Release)
+ENDIF()
+
 # for glib2
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/usr/share/apps/cmake/modules/")
 # for libevent
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-FIND_PACKAGE(GLIB2 REQUIRED)
 
+FIND_PACKAGE(GLIB2 REQUIRED)
 FIND_PACKAGE(libevent REQUIRED)
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
