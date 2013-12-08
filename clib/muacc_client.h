@@ -1,3 +1,6 @@
+#ifndef __MUACC_CLIENT_H__
+#define __MUACC_CLIENT_H__
+
 /** \file  muacc_client.h
  *  \brief Alternate Socket API, extended by muacc context
  */
@@ -6,10 +9,6 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#include "lib/muacc.h"
-
-#ifndef __MUACC_CLIENT_H__
-#define __MUACC_CLIENT_H__
 
 /** Context of a socket on the client side */
 typedef struct muacc_context
