@@ -1,5 +1,2 @@
-ADD_LIBRARY(muacc SHARED muacc_ctx.c  muacc_tlv.c  muacc_util.c strbuf.c)
-
-INSTALL(TARGETS muacc
-    LIBRARY DESTINATION lib
-    RUNTIME DESTINATION bin)
+ADD_LIBRARY(muacc STATIC muacc_ctx.c  muacc_tlv.c  muacc_util.c strbuf.c)
+SET_TARGET_PROPERTIES(muacc PROPERTIES POSITION_INDEPENDENT_CODE 1)
