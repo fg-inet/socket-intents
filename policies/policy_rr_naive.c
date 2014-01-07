@@ -55,6 +55,9 @@ int cleanup(mam_context_t *mctx)
 	return 0;
 }
 
+void print_policy_info(void *policy_info)
+{}
+
 int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
 	printf("\tResolve request: Not resolving\n\n");
