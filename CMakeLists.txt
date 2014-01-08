@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 2.6)
 
 PROJECT(muacc C)
+
+INCLUDE (CheckIncludeFiles)
+INCLUDE (CheckStructHasMember)
+
 ADD_DEFINITIONS(-Os -Wall --std=gnu99 -g3 -Wmissing-declarations)
 ADD_DEFINITIONS(-D_GNU_SOURCE)
 ADD_DEFINITIONS(-DMUACC_SOCKET="/tmp/muacc")
@@ -21,7 +25,10 @@ FIND_PACKAGE(libevent REQUIRED)
 FIND_PACKAGE(lex REQUIRED)
 FIND_PACKAGE(yacc REQUIRED)
 
+CHECK_STRUCT_HAS_MEMBER("struct sockaddr" "sa_len" sys/socket.h HAVE_SOCKADDR_LEN)
+
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
+CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
 ADD_SUBDIRECTORY(clib)
 ADD_SUBDIRECTORY(lib)

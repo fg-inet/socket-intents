@@ -14,6 +14,7 @@
 #include "lib/muacc_util.h"
 
 #include "muacc_client_util.h"
+#include "config.h"
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG0
 #define MUACC_CLIENT_UTIL_NOISY_DEBUG0 0

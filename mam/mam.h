@@ -22,6 +22,7 @@
 #include <glib.h>
 
 #include "lib/muacc.h"
+#include "config.h"
 
 /** Context of an incoming request to the MAM */
 typedef struct request_context {
