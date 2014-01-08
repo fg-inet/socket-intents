@@ -10,6 +10,7 @@
 *.deps/
 *.dirstamp
 *.dSYM
+*.dylib
 .libs/
 *.swp
 
@@ -34,7 +35,8 @@ doxygen/
 # CMake stuff
 CMakeCache.txt
 cmake_install.cmake
-CMakeFiles/
+CMakeScripts
+CMakeFiles
 
 # Automake stuff
 *.m4
