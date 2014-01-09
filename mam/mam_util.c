@@ -177,8 +177,8 @@ int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
 {
 
 	struct evbuffer_iovec v[1];
-	size_t ret = 0;
-	size_t pos = 0;
+	ssize_t ret = 0;
+	ssize_t pos = 0;
 
 	/* Reserve space */
 	DLOG(MAM_UTIL_NOISY_DEBUG2,"reserving buffer\n");

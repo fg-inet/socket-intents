@@ -90,6 +90,7 @@ struct addrinfo *_muacc_clone_addrinfo(const struct addrinfo *src)
 
 	_muacc_clone_addrinfo_malloc_err:
 	fprintf(stderr, "%6d: _muacc_clone_addrinfo failed to allocate memory\n", (int) getpid());
+    if (res != NULL) freeaddrinfo(res);
 	return NULL;
 
 }

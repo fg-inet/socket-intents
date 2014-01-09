@@ -261,7 +261,6 @@ int update_src_prefix_list (mam_context_t *ctx )
 				ifa->ifa_name, ifa->ifa_flags,
 				family, ifa->ifa_addr, ifa->ifa_netmask );
 		}
-        family = ifa->ifa_addr->sa_family;
     }
 
     freeifaddrs(ifaddr);

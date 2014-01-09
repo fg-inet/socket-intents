@@ -232,17 +232,20 @@ ssize_t _muacc_extract_addrinfo_tlv( const char *data, ssize_t data_len, struct 
 	do
 	{
 
+        /* sentinels for error handling */
+        ai = NULL;
+        *ai1 = NULL;
+
 		/* check length */
 		if (data_len-data_pos < sizeof(struct addrinfo))
 		{
 			DLOG(MUACC_TLV_NOISY_DEBUG0, "WARNING: data_len too short - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
-			*ai1 = NULL;
-			goto muacc_extract_addrinfo_tlv_length_failed;
+			goto muacc_extract_addrinfo_tlv_failed;
 		}
 
 		/* get memory and copy struct */
 		if( (ai = malloc(sizeof(struct addrinfo))) == NULL )
-			goto muacc_extract_addrinfo_tlv_malloc_failed;
+			goto muacc_extract_addrinfo_tlv_failed;
 		allocated += sizeof(struct addrinfo);
 		memcpy( ai, (void *) (data + data_pos),sizeof(struct addrinfo));
 		data_pos += sizeof(struct addrinfo);
@@ -259,11 +262,11 @@ ssize_t _muacc_extract_addrinfo_tlv( const char *data, ssize_t data_len, struct 
 			{
 				DLOG(MUACC_TLV_NOISY_DEBUG0, "WARNING: data_len too short while extracting ai_addr - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
 				ai->ai_canonname = NULL;
-				goto muacc_extract_addrinfo_tlv_length_failed;
+				goto muacc_extract_addrinfo_tlv_failed;
 			}
 			/* get memory and copy struct */
 			if( (ai->ai_addr = malloc(ai->ai_addrlen)) == NULL )
-				goto muacc_extract_addrinfo_tlv_malloc_failed;
+				goto muacc_extract_addrinfo_tlv_failed;
 			allocated += ai->ai_addrlen;
 			memcpy( ai->ai_addr,  (void *) (data + data_pos), ai->ai_addrlen);
 			data_pos += ai->ai_addrlen;
@@ -281,7 +284,7 @@ ssize_t _muacc_extract_addrinfo_tlv( const char *data, ssize_t data_len, struct 
 			if (data_len-data_pos < sizeof(ssize_t))
 			{
 				DLOG(MUACC_TLV_NOISY_DEBUG0, "WARNING: data_len too short while extracting ai_canonname_len - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
-				goto muacc_extract_addrinfo_tlv_length_failed;
+				goto muacc_extract_addrinfo_tlv_failed;
 			}
 			/* get string length + trailing\0 */
 			ssize_t canonname_len = *((ssize_t *) (data + data_pos));
@@ -291,10 +294,10 @@ ssize_t _muacc_extract_addrinfo_tlv( const char *data, ssize_t data_len, struct 
 			if (data_len-data_pos < canonname_len)
 			{
 				DLOG(MUACC_TLV_NOISY_DEBUG0, "WARNING data_len too short while extracting ai_canonname - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
-				goto muacc_extract_addrinfo_tlv_length_failed;
+				goto muacc_extract_addrinfo_tlv_failed;
 			}
 			if( (ai->ai_canonname = malloc(canonname_len)) == NULL )
-				goto muacc_extract_addrinfo_tlv_malloc_failed;
+				goto muacc_extract_addrinfo_tlv_failed;
 			allocated += canonname_len;
 			memcpy( ai->ai_canonname, (void *) (data + data_pos), canonname_len);
 			*((ai->ai_canonname)+canonname_len-1) = 0x00;
@@ -314,17 +317,9 @@ ssize_t _muacc_extract_addrinfo_tlv( const char *data, ssize_t data_len, struct 
 
     return allocated;
 
-    muacc_extract_addrinfo_tlv_length_failed:
-    freeaddrinfo(*ai0);
-    *ai0 = NULL;
-    return -1;
-
-    muacc_extract_addrinfo_tlv_malloc_failed:
-    *ai0 = NULL;
-    return -1;
-
-
-
+    muacc_extract_addrinfo_tlv_failed:
+    if (*ai0 != NULL) freeaddrinfo(*ai0); /* cleanup chain already parsed */
+    if (*ai0 != ai && ai != NULL) freeaddrinfo(ai); /* cleanup entry that failed to parse (missing in chain) */
     *ai0 = NULL;
     return -1;
 
@@ -333,20 +328,18 @@ ssize_t _muacc_extract_addrinfo_tlv( const char *data, ssize_t data_len, struct 
 ssize_t _muacc_extract_socketaddr_tlv( const char *data, ssize_t data_len, struct sockaddr **sa0)
 {
 
-	ssize_t data_pos = 0;
 
 	/* check length */
-	if (data_len-data_pos < sizeof(struct sockaddr))
+	if (data_len < sizeof(struct sockaddr))
 	{
-		DLOG(MUACC_TLV_NOISY_DEBUG0, "WARNING: data_len too short - data_pos=%ld data_len=%ld sizeof(struct sockaddr)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct sockaddr));
+		DLOG(MUACC_TLV_NOISY_DEBUG0, "WARNING: data_len too short - data_len=%ld sizeof(struct sockaddr)=%ld\n", (long int) data_len, (long int) sizeof(struct sockaddr));
 		return(-1);
 	}
 
 	/* get memory and copy struct */
 	if( (*sa0 = malloc(data_len)) == NULL )
 		goto muacc_extract_socketaddr_tlv_malloc_failed;
-	memcpy( *sa0, (void *) (data + data_pos),data_len);
-	data_pos += data_len;
+	memcpy( *sa0, (void *) data ,data_len);
 
 	return(data_len);
 
@@ -400,7 +393,7 @@ ssize_t _muacc_extract_socketopt_tlv( const char *data, ssize_t data_len, struct
 			}
 
 			if( (so->optval = malloc(so->optlen)) == NULL )
-				goto _muacc_extract_socketopt_tlv_malloc_failed;
+				goto _muacc_extract_socketopt_tlv_parse_failed;
 
 			memcpy(so->optval, (void *) (data + data_pos), so->optlen );
 			data_pos += so->optlen;
@@ -420,6 +413,7 @@ ssize_t _muacc_extract_socketopt_tlv( const char *data, ssize_t data_len, struct
 
 	_muacc_extract_socketopt_tlv_parse_failed:
 	_muacc_free_socketopts(*so0);
+    if(*so0 != so) _muacc_free_socketopts(so);
 	*so0 = NULL;
 	return(-1);
 

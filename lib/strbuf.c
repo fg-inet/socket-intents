@@ -68,8 +68,7 @@ int strbuf_vprintf(strbuf_t *sb, const char *fmt, va_list args)
 
 		// fix lenth
 		sb->len = nlen;		
-		rem = sb->len - sb->pos;
-	}
+    }
 	
 	// print to buffer
 	newl = vsnprintf((sb->buf)+(sb->pos), sb->chunksize, fmt, args);

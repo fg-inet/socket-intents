@@ -239,6 +239,7 @@ int muacc_setsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 			if (newopt->optval == NULL)
 			{
 				perror("__function__ malloc failed");
+                free(newopt);
 				_unlock_ctx(ctx);
 				return retval;
 			}
