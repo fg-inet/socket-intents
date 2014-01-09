@@ -25,18 +25,18 @@
 #endif
 
 
-size_t _muacc_push_tlv_tag( char *buf, size_t *buf_pos, size_t buf_len,
+ssize_t _muacc_push_tlv_tag( char *buf, ssize_t *buf_pos, ssize_t buf_len,
 	muacc_tlv_t tag)
 {
 	return _muacc_push_tlv(buf, buf_pos, buf_len, tag, NULL, 0);
 
 }
 
-size_t _muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
+ssize_t _muacc_push_tlv( char *buf, ssize_t *buf_pos, ssize_t buf_len,
 	muacc_tlv_t tag,
-	const void *data, size_t data_len)
+	const void *data, ssize_t data_len)
 {
-	size_t tlv_len = sizeof(muacc_tlv_t)+sizeof(size_t)+data_len;
+	ssize_t tlv_len = sizeof(muacc_tlv_t)+sizeof(ssize_t)+data_len;
 
 	/* check size */
 	if (buf == NULL)
@@ -54,15 +54,14 @@ size_t _muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	*((muacc_tlv_t *) (buf + *buf_pos)) = tag;
 	*buf_pos += sizeof(muacc_tlv_t);
 
-	*((size_t *) (buf + *buf_pos)) = data_len;
-	*buf_pos += sizeof(size_t);
+	*((ssize_t *) (buf + *buf_pos)) = data_len;
+	*buf_pos += sizeof(ssize_t);
 
 	if(data == NULL && data_len != 0)
 	{
 		DLOG(MUACC_TLV_NOISY_DEBUG0, "WARNING: trying to push NULL to a non zero length TLV\n");
 	}
-
-	if(data_len != 0)
+	else if(data_len != 0)
 	{
 		memcpy( (void *) (buf + *buf_pos), data,  data_len);
 		*buf_pos += data_len;
@@ -74,13 +73,13 @@ size_t _muacc_push_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 }
 
 
-size_t _muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
+ssize_t _muacc_push_addrinfo_tlv( char *buf, ssize_t *buf_pos, ssize_t buf_len,
 	muacc_tlv_t tag, const struct addrinfo *ai0)
 {
 
     const struct addrinfo *ai;
-	size_t data_len = 0;
-	size_t tlv_len = 0;
+	ssize_t data_len = 0;
+	ssize_t tlv_len = 0;
 
 	DLOG(MUACC_TLV_NOISY_DEBUG1, "invoked buf_pos=%ld buf_len=%ld ai=%p\n", (long) *buf_pos, (long) buf_len, (void *) ai0);
 
@@ -92,7 +91,7 @@ size_t _muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	/* calculate size */
     for (ai = ai0; ai != NULL; ai = ai->ai_next)
 	{
-		size_t i = 0;
+		ssize_t i = 0;
 
 		i += sizeof(struct addrinfo);
 		i += ai->ai_addrlen;
@@ -106,7 +105,7 @@ size_t _muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	DLOG(MUACC_TLV_NOISY_DEBUG2, "total data length is %ld\n", (long) data_len);
 
 	/* check size */
-	tlv_len = sizeof(muacc_tlv_t)+sizeof(size_t)+data_len;
+	tlv_len = sizeof(muacc_tlv_t)+sizeof(ssize_t)+data_len;
 	if (buf == NULL)
 	{
 		/* checking case */
@@ -122,8 +121,8 @@ size_t _muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	*((muacc_tlv_t *) (buf + *buf_pos)) = tag;
 	*buf_pos += sizeof(muacc_tlv_t);
 
-	*((size_t *) (buf + *buf_pos)) = data_len;
-	*buf_pos += sizeof(size_t);
+	*((ssize_t *) (buf + *buf_pos)) = data_len;
+	*buf_pos += sizeof(ssize_t);
 
 	/* deep copy struct */
     for (ai = ai0; ai != NULL; ai = ai->ai_next)
@@ -139,9 +138,9 @@ size_t _muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 		}
 		if ( ai->ai_canonname != NULL)
 		{
-			size_t sl = strlen(ai->ai_canonname)+1;
-			*((size_t *) (buf + *buf_pos)) = sl;
-			*buf_pos += sizeof(size_t);
+			ssize_t sl = strlen(ai->ai_canonname)+1;
+			*((ssize_t *) (buf + *buf_pos)) = sl;
+			*buf_pos += sizeof(ssize_t);
 			memcpy( (void *) (buf + *buf_pos), ai->ai_canonname, sl);
 			*buf_pos += sl;
 		}
@@ -152,13 +151,13 @@ size_t _muacc_push_addrinfo_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	return(tlv_len);
 }
 
-size_t _muacc_push_socketopt_tlv( char *buf, size_t *buf_pos, size_t buf_len,
+ssize_t _muacc_push_socketopt_tlv( char *buf, ssize_t *buf_pos, ssize_t buf_len,
 	muacc_tlv_t tag, const struct socketopt *so0)
 {
 
     const struct socketopt *so;
-	size_t data_len = 0;
-	size_t tlv_len = 0;
+	ssize_t data_len = 0;
+	ssize_t tlv_len = 0;
 
 	DLOG(MUACC_TLV_NOISY_DEBUG1, "invoked buf_pos=%ld buf_len=%ld ai=%p\n", (long) *buf_pos, (long) buf_len, (void *) so0);
 
@@ -170,7 +169,7 @@ size_t _muacc_push_socketopt_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	/* calculate size */
     for (so = so0; so != NULL; so = so->next)
 	{
-		size_t i = sizeof(struct socketopt);
+		ssize_t i = sizeof(struct socketopt);
 
 		if (so->optlen != 0 && so->optval != NULL)
 			i += so->optlen;
@@ -182,7 +181,7 @@ size_t _muacc_push_socketopt_tlv( char *buf, size_t *buf_pos, size_t buf_len,
     DLOG(MUACC_TLV_NOISY_DEBUG2, "total data length is %ld\n", (long) data_len);
 
 	/* check size */
-	tlv_len = sizeof(muacc_tlv_t)+sizeof(size_t)+data_len;
+	tlv_len = sizeof(muacc_tlv_t)+sizeof(ssize_t)+data_len;
 	if (buf == NULL)
 	{
 		/* checking case */
@@ -198,8 +197,8 @@ size_t _muacc_push_socketopt_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 	*((muacc_tlv_t *) (buf + *buf_pos)) = tag;
 	*buf_pos += sizeof(muacc_tlv_t);
 
-	*((size_t *) (buf + *buf_pos)) = data_len;
-	*buf_pos += sizeof(size_t);
+	*((ssize_t *) (buf + *buf_pos)) = data_len;
+	*buf_pos += sizeof(ssize_t);
 
 	/* deep copy struct */
     for (so = so0; so != NULL; so = so->next)
@@ -219,14 +218,14 @@ size_t _muacc_push_socketopt_tlv( char *buf, size_t *buf_pos, size_t buf_len,
 
 }
 
-size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct addrinfo **ai0)
+ssize_t _muacc_extract_addrinfo_tlv( const char *data, ssize_t data_len, struct addrinfo **ai0)
 {
 	struct addrinfo **ai1 = ai0;
 
-	size_t data_pos = 0;
+	ssize_t data_pos = 0;
 	struct addrinfo *ai;
 
-	size_t allocated = 0;
+	ssize_t allocated = 0;
 
 	DLOG(MUACC_TLV_NOISY_DEBUG1, "invoked data_len=%ld\n", (long) data_len);
 
@@ -279,14 +278,14 @@ size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct ad
 			ai->ai_canonname = NULL;
 
 			/* check length again */
-			if (data_len-data_pos < sizeof(size_t))
+			if (data_len-data_pos < sizeof(ssize_t))
 			{
 				DLOG(MUACC_TLV_NOISY_DEBUG0, "WARNING: data_len too short while extracting ai_canonname_len - data_pos=%ld data_len=%ld sizeof(struct addrinfo)=%ld\n", (long int) data_pos, (long int) data_len, (long int) sizeof(struct addrinfo));
 				goto muacc_extract_addrinfo_tlv_length_failed;
 			}
 			/* get string length + trailing\0 */
-			size_t canonname_len = *((size_t *) (data + data_pos));
-			data_pos += sizeof(size_t);
+			ssize_t canonname_len = *((ssize_t *) (data + data_pos));
+			data_pos += sizeof(ssize_t);
 
 			/* check length again */
 			if (data_len-data_pos < canonname_len)
@@ -331,10 +330,10 @@ size_t _muacc_extract_addrinfo_tlv( const char *data, size_t data_len, struct ad
 
 }
 
-size_t _muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct sockaddr **sa0)
+ssize_t _muacc_extract_socketaddr_tlv( const char *data, ssize_t data_len, struct sockaddr **sa0)
 {
 
-	size_t data_pos = 0;
+	ssize_t data_pos = 0;
 
 	/* check length */
 	if (data_len-data_pos < sizeof(struct sockaddr))
@@ -357,14 +356,14 @@ size_t _muacc_extract_socketaddr_tlv( const char *data, size_t data_len, struct 
 
 }
 
-size_t _muacc_extract_socketopt_tlv( const char *data, size_t data_len, struct socketopt **so0)
+ssize_t _muacc_extract_socketopt_tlv( const char *data, ssize_t data_len, struct socketopt **so0)
 {
 	struct socketopt **so1 = so0;
 
-	size_t data_pos = 0;
+	ssize_t data_pos = 0;
 	struct socketopt *so;
 
-	size_t allocated = 0;
+	ssize_t allocated = 0;
 
 	DLOG(MUACC_TLV_NOISY_DEBUG1, "invoked data_len=%ld\n", (long) data_len);
 
@@ -430,31 +429,31 @@ size_t _muacc_extract_socketopt_tlv( const char *data, size_t data_len, struct s
 
 }
 
-size_t _muacc_read_tlv( int fd,
-	char *buf, size_t *buf_pos, size_t buf_len,
+ssize_t _muacc_read_tlv( int fd,
+	char *buf, ssize_t *buf_pos, ssize_t buf_len,
 	muacc_tlv_t *tag,
-	void **data, size_t *data_len)
+	void **data, ssize_t *data_len)
 {
-	size_t tlv_len;
-	size_t rlen, rrem;
+	ssize_t tlv_len;
+	ssize_t rlen, rrem;
 
 	DLOG(MUACC_TLV_NOISY_DEBUG1, "invoked - buf_pos=%ld\n", (long int) *buf_pos);
 
 	/* check size */
-	if ( *buf_pos + sizeof(muacc_tlv_t) + sizeof(size_t) >= buf_len )
+	if ( *buf_pos + sizeof(muacc_tlv_t) + sizeof(ssize_t) >= buf_len )
 	{
 		DLOG(MUACC_TLV_NOISY_DEBUG0, "WARNING: header read failed: buffer too small\n");
 		goto muacc_read_tlv_err;
 	}
 
 	/* read header */
-	rlen = read(fd, (buf + *buf_pos) , (sizeof(muacc_tlv_t) + sizeof(size_t)) );
+	rlen = read(fd, (buf + *buf_pos) , (sizeof(muacc_tlv_t) + sizeof(ssize_t)) );
 	if(rlen <= 0)
 	{
 		DLOG(MUACC_TLV_NOISY_DEBUG0, "ERROR: header read failed: %s \n", strerror(errno));
 		goto muacc_read_tlv_err;
 	}
-	else if(rlen < sizeof(muacc_tlv_t) + sizeof(size_t))
+	else if(rlen < sizeof(muacc_tlv_t) + sizeof(ssize_t))
 	{
 		DLOG(MUACC_TLV_NOISY_DEBUG0, "WARNING: header read failed: short read\n");
 		goto muacc_read_tlv_err;
@@ -464,10 +463,10 @@ size_t _muacc_read_tlv( int fd,
 	*tag = *((muacc_tlv_t *) (buf + *buf_pos));
 	*buf_pos += sizeof(muacc_tlv_t);
 
-	*data_len = *((size_t *) (buf + *buf_pos));
-	*buf_pos += sizeof(size_t);
+	*data_len = *((ssize_t *) (buf + *buf_pos));
+	*buf_pos += sizeof(ssize_t);
 
-	tlv_len = sizeof(muacc_tlv_t) + sizeof(size_t) + *data_len;
+	tlv_len = sizeof(muacc_tlv_t) + sizeof(ssize_t) + *data_len;
 
 	DLOG(MUACC_TLV_NOISY_DEBUG1, "read header - buf_pos=%ld tag=%x, data_len=%ld tlv_len=%ld \n" , (long int) *buf_pos, *tag, (long int) *data_len, (long int) tlv_len);
 

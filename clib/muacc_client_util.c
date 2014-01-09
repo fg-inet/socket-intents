@@ -190,11 +190,11 @@ int _muacc_contact_mam (muacc_mam_action_t reason, muacc_context_t *ctx)
 {
 
 	char buf[MUACC_TLV_MAXLEN];
-	size_t pos = 0;
-	size_t ret = 0;
+	ssize_t pos = 0;
+	ssize_t ret = 0;
 	muacc_tlv_t tag;
 	void *data;
-	size_t data_len;
+	ssize_t data_len;
 
 	/* connect to MAM */
 	if(	_muacc_connect_ctx_to_mam(ctx) != 0 )

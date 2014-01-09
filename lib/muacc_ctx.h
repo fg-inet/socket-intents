@@ -38,10 +38,10 @@ void _muacc_print_ctx(strbuf_t *sb, const struct _muacc_ctx *_ctx);
  * NULL pointers will be skipped
  *
  */
-size_t _muacc_pack_ctx(
+ssize_t _muacc_pack_ctx(
 	char *buf,						/**< [in]		buffer to write TLVs to */
-	size_t *pos,					/**< [in,out]	position within buf */
-	size_t len,						/**< [in]		length of buf	*/
+	ssize_t *pos,					/**< [in,out]	position within buf */
+	ssize_t len,						/**< [in]		length of buf	*/
 	const struct _muacc_ctx *ctx	/**< [in]		context to pack */
 );
 
@@ -53,7 +53,7 @@ size_t _muacc_pack_ctx(
 int _muacc_unpack_ctx(
 	muacc_tlv_t tag,				/**< [in]		tag of the TLV */
 	const void *data,				/**< [in]		value of the TLV */
-	size_t data_len,				/**< [in]		length of the TLV */
+	ssize_t data_len,				/**< [in]		length of the TLV */
 	struct _muacc_ctx *_ctx			/**< [in]		context to put parsed data in */
 );
 

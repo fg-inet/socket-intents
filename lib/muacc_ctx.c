@@ -110,10 +110,10 @@ int _muacc_free_ctx (struct _muacc_ctx *_ctx)
 	return(0);
 }
 
-size_t _muacc_pack_ctx(char *buf, size_t *pos, size_t len, const struct _muacc_ctx *ctx)
+ssize_t _muacc_pack_ctx(char *buf, ssize_t *pos, ssize_t len, const struct _muacc_ctx *ctx)
 {
 
-	size_t pos0 = *pos;
+	ssize_t pos0 = *pos;
 
 	DLOG(MUACC_CTX_NOISY_DEBUG1,"packing _ctx=%p pos=%zd\n", (void *) ctx, *pos);
 
@@ -168,7 +168,7 @@ _muacc_pack_ctx_err:
 
 }
 
-int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, size_t data_len, struct _muacc_ctx *_ctx)
+int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, ssize_t data_len, struct _muacc_ctx *_ctx)
 {
 	struct addrinfo *ai;
 	struct sockaddr *sa;

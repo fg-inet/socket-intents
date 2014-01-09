@@ -17,23 +17,23 @@
  *
  * @return length of the added tlv, -1 if there was an error.
  */
-size_t _muacc_push_tlv (
+ssize_t _muacc_push_tlv (
 	char *buf,         /**< [in]	 pointer to buffer to put data */
-	size_t *buf_pos,   /**< [in,out] pointer to current offset to which the buffer is already used (in/out) */
-	size_t buf_len,    /**< [in]	 length of the buffer */
+	ssize_t *buf_pos,   /**< [in,out] pointer to current offset to which the buffer is already used (in/out) */
+	ssize_t buf_len,    /**< [in]	 length of the buffer */
 	muacc_tlv_t tag,   /**< [in]	 tag of the data */
 	const void *data,  /**< [in]	 data to be pushed into the buffer */
-	size_t data_len    /**< [in]	 lengh of data to be pushed into the buffer */
+	ssize_t data_len    /**< [in]	 lengh of data to be pushed into the buffer */
 );
 
 /** push flag in an TLV buffer
  *
  * @return length of the added tlv, -1 if there was an error.
  */
-size_t _muacc_push_tlv_tag(
+ssize_t _muacc_push_tlv_tag(
 	char *buf,         /**< [in]     	pointer to buffer to put data */
-	size_t *buf_pos,   /**< [in,out]    pointer to current offset to which the buffer is already used */
-	size_t buf_len,    /**< [in]    	length of the buffer */
+	ssize_t *buf_pos,   /**< [in,out]    pointer to current offset to which the buffer is already used */
+	ssize_t buf_len,    /**< [in]    	length of the buffer */
 	muacc_tlv_t tag    /**< [in]    	tag to push */
 );
 
@@ -41,10 +41,10 @@ size_t _muacc_push_tlv_tag(
  *
  *  @return length of the added tlv, -1 if there was an error.
  */
-size_t _muacc_push_socketopt_tlv(
+ssize_t _muacc_push_socketopt_tlv(
 	char *buf,					/**< [in]		pointer to buffer to put data */
-	size_t *buf_pos,			/**< [in,out]	pointer to current offset to which the buffer is already used */
-	size_t buf_len,				/**< [in]		length of the buffer */
+	ssize_t *buf_pos,			/**< [in,out]	pointer to current offset to which the buffer is already used */
+	ssize_t buf_len,				/**< [in]		length of the buffer */
 	muacc_tlv_t tag,			/**< [in]		tag of the data*/
 	const struct socketopt *so0	/**< [in]		list of socketopts to push */
 );
@@ -60,10 +60,10 @@ size_t _muacc_push_socketopt_tlv(
  *
  * @return length of the TLV or -1 on error
  */
-size_t _muacc_push_addrinfo_tlv (
+ssize_t _muacc_push_addrinfo_tlv (
 	char *buf,          		/**< [in]     buffer to copy TLV into */
-	size_t *buf_pos,    		/**< [in,out] position of next free space in the buffer */
-	size_t buf_len,     		/**< [in]     length of the buffer */
+	ssize_t *buf_pos,    		/**< [in,out] position of next free space in the buffer */
+	ssize_t buf_len,     		/**< [in]     length of the buffer */
 	muacc_tlv_t tag,    		/**< [in]     tag of the data */
 	const struct addrinfo *ai0	/**< [in]     addrinfo sruct do encode */
 );
@@ -72,9 +72,9 @@ size_t _muacc_push_addrinfo_tlv (
  *
  * @return size of the extracted struct
  */
-size_t _muacc_extract_socketaddr_tlv(
+ssize_t _muacc_extract_socketaddr_tlv(
 	const char *data,           /**< [in]     buffer to extract from */
-	size_t data_len,            /**< [in]     length of data */
+	ssize_t data_len,            /**< [in]     length of data */
 	struct sockaddr **sa0       /**< [out]    pointer to extracted struct (will be allocated) */
 );
 
@@ -82,9 +82,9 @@ size_t _muacc_extract_socketaddr_tlv(
  *
  * @return sum of the sizes of the extracted structs/stringd
  */
-size_t _muacc_extract_addrinfo_tlv(
+ssize_t _muacc_extract_addrinfo_tlv(
 	const char *data,           /**< [in]     buffer to extract from */
-	size_t data_len,            /**< [in]     length of data */
+	ssize_t data_len,            /**< [in]     length of data */
 	struct addrinfo **ai0       /**< [out]    pointer to extracted struct (will be allocated) */
 );
 
@@ -92,9 +92,9 @@ size_t _muacc_extract_addrinfo_tlv(
  *
  * @return sum of the sizes of the extracted structs/stringd
  */
-size_t _muacc_extract_socketopt_tlv(
+ssize_t _muacc_extract_socketopt_tlv(
 	const char *data,           /**< [in]     buffer to extract from */
-	size_t data_len,            /**< [in]     length of data */
+	ssize_t data_len,            /**< [in]     length of data */
 	struct socketopt **so0       /**< [out]    pointer to extracted struct (will be allocated) */
 );
 
@@ -102,14 +102,14 @@ size_t _muacc_extract_socketopt_tlv(
  *
  * @return length of the tlv read, -1 if there was an error.
  */
-size_t _muacc_read_tlv(
+ssize_t _muacc_read_tlv(
 	int fd,           	/**< [in]     file descriptor to read from */
  	char *buf,        	/**< [in]     pointer to buffer to put data */
-	size_t *buf_pos,  	/**< [in,out] pointer to current offset to which the buffer is already used (in/out) */
-	size_t buf_len,   	/**< [in]     length of the buffer */
+	ssize_t *buf_pos,  	/**< [in,out] pointer to current offset to which the buffer is already used (in/out) */
+	ssize_t buf_len,   	/**< [in]     length of the buffer */
  	muacc_tlv_t *tag, 	/**< [out]    tag extracted  */
  	void **data,      	/**< [out]    data extracted (pointer within buf) */
-	size_t *data_len  	/**< [out]    length of data extracted */
+	ssize_t *data_len  	/**< [out]    length of data extracted */
 );
 
 #endif
