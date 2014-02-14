@@ -5,6 +5,7 @@
 
 #include <signal.h>
 #include <sys/un.h>
+#include <sys/stat.h>
 
 #include "lib/muacc.h"
 #include "lib/muacc_ctx.h"
@@ -181,8 +182,28 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
 static int do_listen(mam_context_t *ctx, evutil_socket_t listener, struct sockaddr *sin, size_t sin_z)
 {
     struct event *listener_event;
+    struct stat buf;
+    char *path = ((struct sockaddr_un *)sin)->sun_path;
 
     evutil_make_socket_nonblocking(listener);
+
+    /* Check if socket already exists */
+    if (path != NULL && stat(path, &buf) == 0)
+    {
+        // Old file exists
+        if (S_ISSOCK(buf.st_mode))
+        {
+            // Old file is a socket - delete it to make room for a new one
+            DLOG(MAM_MASTER_NOISY_DEBUG2, "Socket on %s already exists - Unlinking\n", path);
+            unlink(path);
+        }
+        else
+        {
+            // Old file is not a socket - just print an error message.
+            DLOG(MAM_MASTER_NOISY_DEBUG1, "Cannot listen on %s: File exists \n", path);
+            return -1;
+        }
+    }
 
     if (bind(listener, sin, sin_z)) {
         perror("bind");
