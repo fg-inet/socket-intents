@@ -8,9 +8,7 @@
 
 #include "lib/dlog.h"
 
-#ifdef USE_SO_INTENTS
 #include "lib/intents.h"
-#endif
 
 #include "lib/muacc_util.h"
 
@@ -182,7 +180,6 @@ int muacc_setsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 		goto muacc_setsockopt_fallback;
 	}
 
-	#ifdef USE_SO_INTENTS
 	if (level == SOL_INTENTS)
 	{
 		// Intent socket options are handled by us
@@ -195,7 +192,6 @@ int muacc_setsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 		}
 	}
 	else
-	#endif
 	{
 		// Socket option not an intent: Call original setsockopt function
 		if ((retval = setsockopt(socket, level, option_name, option_value, option_len)) < 0)
@@ -296,7 +292,6 @@ int muacc_getsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 		return getsockopt(socket, level, option_name, option_value, option_len);
 	}
 
-	#ifdef USE_SO_INTENTS
 	if( level == SOL_INTENTS)
 	{
 		// Intent socket options are handled by us
@@ -343,7 +338,6 @@ int muacc_getsockopt(muacc_context_t *ctx, int socket, int level, int option_nam
 		}
 	}
 	else
-	#endif
 	{
 		// Requested socket option is not on 'intents' layer
 		if ((retval = getsockopt(socket, level, option_name, option_value, option_len)) < 0)
@@ -462,14 +456,12 @@ int muacc_connect(muacc_context_t *ctx,
 		strbuf_t sb;
 		strbuf_init(&sb);
 
-		#ifdef USE_SO_INTENTS
 		if (so->level == SOL_INTENTS)
 		{
 			/* skip option */
 			DLOG(CLIB_IF_NOISY_DEBUG1, "skipping suggested SOL_INTENTS socketopt\n");
 			continue;
 		}
-		#endif
 
 		#ifdef CLIB_IF_NOISY_DEBUG1
 		strbuf_rewind(&sb); _muacc_print_socket_option(&sb, so);

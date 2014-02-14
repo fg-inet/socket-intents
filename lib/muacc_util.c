@@ -10,9 +10,7 @@
 #include "muacc.h"
 #include "muacc_util.h"
 
-#ifdef USE_SO_INTENTS
 #include "intents.h"
-#endif
 
 #ifndef MUACC_UTIL_NOISY_DEBUG
 #define MUACC_UTIL_NOISY_DEBUG 0
@@ -247,10 +245,8 @@ static char *_muacc_get_socket_level (int level)
 	{
 		case SOL_SOCKET:
 			return "SOL_SOCKET";
-		#ifdef USE_SO_INTENTS
 		case SOL_INTENTS:
 			return "SOL_INTENTS";
-		#endif
 		default:
 			p = getprotobynumber(level);
 			if(p == NULL)
