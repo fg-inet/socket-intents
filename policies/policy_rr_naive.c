@@ -7,6 +7,8 @@ GSList *in6_enabled = NULL;
 
 char addr_str[INET6_ADDRSTRLEN];	/** string for debug / error printing */
 
+void set_sa_rr (request_context_t *rctx, strbuf_t sb);
+
 /** Setting source address: Choose the next address from the circular list */
 void set_sa_rr (request_context_t *rctx, strbuf_t sb)
 {

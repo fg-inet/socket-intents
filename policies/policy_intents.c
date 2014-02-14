@@ -15,6 +15,8 @@ GSList *in6_enabled = NULL;
 
 char addr_str[INET6_ADDRSTRLEN]; /** String for debug / error printing */
 
+void set_sa_for_category(request_context_t *rctx, enum intent_category given, strbuf_t sb);
+
 void print_policy_info(void *policy_info)
 {
 	struct intents_info *info = policy_info;
