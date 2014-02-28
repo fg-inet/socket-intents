@@ -131,7 +131,7 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 	}
 	else
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG2, "no result from mam - doing it on my own\n");
+		DLOG(CLIB_IF_NOISY_DEBUG0, "no result from mam - resolving name on my own\n");
 		
 		/* do query on our own */
 		ret = 	 getaddrinfo(hostname, servname, hints, res);
