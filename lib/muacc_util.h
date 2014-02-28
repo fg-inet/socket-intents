@@ -58,6 +58,11 @@ void _muacc_print_socket_option_list(const struct socketopt *opts);
  */
 void _muacc_print_socket_options(strbuf_t *sb, const struct socketopt *opts);
 
+/** helper to print out a sockaddr
+ *
+ */
+void _muacc_print_socket_addr(const struct sockaddr *addr, size_t addr_len);
+
 /** helper to print a socket option into a string
  *
  */

@@ -301,3 +301,11 @@ void _muacc_print_socket_options(strbuf_t *sb, const struct socketopt *opts)
 	strbuf_printf(sb, " }");
 }
 
+void _muacc_print_socket_addr(const struct sockaddr *addr, size_t addr_len)
+{
+    strbuf_t sb;
+    strbuf_init(&sb);
+    _muacc_print_sockaddr(&sb, addr, addr_len);
+    printf("%s", strbuf_export(&sb));
+    strbuf_release(&sb);
+}
