@@ -10,15 +10,15 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 
-#include "../lib/muacc.h"
-#include "../lib/muacc_ctx.h"
-#include "../lib/muacc_tlv.h"
-#include "../lib/muacc_util.h"
+#include "lib/muacc.h"
+#include "lib/muacc_ctx.h"
+#include "lib/muacc_tlv.h"
+#include "lib/muacc_util.h"
 
-#include "../lib/intents.h"
-#include "../lib/dlog.h"
+#include "lib/intents.h"
+#include "lib/dlog.h"
 
-#include "../clib/muacc_client_util.h"
+#include "clib/muacc_client_util.h"
 
 #include "test_util.h"
 
@@ -46,17 +46,6 @@ void memset_pattern4 (void *dst, const void *pat, size_t len)
 #endif
 
 uint32_t deadbeef = 0xdeadbeef;
-
-/** Helper that creates an empty muacc context
- *
- */
-void ctx_empty_setup(dfixture *df, const void *test_data)
-{
-	DLOG(TEST_UTIL_NOISY_DEBUG0, "\n===========\n");
-	muacc_context_t *newctx = malloc(sizeof(muacc_context_t));
-	df->context = newctx;
-	muacc_init_context(df->context);
-}
 
 /** Helper that adds some sockopts to the context
  */
@@ -103,7 +92,6 @@ void ctx_set_category(struct _muacc_ctx *ctx, intent_category_t cat)
 void ctx_set_filesize(struct _muacc_ctx *ctx, int filesize)
 {
 	struct socketopt *current = ctx->sockopts_current;
-	printf("setting filesize %d\n", filesize);
 	while (current != NULL)
 	{
 		if (current->level == SOL_INTENTS && current->optname == INTENT_FILESIZE)
@@ -118,120 +106,6 @@ void ctx_set_filesize(struct _muacc_ctx *ctx, int filesize)
 	memcpy(newopt.optval, &filesize, sizeof(int));
 	ctx_add_socketopts(ctx, &newopt);
 	free(newopt.optval);
-}
-
-void ctx_stream_setup(dfixture *df, const void *test_data)
-{
-	ctx_empty_setup(df, test_data);
-	ctx_set_category(df->context->ctx, INTENT_STREAM);
-}
-
-/** Helper that creates a muacc context and fills it
- *  with some data
- */
-void ctx_data_setup(dfixture *df, const void *test_data)
-{
-	DLOG(TEST_UTIL_NOISY_DEBUG0, "\n===========\n");
-	muacc_context_t *newctx = malloc(sizeof(muacc_context_t));
-	df->context = newctx;
-	muacc_init_context(df->context);
-
-	struct addrinfo hints = { .ai_family = AF_UNSPEC, .ai_socktype = SOCK_DGRAM, .ai_flags = AI_PASSIVE };
-	df->context->ctx->remote_addrinfo_hint = malloc(sizeof(struct addrinfo));
-	memcpy(df->context->ctx->remote_addrinfo_hint, &hints, sizeof(struct addrinfo));
-
-	struct addrinfo *result1 = malloc(sizeof(struct addrinfo));
-	if (getaddrinfo("www.maunz.org", NULL, &hints, &result1) != 0)
-	{
-		printf("Getaddrinfo failed: %s \n", gai_strerror(errno));
-	}
-	else
-	{
-		df->context->ctx->remote_addrinfo_res = result1;
-	}
-
-	struct socketopt *testopt = malloc(sizeof(struct socketopt));
-	int flag = 1;
-
-	memset(testopt, 0, sizeof(struct socketopt));
-	testopt->level = SOL_SOCKET;
-	testopt->optname = SO_BROADCAST;
-	testopt->optlen = sizeof(int);
-	testopt->optval = malloc(sizeof(int));
-	memcpy(testopt->optval, &flag, sizeof(int));
-
-	ctx_add_socketopts(df->context->ctx, testopt);
-
-	struct socketopt testopt3 = { .level = SOL_INTENTS, .optname = INTENT_DURATION, .optval=malloc(sizeof(int)), .optlen = sizeof(int) };
-	int duration = 12345;
-	memcpy(testopt3.optval, &duration, sizeof(int));
-	ctx_add_socketopts(df->context->ctx, &testopt3);
-
-	ctx_set_category(df->context->ctx, INTENT_STREAM);
-}
-
-/** Helper that releases a context
- *
- */
-void ctx_destroy(dfixture *df, const void *test_data)
-{
-	muacc_release_context(df->context);
-	free(df->context);
-	DLOG(TEST_UTIL_NOISY_DEBUG0, "\n===========\n");
-}
-
-/** Helper that creates a large tlv buffer with test pattern
- *
- */
-void tlv_empty_setup(dfixture *df, const void *test_data)
-{
-	DLOG(TEST_UTIL_NOISY_DEBUG0, "\n===========\n");
-	df->tlv_buffer_len = MUACC_TLV_MAXLEN;
-	df->tlv_buffer = malloc(df->tlv_buffer_len);
-	DLOG(TEST_UTIL_NOISY_DEBUG2, "allocated %zd bytes for df->tlv_buffer - got buffer at %p\n", df->tlv_buffer_len, df->tlv_buffer);
-	memset_pattern4(df->tlv_buffer, &deadbeef, df->tlv_buffer_len);
-}
-
-/** Helper that creates a damn small tlv buffer with test pattern
- *
- */
-void tlv_evilshort_setup(dfixture *df, const void *test_data)
-{
-	DLOG(TEST_UTIL_NOISY_DEBUG0, "\n===========\n");
-	df->tlv_buffer_len = sizeof(muacc_tlv_t)+sizeof(size_t)+1;
-	df->tlv_buffer = malloc(df->tlv_buffer_len);
-	DLOG(TEST_UTIL_NOISY_DEBUG2, "allocated %zd bytes for df->tlv_buffer - got buffer at %p\n", df->tlv_buffer_len, df->tlv_buffer);
-	memset_pattern4(df->tlv_buffer, &deadbeef, df->tlv_buffer_len);
-}
-
-
-/** Helper that releases a the tlv buffer
- *
- */
-void tlv_destroy(dfixture *df, const void *test_data)
-{
-	free(df->tlv_buffer);
-	df->tlv_buffer = NULL;
-	df->tlv_buffer_len = 0;
-	DLOG(TEST_UTIL_NOISY_DEBUG0, "\n===========\n");
-}
-
-void ctx_data_tlv_evilshort_setup(dfixture *df, const void* param)
-{
-	ctx_data_setup(df, param);
-	tlv_evilshort_setup(df, param);
-}
-
-void ctx_data_tlv_empty_setup(dfixture *df, const void* param)
-{
-	ctx_data_setup(df, param);
-	tlv_empty_setup(df, param);
-}
-
-void ctx_tlv_destroy(dfixture *df, const void* param)
-{
-	tlv_destroy(df, param);
-	ctx_destroy(df, param);
 }
 
 /** Helper that compares two lists of sockopts

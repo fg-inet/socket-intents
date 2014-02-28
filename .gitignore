@@ -28,6 +28,7 @@ addrinfo
 testintents
 testmuacc
 test_policy_generic
+policytest
 
 # Compiler docs
 doxygen/
@@ -37,6 +38,9 @@ CMakeCache.txt
 cmake_install.cmake
 CMakeScripts
 CMakeFiles
+CTestTestfile.cmake
+Testing
+install_manifest.txt
 
 # Automake stuff
 *.m4

@@ -5,27 +5,12 @@
 #ifndef __TEST_UTIL_H__
 #define __TEST_UTIL_H__
 
-#include "../lib/muacc.h"
-#include "../lib/intents.h"
+#include "lib/muacc.h"
+#include "lib/intents.h"
 
 #ifndef memset_pattern4
 void memset_pattern4 (void *dst, const void *pat, size_t len);
 #endif
-
-/** Fixture = Element used in a set of tests
- *
- */
-typedef struct
-{
-	muacc_context_t *context;
-	char *tlv_buffer;
-	size_t tlv_buffer_len;
-} dfixture;
-
-/** Helper that creates an empty muacc context
- *
- */
-void ctx_empty_setup(dfixture *df, const void *test_data);
 
 /** Helper that adds some sockopts to the context
  */
@@ -34,39 +19,7 @@ void ctx_add_socketopts(struct _muacc_ctx *ctx, struct socketopt *opts);
 /** Helper that adds a sockopt with this intent (category) to the context */
 void ctx_set_category(struct _muacc_ctx *ctx, intent_category_t cat);
 
-/** Helper that initializes an empty context with intent category STREAM */
-void ctx_stream_setup(dfixture *df, const void *test_data);
-
-/** Helper that creates a muacc context and fills it
- *  with some data
- */
-void ctx_data_setup(dfixture *df, const void *test_data);
-
-/** Helper that releases a context
- *
- */
-void ctx_destroy(dfixture *df, const void *test_data);
-
-/** Helper that creates a large tlv buffer with test pattern
- *
- */
-void tlv_empty_setup(dfixture *df, const void *test_data);
-
-/** Helper that creates a damn small tlv buffer with test pattern
- *
- */
-void tlv_evilshort_setup(dfixture *df, const void *test_data);
-
-/** Helper that releases a the tlv buffer
- *
- */
-void tlv_destroy(dfixture *df, const void *test_data);
-
-void ctx_data_tlv_evilshort_setup(dfixture *df, const void* param);
-
-void ctx_data_tlv_empty_setup(dfixture *df, const void* param);
-
-void ctx_tlv_destroy(dfixture *df, const void* param);
+void ctx_set_filesize(struct _muacc_ctx *ctx, int filesize);
 
 /** Helper that compares two lists of sockopts
  *
