@@ -71,8 +71,8 @@ struct connect_context
 	socklen_t remote_addr_len;
 };
 
-struct addrinfo_context *create_actx_localport (int port);
-struct addrinfo_context *create_actx_remote (int port, const char *name);
+struct addrinfo_context *create_actx_localport (int family, int port);
+struct addrinfo_context *create_actx_remote (int family, int port, const char *name);
 struct connect_context *create_cctx(int family, int socktype, int protocol, struct sockaddr *remote_addr, socklen_t remote_addr_len);
 struct connect_context *create_cctx_resolve(int family, int socktype, int protocol, int port, const char *hostname);
 struct addrinfo *getaddrinfo_request(muacc_context_t *ctx, const struct addrinfo_context *actx);
@@ -81,7 +81,7 @@ void print_usage(char *argv[], void *args[]);
 
 /** Helper that creates an addrinfo context for a request for localhost and a given port
  */
-struct addrinfo_context *create_actx_localport (int port)
+struct addrinfo_context *create_actx_localport (int family, int port)
 {
 	struct addrinfo_context *actx = malloc(sizeof(struct addrinfo_context));
 	memset(actx, 0, sizeof(struct addrinfo_context));
@@ -89,7 +89,13 @@ struct addrinfo_context *create_actx_localport (int port)
 	actx->hints = malloc(sizeof(struct addrinfo));
 	memset(actx->hints, 0, sizeof(struct addrinfo));
 
-	actx->hints->ai_family = AF_UNSPEC;
+    if (family == AF_INET)
+        actx->hints->ai_family = AF_INET;
+    else if (family == AF_INET6)
+        actx->hints->ai_family = AF_INET6;
+    else
+        actx->hints->ai_family = AF_UNSPEC;
+
 	actx->hints->ai_socktype = SOCK_DGRAM;
 	actx->hints->ai_flags = AI_PASSIVE;
 
@@ -100,7 +106,7 @@ struct addrinfo_context *create_actx_localport (int port)
 
 /** Helper that creates an addrinfo context for a remote host and, optionally, port
  */
-struct addrinfo_context *create_actx_remote (int port, const char *name)
+struct addrinfo_context *create_actx_remote (int family, int port, const char *name)
 {
 	struct addrinfo_context *actx = malloc(sizeof(struct addrinfo_context));
 	memset(actx, 0, sizeof(struct addrinfo_context));
@@ -108,7 +114,13 @@ struct addrinfo_context *create_actx_remote (int port, const char *name)
 	actx->hints = malloc(sizeof(struct addrinfo));
 	memset(actx->hints, 0, sizeof(struct addrinfo));
 
-	actx->hints->ai_family = AF_UNSPEC;
+    if (family == AF_INET)
+        actx->hints->ai_family = AF_INET;
+    else if (family == AF_INET6)
+        actx->hints->ai_family = AF_INET6;
+    else
+        actx->hints->ai_family = AF_UNSPEC;
+
 	actx->hints->ai_socktype = SOCK_DGRAM;
 
 	if (name != NULL)
@@ -228,7 +240,7 @@ int main(int argc, char *argv[])
     arg_remoteport = arg_int0("p", "remoteport", "<n>", "Connect to this remote port");
     arg_protocol = arg_int0(NULL, "protocol", "<n>", "Explicitly set \"protocol\" for socket creation");
     arg_filesize = arg_int0("F", "filesize", "<n>", "Set INTENT Filesize to this value");
-    arg_ipversion = arg_int0(NULL, "ipversion", "4|6", "Set IP version (default: 4)");
+    arg_ipversion = arg_int0(NULL, "ipversion", "4|6", "Set IP version (default: unspecified)");
 
     struct arg_str *arg_hostname, *arg_transport, *arg_category;
     arg_hostname = arg_str0("h", "hostname", "<hostname>", "Remote host name to resolve");
@@ -257,7 +269,7 @@ int main(int argc, char *argv[])
     arg_localport->ival[0] = -1;
     arg_remoteport->ival[0] = 80;
     arg_protocol->ival[0] = 0;
-    arg_ipversion->ival[0] = 4;
+    arg_ipversion->ival[0] = 0;
 
     *arg_transport->sval = "TCP";
     *arg_hostname->sval = "www.maunz.org";
@@ -286,17 +298,15 @@ int main(int argc, char *argv[])
         verbose = 0;
     }
 
-    int family = AF_INET;
+    int family = AF_UNSPEC;
     int socktype = SOCK_STREAM;
 
     intent_category_t category = -1;
 
-    if (arg_ipversion->ival[0] == 6)
+    if (*arg_ipversion->ival == 6)
         family = AF_INET6;
-    else if (arg_ipversion->ival[0] != 4)
-    {
-        printf("Unknown IP version requested - defaulting to IPv4\n");
-    }
+    else if (*arg_ipversion->ival == 4)
+        family = AF_INET;
 
     if (strncmp(*arg_transport->sval, "UDP", 4) == 0)
         socktype = SOCK_DGRAM;
@@ -341,10 +351,10 @@ int main(int argc, char *argv[])
     if (*arg_localport->ival > 0)
     {
         printf("Local port %d - Doing local name resolution\n", *arg_localport->ival);
-        local_actx = create_actx_localport(*arg_localport->ival);
+        local_actx = create_actx_localport(family, *arg_localport->ival);
         getaddrinfo_request(ctx, local_actx);
     }
-    remote_actx = create_actx_remote(*arg_remoteport->ival, *arg_hostname->sval);
+    remote_actx = create_actx_remote(family, *arg_remoteport->ival, *arg_hostname->sval);
 
     // Name resolution part
     if (arg_connectonly->count > 0)
@@ -372,7 +382,7 @@ int main(int argc, char *argv[])
     else
     {
         // Create connect context and perform connect request
-        cctx = create_cctx(family, socktype, *arg_protocol->ival, _muacc_clone_sockaddr(result->ai_addr, result->ai_addrlen), result->ai_addrlen);
+        cctx = create_cctx(result->ai_family, result->ai_socktype, result->ai_protocol, _muacc_clone_sockaddr(result->ai_addr, result->ai_addrlen), result->ai_addrlen);
         connect_ret = connect_request(ctx, cctx);
     }
 
