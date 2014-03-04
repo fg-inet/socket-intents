@@ -13,7 +13,7 @@
 #include "clib/muacc_client.h"
 #include "config.h"
 
-#define SOCKSD_NOISY_DEBUG 1
+#undef SOCKSD_NOISY_DEBUG
 
 /* socks 5 protocol stuff */
 #define SOCKS5_AUTHDONE	0x1000
@@ -522,8 +522,10 @@ static int do_accept(int listener)
 	else
 	{
 		/* some debug output in master */
+        #ifdef SOCKSD_NOISY_DEBUG
 	    char abuf[INET6_ADDRSTRLEN];
 		char pbuf[NI_MAXSERV];	
+        #endif
 		
 		#ifdef SOCKSD_NOISY_DEBUG
 	    getnameinfo( (struct sockaddr*) &sa, salen, abuf, sizeof(abuf)-1, pbuf, sizeof(pbuf)-1, NI_NUMERICHOST|NI_NUMERICSERV);
@@ -547,8 +549,11 @@ main(int c, char **v)
     int zero = 0;
 	int ret = 0;
 
+    /* some debug output in master */
+    #ifdef SOCKSD_NOISY_DEBUG
     char hbuf[NI_MAXHOST];
     char abuf[INET6_ADDRSTRLEN];
+    #endif
     
     setvbuf(stderr, NULL, _IONBF, 0);
     
