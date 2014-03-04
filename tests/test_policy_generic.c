@@ -242,7 +242,8 @@ int main(int argc, char *argv[])
     arg_filesize = arg_int0("F", "filesize", "<n>", "Set INTENT Filesize to this value");
     arg_ipversion = arg_int0(NULL, "ipversion", "4|6", "Set IP version (default: unspecified)");
 
-    struct arg_str *arg_hostname, *arg_transport, *arg_category;
+    struct arg_str *arg_address, *arg_hostname, *arg_transport, *arg_category;
+    arg_address = arg_str0("a", "address", "<IP address", "Remote IP address to connect to");
     arg_hostname = arg_str0("h", "hostname", "<hostname>", "Remote host name to resolve");
     arg_transport = arg_str0(NULL, "transport", "TCP|UDP", "Set transport protocol to use (default: TCP)");
     arg_category = arg_str0("C", "category", "QUERY|BULKTRANSFER|CONTROLTRAFFIC|STREAM", "Set INTENT Category to this value");
@@ -255,7 +256,7 @@ int main(int argc, char *argv[])
 
     struct arg_end *end = arg_end(10);
 
-    void *argtable[] = {arg_verbose, arg_quiet, arg_localport, arg_hostname, arg_remoteport, arg_ipversion, arg_protocol, arg_transport, arg_filesize, arg_category, arg_resolveonly, arg_connectonly, end};
+    void *argtable[] = {arg_verbose, arg_quiet, arg_localport, arg_address, arg_hostname, arg_remoteport, arg_ipversion, arg_protocol, arg_transport, arg_filesize, arg_category, arg_resolveonly, arg_connectonly, end};
 
     /* Check arguments table for errors */
     if (arg_nullcheck(argtable) != 0)
@@ -271,6 +272,7 @@ int main(int argc, char *argv[])
     arg_protocol->ival[0] = 0;
     arg_ipversion->ival[0] = 0;
 
+    *arg_address->sval = NULL;
     *arg_transport->sval = "TCP";
     *arg_hostname->sval = "www.maunz.org";
 
@@ -300,6 +302,8 @@ int main(int argc, char *argv[])
 
     int family = AF_UNSPEC;
     int socktype = SOCK_STREAM;
+    struct sockaddr_in addr4 = {};
+    struct sockaddr_in6 addr6 = {};
 
     intent_category_t category = -1;
 
@@ -313,6 +317,25 @@ int main(int argc, char *argv[])
     else if (strncmp(*arg_transport->sval, "TCP", 4) != 0)
     {
         printf("Invalid Transport Protocol requested - defaulting to TCP\n");
+    }
+
+    if (*arg_address->sval != NULL)
+    {
+        // IP address has been set
+        if (1 == inet_pton(AF_INET, *arg_address->sval, &(addr4.sin_addr)))
+        {
+            DLOG(TEST_POLICY_NOISY_DEBUG2, "Parsed IPv4 address successfully: %s\n", *arg_address->sval);
+            addr4.sin_family = AF_INET;
+        }
+        else if (1 == inet_pton(AF_INET6, *arg_address->sval, &(addr6.sin6_addr)))
+        {
+            DLOG(TEST_POLICY_NOISY_DEBUG2, "Parsed IPv6 address successfully: %s\n", *arg_address->sval);
+            addr6.sin6_family = AF_INET6;
+        }
+        else
+        {
+            printf("Address could not be parsed successfully: %s\n", *arg_address->sval);
+        }
     }
 
     if (*arg_category->sval != NULL)
@@ -354,24 +377,30 @@ int main(int argc, char *argv[])
         local_actx = create_actx_localport(family, *arg_localport->ival);
         getaddrinfo_request(ctx, local_actx);
     }
-    remote_actx = create_actx_remote(family, *arg_remoteport->ival, *arg_hostname->sval);
 
-    // Name resolution part
-    if (arg_connectonly->count > 0)
+    if (addr4.sin_family != AF_INET && addr6.sin6_family != AF_INET6)
     {
-        // Do not perform resolve request - directly resolve name
-        getaddrinfo(remote_actx->node, remote_actx->service, remote_actx->hints, &result);
-    }
-    else
-    {
-        // Perform resolve request
-        result = getaddrinfo_request(ctx, remote_actx);
-    }
+        DLOG(TEST_POLICY_NOISY_DEBUG2, "Resolving host name %s\n", *arg_hostname->sval);
+        // Remote address not already given - we need name resolution
+        remote_actx = create_actx_remote(family, *arg_remoteport->ival, *arg_hostname->sval);
 
-    if (result == NULL)
-    {
-        printf("Error resolving name!\n");
-        return -1;
+        // Name resolution part
+        if (arg_connectonly->count > 0 )
+        {
+            // Do not perform resolve request - directly resolve name
+            getaddrinfo(remote_actx->node, remote_actx->service, remote_actx->hints, &result);
+        }
+        else
+        {
+            // Perform resolve request
+            result = getaddrinfo_request(ctx, remote_actx);
+        }
+
+        if (result == NULL)
+        {
+            printf("Error resolving name!\n");
+            return -1;
+        }
     }
 
     // Connect part
@@ -379,14 +408,27 @@ int main(int argc, char *argv[])
     {
         printf("Resolve-only mode - not connecting.\n");
     }
-    else
+    else if (result != NULL)
     {
-        // Create connect context and perform connect request
+        // Connect to the resolved address
         cctx = create_cctx(result->ai_family, result->ai_socktype, result->ai_protocol, _muacc_clone_sockaddr(result->ai_addr, result->ai_addrlen), result->ai_addrlen);
         connect_ret = connect_request(ctx, cctx);
+        freeaddrinfo(result);
     }
-
-    freeaddrinfo(result);
+    else if (addr4.sin_family == AF_INET)
+    {
+        // Connect to this IPv4 address
+        addr4.sin_port = htons(*arg_remoteport->ival);
+        cctx = create_cctx(AF_INET, socktype, *arg_protocol->ival, (struct sockaddr *) &addr4, sizeof(addr4));
+        connect_ret = connect_request(ctx, cctx);
+    }
+    else if (addr6.sin6_family == AF_INET6)
+    {
+        // Connect to this IPv6 address
+        addr6.sin6_port = htons(*arg_remoteport->ival);
+        cctx = create_cctx(AF_INET6, socktype, *arg_protocol->ival, (struct sockaddr *) &addr6, sizeof(addr6));
+        connect_ret = connect_request(ctx, cctx);
+    }
 
 	printf("================================================\n");
 
