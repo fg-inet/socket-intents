@@ -34,6 +34,7 @@ policytest
 doxygen/
 
 # CMake stuff
+build/
 CMakeCache.txt
 cmake_install.cmake
 CMakeScripts
