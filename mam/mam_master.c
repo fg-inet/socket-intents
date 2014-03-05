@@ -247,9 +247,9 @@ static int setup_policy_module(mam_context_t *ctx, const char *filename)
 		{
 			if (ltdl_error != NULL)
 			{
-				printf(": %s", ltdl_error);
+				fprintf(stderr, ": %s", ltdl_error);
 			}
-			printf("\n");
+			fprintf(stderr, "\n");
 		}
 		return -1;
 	}
