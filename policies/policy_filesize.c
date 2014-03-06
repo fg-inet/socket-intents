@@ -34,9 +34,9 @@ void set_policy_info(gpointer elem, gpointer data)
 		/* Set filesize from config file */
 		gpointer value = NULL;
 		if ((value = g_hash_table_lookup(spl->policy_set_dict, "minfilesize")) != NULL)
-			new->minfilesize = *(int *) value;
+			new->minfilesize = atoi(value);
 		if ((value = g_hash_table_lookup(spl->policy_set_dict, "maxfilesize")) != NULL)
-			new->maxfilesize = *(int *) value;
+			new->maxfilesize = atoi(value);
 		if (((value = g_hash_table_lookup(spl->policy_set_dict, "default")) != NULL) && value)
             new->is_default = 1;
 	}

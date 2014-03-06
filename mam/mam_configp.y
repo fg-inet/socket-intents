@@ -29,7 +29,7 @@
 	void yyerror(const char *str);
 	int yywrap();
 		
-	int *idup(int i);
+	char *idup(int i);
 %}
 
 %token SEMICOLON OBRACE CBRACE EQUAL SLASH
@@ -249,10 +249,9 @@ void mam_read_config(int config_fd, char **p_file_out, struct mam_context *ctx)
 
 }
 
-int *idup (int i)
+char *idup (int i)
 {
-	int *p = malloc(sizeof(int));
-	if (p != NULL)
-		*p = i;
+    char *p;
+    asprintf(&p, "%d", i);
 	return p;
 }
