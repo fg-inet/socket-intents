@@ -24,17 +24,17 @@ int mampol_get_socketopt(struct socketopt *list, int level, int optname, socklen
 void print_pfx_addr (gpointer element, gpointer data)
 {
 	struct src_prefix_list *pfx = element;
-	char addr_str[INET6_ADDRSTRLEN]; /** String for debug / error printing */
+	char addr_str[INET6_ADDRSTRLEN+1]; /** String for debug / error printing */
 
 	/* Print first address of this prefix */
 	if (pfx->family == AF_INET)
 	{
-		inet_ntop(AF_INET, &( ((struct sockaddr_in *) (pfx->if_addrs->addr))->sin_addr ), addr_str, sizeof(struct sockaddr_in));
+		inet_ntop(AF_INET, &( ((struct sockaddr_in *) (pfx->if_addrs->addr))->sin_addr ), addr_str, sizeof(addr_str));
 		printf("\n\t\t%s", addr_str);
 	}
 	else if (pfx->family == AF_INET6)
 	{
-		inet_ntop(AF_INET6, &( ((struct sockaddr_in6 *) (pfx->if_addrs->addr))->sin6_addr ), addr_str, sizeof(struct sockaddr_in6));
+		inet_ntop(AF_INET6, &( ((struct sockaddr_in6 *) (pfx->if_addrs->addr))->sin6_addr ), addr_str, sizeof(addr_str));
 		printf("\n\t\t%s", addr_str);
 	}
 

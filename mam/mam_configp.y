@@ -112,7 +112,7 @@ prefix_block:
 	{
 		// find matching prefixes
 		struct sockaddr_in *sa = &($2);
-		inet_ntop(AF_INET, &(sa->sin_addr), addr_str, sizeof(struct sockaddr_in));
+		inet_ntop(AF_INET, &(sa->sin_addr), addr_str, sizeof(addr_str));
 		struct src_prefix_model m = {PFX_ANY, NULL, AF_INET, (struct sockaddr *) sa, sizeof(struct sockaddr_in)};
 		GSList *listelement = g_slist_find_custom(yymctx->prefixes, (gconstpointer) &m, &compare_src_prefix);
 		if (listelement != NULL){
@@ -143,7 +143,7 @@ prefix_block:
 	{
 		// find matching prefixes
 		struct sockaddr_in6 *sa = &($2);
-		inet_ntop(AF_INET6, &(sa->sin6_addr), addr_str, sizeof(struct sockaddr_in6));
+		inet_ntop(AF_INET6, &(sa->sin6_addr), addr_str, sizeof(addr_str));
 		struct src_prefix_model m = {PFX_ANY, NULL, AF_INET6, (struct sockaddr *) sa, sizeof(struct sockaddr_in6)};
 		GSList *listelement = g_slist_find_custom(yymctx->prefixes, (gconstpointer) &m, &compare_src_prefix);
 		if (listelement != NULL){

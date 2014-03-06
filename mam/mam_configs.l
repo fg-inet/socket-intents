@@ -10,7 +10,7 @@
 IPV4ADDRESS      (([[:digit:]]{1,3}"."){3}([[:digit:]]{1,3}))
 hex4             ([[:xdigit:]]{1,4})
 hexseq           ({hex4}(:{hex4})*)
-hexpart          (({hexseq}::({hexseq}?))|::{hexseq})
+hexpart          (({hexseq}::({hexseq}?))|(::{hexseq})|({hexseq}:{hexseq}))
 IPV6ADDRESS      ({hexpart}(":"{IPV4ADDRESS})?)
 
 %%
