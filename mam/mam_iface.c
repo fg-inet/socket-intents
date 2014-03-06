@@ -65,6 +65,8 @@ static int _cmp_in6_addr_with_mask(
 	return(0);	
 }
 
+/** Compare a src_prefix_list struct with a src_prefix_model
+ *  Return 0 if they are equal, 1 if not, -1 on error */
 int compare_src_prefix (gconstpointer listelement, gconstpointer model)
 {
 	struct src_prefix_model *m = (struct src_prefix_model *) model;
@@ -124,6 +126,8 @@ int compare_src_prefix (gconstpointer listelement, gconstpointer model)
 		return 1;
 }
 
+/** From an old source prefix list, generate a new one
+ *  that only includes prefixes matching certain criteria */
 void filter_prefix_list (GSList *old, GSList **new, unsigned int pfx_flags, const char *if_name, int family, const struct sockaddr *addr)
 {
 	/* Set criteria for matching addresses */
@@ -141,6 +145,7 @@ void filter_prefix_list (GSList *old, GSList **new, unsigned int pfx_flags, cons
 	}
 }
 
+/** Append an address to a sockaddr_list */
 static int _append_sockaddr_list (
 	struct sockaddr_list **dst,
     struct sockaddr *addr, 
@@ -153,8 +158,11 @@ static int _append_sockaddr_list (
 	(*dst)->addr_len = addr_len;
 	return(0);
 }
-	
-																																																	   
+
+/** Incorporate an address into the source prefix list:
+ *  If a matching prefix exists, add it to this prefix' addr_list
+ *  If no matching prefix exists yet, create one
+ */
 static void _scan_update_prefix (
 	GSList **spfxl,
 	char *if_name, unsigned int if_flags,
@@ -205,6 +213,9 @@ static void _scan_update_prefix (
 	return;
 }
 
+/** Scan for interfaces/addresses available on the host
+ *  Create a new src_prefix_list and add all active interfaces/addresses to it
+ */
 int update_src_prefix_list (mam_context_t *ctx )
 {
 	GSList **spfxl = &ctx->prefixes;
@@ -267,6 +278,7 @@ int update_src_prefix_list (mam_context_t *ctx )
     return(0);
 }
 
+/** Tear down a source prefix list structure */
 void _free_src_prefix_list (gpointer data)
 {
 	struct src_prefix_list *element = (struct src_prefix_list *) data;
