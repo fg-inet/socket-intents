@@ -41,15 +41,15 @@ void _mam_print_sockaddr_list(strbuf_t *sb, const struct sockaddr_list *list)
 
 void _mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags)
 {
-	strbuf_printf(sb, "pfx_flags = ");
-	if(pfx_flags & PFX_ANY			 ) strbuf_printf(sb, "PFX_ANY ");
-	if(pfx_flags & PFX_ENABLED		 ) strbuf_printf(sb, "PFX_ENABLED ");
-	if(pfx_flags & PFX_CONF		     ) strbuf_printf(sb, "PFX_CONF ");
-	if(pfx_flags & PFX_CONF_PFX	     ) strbuf_printf(sb, "PFX_CONF_PFXL ");
-	if(pfx_flags & PFX_CONF_IF		 ) strbuf_printf(sb, "PFX_CONF_IF ");
-	if(pfx_flags & PFX_SCOPE_GLOBAL  ) strbuf_printf(sb, "PFX_SCOPE_GLOBAL ");
-	if(pfx_flags & PFX_SCOPE_LL	     ) strbuf_printf(sb, "PFX_SCOPE_LLL ");
-	strbuf_printf(sb, "\n");
+	strbuf_printf(sb, "pfx_flags =");
+	if(pfx_flags & PFX_ANY			 ) strbuf_printf(sb, " PFX_ANY");
+	if(pfx_flags & PFX_ENABLED		 ) strbuf_printf(sb, " PFX_ENABLED");
+	if(pfx_flags & PFX_CONF		     ) strbuf_printf(sb, " PFX_CONF");
+	if(pfx_flags & PFX_CONF_PFX	     ) strbuf_printf(sb, " PFX_CONF_PFXL");
+	if(pfx_flags & PFX_CONF_IF		 ) strbuf_printf(sb, " PFX_CONF_IF");
+	if(pfx_flags & PFX_SCOPE_GLOBAL  ) strbuf_printf(sb, " PFX_SCOPE_GLOBAL");
+	if(pfx_flags & PFX_SCOPE_LL	     ) strbuf_printf(sb, " PFX_SCOPE_LLL");
+	strbuf_printf(sb, ", ");
 }
 
 static void _mam_print_dict_kv (gpointer key,  gpointer val, gpointer sb)
@@ -66,21 +66,8 @@ void _mam_print_prefix_list(strbuf_t *sb, GSList *prefixes)
 	while (p != NULL)
 	{
 		struct src_prefix_list *current = (struct src_prefix_list *) p->data;
-		strbuf_printf(sb, "\n\t{ ");
-		strbuf_printf(sb, " if_name = %s, ", current->if_name);
-		_mam_print_prefix_list_flags(sb, current->pfx_flags);
-		strbuf_printf(sb, " if_flags = %d, ", current->if_flags);
-		strbuf_printf(sb, " if_addrs = ");
-		_mam_print_sockaddr_list(sb, current->if_addrs);
-		strbuf_printf(sb, " if_netmask = ");
-		_muacc_print_sockaddr(sb, current->if_netmask, current->if_netmask_len);
-		if(current->policy_set_dict != NULL) 
-		{
-			strbuf_printf(sb, " policy_set_dict = {");
-			g_hash_table_foreach(current->policy_set_dict, &_mam_print_dict_kv, sb);
-			strbuf_printf(sb, " }");
-		}
-		strbuf_printf(sb, " }, ");
+		strbuf_printf(sb, "\n\t");
+		_mam_print_prefix(sb, current);
 		p = p->next;
 	}
 	strbuf_printf(sb, "NULL }");
@@ -88,7 +75,24 @@ void _mam_print_prefix_list(strbuf_t *sb, GSList *prefixes)
 }
 
 
-
+void _mam_print_prefix(strbuf_t *sb, struct src_prefix_list *current)
+{
+	strbuf_printf(sb, "{ ");
+	strbuf_printf(sb, " if_name = %s, ", current->if_name);
+	_mam_print_prefix_list_flags(sb, current->pfx_flags);
+	strbuf_printf(sb, " if_flags = %d, ", current->if_flags);
+	strbuf_printf(sb, " if_addrs = ");
+	_mam_print_sockaddr_list(sb, current->if_addrs);
+	strbuf_printf(sb, " if_netmask = ");
+	_muacc_print_sockaddr(sb, current->if_netmask, current->if_netmask_len);
+	if(current->policy_set_dict != NULL)
+	{
+		strbuf_printf(sb, " policy_set_dict = {");
+		g_hash_table_foreach(current->policy_set_dict, &_mam_print_dict_kv, sb);
+		strbuf_printf(sb, " }");
+	}
+	strbuf_printf(sb, " }, ");
+}
 
 void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx)
 {

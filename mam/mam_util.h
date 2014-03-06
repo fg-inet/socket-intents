@@ -12,6 +12,9 @@ void _mam_print_sockaddr_list(strbuf_t *sb, const struct sockaddr_list *list);
 /** Helper to print a list of prefixes to a string */
 void _mam_print_prefix_list(strbuf_t *sb, GSList *prefixes);
 
+/** Helper to print a list of prefixes to a string */
+void _mam_print_prefix(strbuf_t *sb, struct src_prefix_list *current);
+
 /** Helper to print a mam context to a string */
 void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx);
 
