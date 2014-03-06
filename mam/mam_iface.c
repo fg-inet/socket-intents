@@ -73,29 +73,25 @@ int compare_src_prefix (gconstpointer listelement, gconstpointer model)
 	struct src_prefix_list *cur = (struct src_prefix_list *) listelement;
 	if (cur == NULL || model == NULL)
 	{
-		DLOG(1, "WARNING: called with NULL argument\n");
+		DLOG(MAM_IF_NOISY_DEBUG1, "WARNING: called with NULL argument\n");
 		return -1;
 	}
 
+/*    DLOG(MAM_IF_NOISY_DEBUG2, "Comparing src_prefix_list item with model\n");
 #if MAM_IF_NOISY_DEBUG2
 	strbuf_t sb;
 	strbuf_init(&sb);
-	strbuf_printf(&sb, "\ncomparing __cur__ = \t{");
-	strbuf_printf(&sb, "if_name = %s, ", cur->if_name);
-	strbuf_printf(&sb, "if_addrs = ");
-	_mam_print_sockaddr_list(&sb, cur->if_addrs);
-	strbuf_printf(&sb, "if_netmask = ");
-	_muacc_print_sockaddr(&sb, cur->if_netmask, cur->if_netmask_len);
-	_mam_print_prefix_list_flags(&sb, cur->pfx_flags);
-	strbuf_printf(&sb, "}, \n with parameters = \t{");
-	strbuf_printf(&sb, "if_name = %s, ", (m->if_name!=NULL)?m->if_name:"ANY");
-	strbuf_printf(&sb, "if_addrs = \n\t\t");
-	if(m->addr != NULL) _muacc_print_sockaddr(&sb, m->addr, m->addr_len); else strbuf_printf(&sb, "ANY ");
+	strbuf_printf(&sb, "Prefix =\t{");
+	_mam_print_prefix(&sb, cur);
+	strbuf_printf(&sb, "}, \nPrefix model =\t{ ");
+	strbuf_printf(&sb, " if_name = %s,  ", (m->if_name!=NULL)?m->if_name:"ANY");
 	_mam_print_prefix_list_flags(&sb, m->flags);
+	strbuf_printf(&sb, " if_addrs = ");
+	if(m->addr != NULL) _muacc_print_sockaddr(&sb, m->addr, m->addr_len); else strbuf_printf(&sb, "ANY ");
 	strbuf_printf(&sb, "}\n");
-	printf("%s", strbuf_export(&sb));
+	fprintf(stderr, "%s", strbuf_export(&sb));
 	strbuf_release(&sb);
-#endif
+#endif*/
 
 	/* different interface or family */
 	if( ((cur->pfx_flags)^m->flags) & m->flags )
@@ -119,7 +115,7 @@ int compare_src_prefix (gconstpointer listelement, gconstpointer model)
 		)
 	)
 	{
-		DLOG(MAM_IF_NOISY_DEBUG2, "Match!\n");
+		DLOG(MAM_IF_NOISY_DEBUG2, "prefix matches model!\n");
 		return 0;
 	}
 	else
@@ -130,6 +126,7 @@ int compare_src_prefix (gconstpointer listelement, gconstpointer model)
  *  that only includes prefixes matching certain criteria */
 void filter_prefix_list (GSList *old, GSList **new, unsigned int pfx_flags, const char *if_name, int family, const struct sockaddr *addr)
 {
+    DLOG(MAM_IF_NOISY_DEBUG2, "filter prefix list\n");
 	/* Set criteria for matching addresses */
 	struct src_prefix_model m = { pfx_flags, if_name, family, addr };
 
@@ -222,6 +219,8 @@ int update_src_prefix_list (mam_context_t *ctx )
     struct ifaddrs *ifaddr, *ifa;
     int family;
 
+    DLOG(MAM_IF_NOISY_DEBUG0, "creating a list of the currently active interfaces\n");
+
     if (getifaddrs(&ifaddr) == -1) {
         perror("getifaddrs");
         return(-1);
@@ -238,17 +237,18 @@ int update_src_prefix_list (mam_context_t *ctx )
 
 		if((ifa->ifa_flags & IFF_UP)==0) 
 		{
-            DLOG(MAM_IF_NOISY_DEBUG0, "%s: interface down skipping\n", ifa->ifa_name);
+            DLOG(MAM_IF_NOISY_DEBUG2, "%s: interface down - skipping\n", ifa->ifa_name);
         	continue;
 		} 
 		else if(ifa->ifa_addr == NULL) 
 		{
-            DLOG(MAM_IF_NOISY_DEBUG0, "%s: address family: (NULL) - skipping\n", ifa->ifa_name);
+            DLOG(MAM_IF_NOISY_DEBUG2, "%s: address family: (NULL) - skipping\n", ifa->ifa_name);
             continue;
 		}
 		else if (family == AF_INET || family == AF_INET6) 
         {
-			#if MAM_IF_NOISY_DEBUG1 != 0
+            DLOG(MAM_IF_NOISY_DEBUG2, "%s: adding address (", ifa->ifa_name);
+			#if MAM_IF_NOISY_DEBUG2 != 0
         	/* Display interface name and family (including symbolic
                form of the latter for the common families) */
 		    char addr[NI_MAXHOST];
@@ -260,11 +260,14 @@ int update_src_prefix_list (mam_context_t *ctx )
 	        s = getnameinfo(ifa->ifa_netmask,
 	            (family == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6),
 	            mask, NI_MAXHOST, NULL, 0, NI_NUMERICHOST);
-         	DLOG(MAM_IF_NOISY_DEBUG1, "scanning for family: %d%s, address: %s mask: %s\n",
-                 family,
-                 (family == AF_INET) ?   " (AF_INET)" :
-                 (family == AF_INET6) ?  " (AF_INET6)" : "",
-				 addr, mask);
+			if (s == 0)
+			{
+				fprintf(stderr, "family: %d%s, address: %s mask: %s)\n",
+					 family,
+					 (family == AF_INET) ?   " (AF_INET)" :
+					 (family == AF_INET6) ?  " (AF_INET6)" : "",
+					 addr, mask);
+			}
 			#endif
 				 
 			/* add to our structure */

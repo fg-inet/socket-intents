@@ -314,7 +314,7 @@ static void configure_mamma() {
 	}
 	
 	/* get interface config from system */
-	DLOG(MAM_MASTER_NOISY_DEBUG1, "updating interface list\n");	
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "updating interface list from system\n");
 	update_src_prefix_list(global_mctx);
 	
 	if (MAM_MASTER_NOISY_DEBUG2) mam_print_context(global_mctx);
