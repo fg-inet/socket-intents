@@ -388,7 +388,7 @@ static void do_socks( int fd, struct sockaddr *remote_in, socklen_t remote_in_le
 		}
 		
 		/* create socket */
-		fd2 = socket(remote_out.ss_family, SOCK_STREAM, 0);
+		fd2 = muacc_socket(&fd2_ctx, remote_out.ss_family, SOCK_STREAM, 0);
 		if (fd2 <= 0)
 		{
 			fprintf(stderr, "%6d: error creating socket: ", (int) getpid());
