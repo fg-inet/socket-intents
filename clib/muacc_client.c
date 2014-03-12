@@ -430,6 +430,8 @@ int muacc_connect(muacc_context_t *ctx,
 	ctx->ctx->remote_sa     = _muacc_clone_sockaddr((struct sockaddr *)address, address_len);
 	ctx->ctx->remote_sa_len = address_len;
 
+	ctx->ctx->domain = address->sa_family;
+
 	if( _muacc_contact_mam(muacc_act_connect_req, ctx) <0 ){
 		_unlock_ctx(ctx);
 		DLOG(CLIB_IF_NOISY_DEBUG0, "got no response from mam - fallback to regular connect\n");
