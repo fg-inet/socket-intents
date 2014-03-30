@@ -33,10 +33,14 @@ typedef struct socketopt {
 /** Context identifier that is unique per MAM socket in a client */
 typedef uint64_t muacc_ctxid_t;
 
+/** Identifier that is unique per MPTCP session */
+typedef uint64_t muacc_ctxino_t;
+
 /** Internal muacc context struct
 	All data will be serialized and sent to MAM */
 struct _muacc_ctx {
 	muacc_ctxid_t		ctxid;					/**< identifier for the context if sharing mamsock */
+    muacc_ctxino_t      ctxino;                  /**< inode of the socket (used as identifier for MPTCP sessions) */
 	unsigned int		calls_performed;		/**< contains flags of which socket call have been performed*/
 	int					domain;					/**< communication domain of the socket (e.g. AF_INET) */
 	int					type;					/**< communication semantics, e.g. SOCK_STREAM or SOCK_DGRAM */
@@ -60,12 +64,13 @@ typedef enum
 	action,					/**< action triggering request */
 	calls_performed,		/**< flags of which socket calls have already been performed */
 	ctxid = 0x08,			/**< identifier for the context if sharing mamsock */
+    ctxino,                 /**< inode of the socket (used as identifier for MPTCP sessions) */
 	domain,					/**< protocol family */
 	type,					/**< socket type */
 	protocol,				/**< specific protocol in the given family */
-	bind_sa_req = 0x12, 	/**< local address requested */
+	bind_sa_req = 0x13, 	/**< local address requested */
 	bind_sa_res,        	/**< local address choosen by mam */
-	remote_hostname = 0x20,	/**< remote host name */
+	remote_hostname = 0x21,	/**< remote host name */
 	remote_srvname,	   		/**< remote service name */
 	remote_addrinfo_hint,	/**< candidate remote addresses (sorted by mam preference) */
 	remote_addrinfo_res,	/**< candidate remote addresses (sorted by mam preference) */

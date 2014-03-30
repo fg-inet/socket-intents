@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <sys/un.h>
+#include <sys/stat.h>
 #include <netdb.h>
 #include <errno.h>
 
@@ -44,6 +45,13 @@ int muacc_init_context(struct muacc_context *ctx)
 
 	ctx->ctx = _ctx;
 	return(0);
+}
+
+muacc_ctxino_t _muacc_get_ctxino(int sockfd)
+{
+    struct stat s;
+    fstat(sockfd, &s);
+    return s.st_ino;
 }
 
 int _lock_ctx (muacc_context_t *ctx)

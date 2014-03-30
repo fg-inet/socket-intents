@@ -59,6 +59,8 @@ int muacc_socket(muacc_context_t *ctx,
 	ctx->ctx->protocol = protocol;
 
 	ret = socket(domain, type, protocol);
+    
+    ctx->ctx->ctxino = _muacc_get_ctxino(ret);
 
 	_unlock_ctx(ctx);
 	return ret;

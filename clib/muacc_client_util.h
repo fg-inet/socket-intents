@@ -19,6 +19,12 @@
  */
 int muacc_init_context(muacc_context_t *ctx);
 
+/** Helper to retrieve the inode of the socket
+ *
+ * @return inode number of the given socket
+ */
+muacc_ctxino_t _muacc_get_ctxino(int sockfd);
+
 /** Helper doing locking simulation - lock part
  *
  * just to make sure that we have no
