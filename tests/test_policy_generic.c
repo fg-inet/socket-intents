@@ -217,7 +217,8 @@ int connect_request(muacc_context_t *ctx, const struct connect_context *cctx)
         printf("Connection successful!\n");
     else
     {
-        printf("Connection failed: Returned %d\n", ret);
+        printf("Connection failed: Returned (%d): %s\n", ret, strerror(errno));
+        
     }
     return ret;
 }
@@ -412,6 +413,12 @@ int main(int argc, char *argv[])
     {
         // Connect to the resolved address
         cctx = create_cctx(result->ai_family, result->ai_socktype, result->ai_protocol, _muacc_clone_sockaddr(result->ai_addr, result->ai_addrlen), result->ai_addrlen);
+        if (cctx->remote_addr->sa_family == AF_INET)
+            ((struct sockaddr_in *)cctx->remote_addr)->sin_port = htons(*arg_remoteport->ival);
+        else
+        if (cctx->remote_addr->sa_family == AF_INET6)
+            ((struct sockaddr_in6 *)cctx->remote_addr)->sin6_port = htons(*arg_remoteport->ival);
+        
         connect_ret = connect_request(ctx, cctx);
         freeaddrinfo(result);
     }
