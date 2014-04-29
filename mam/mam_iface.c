@@ -233,8 +233,6 @@ int update_src_prefix_list (mam_context_t *ctx )
        can free list later */
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) 
     {
-        family = ifa->ifa_addr->sa_family;
-
 		if((ifa->ifa_flags & IFF_UP)==0) 
 		{
             DLOG(MAM_IF_NOISY_DEBUG2, "%s: interface down - skipping\n", ifa->ifa_name);
@@ -245,7 +243,10 @@ int update_src_prefix_list (mam_context_t *ctx )
             DLOG(MAM_IF_NOISY_DEBUG2, "%s: address family: (NULL) - skipping\n", ifa->ifa_name);
             continue;
 		}
-		else if (family == AF_INET || family == AF_INET6) 
+		
+		family = ifa->ifa_addr->sa_family;
+		
+		if (family == AF_INET || family == AF_INET6)
         {
             DLOG(MAM_IF_NOISY_DEBUG2, "%s: adding address (", ifa->ifa_name);
 			#if MAM_IF_NOISY_DEBUG2 != 0
