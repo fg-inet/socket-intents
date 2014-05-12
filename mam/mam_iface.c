@@ -182,7 +182,8 @@ static void _scan_update_prefix (
 	{
 		/* Prefix already exists within the list: append this address to its address list */
 
-		for(cus = ((struct src_prefix_list *)cur->data)->if_addrs; cus->next != NULL; cus = cus->next);; 
+		for(cus = ((struct src_prefix_list *)cur->data)->if_addrs; cus->next != NULL; cus = cus->next);
+		; 
 		_append_sockaddr_list( &(cus->next), addr, family_size);
 		return;			
 	}

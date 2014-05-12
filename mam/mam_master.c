@@ -14,6 +14,10 @@
 #include "mam_configp.h"
 #include "mam.h"
 
+#ifdef HAVE_LIBNL
+#include "mam_netlink.h"
+#endif
+
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))
 #define MAX_BUF 0
 
@@ -172,6 +176,7 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
         evutil_make_socket_nonblocking(fd);
         bev = bufferevent_socket_new(mctx->ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
         bufferevent_setcb(bev, mamsock_readcb, NULL, mamsock_errorcb, (void *) ctx);
+		/* Hint: Trigger the read callback only whenever there is at least MIN_BUF bytes of data in the buffer. */
         bufferevent_setwatermark(bev, EV_READ, MIN_BUF, MAX_BUF);
         bufferevent_enable(bev, EV_READ|EV_WRITE);
 
@@ -426,6 +431,11 @@ main(int c, char **v)
 	
 	/* apply config and read policy */
 	configure_mamma();
+    
+#ifdef HAVE_LIBNL
+    /*configure netlink socket and send PID of mamma to MPTCP pathmanager kernel module */
+    configure_netlink();
+#endif
 
 	/* set mam socket */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "setting up mamma's socket %s\n", MUACC_SOCKET);
@@ -457,6 +467,11 @@ main(int c, char **v)
 	cleanup_policy_module(global_mctx);
 	mam_release_context(global_mctx);
 	lt_dlexit();
+	
+#ifdef HAVE_LIBNL
+	shutdown_netlink();
+#endif
+	
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "exiting\n");
 
 

@@ -76,7 +76,7 @@ struct addrinfo_context *create_actx_remote (int family, int port, const char *n
 struct connect_context *create_cctx(int family, int socktype, int protocol, struct sockaddr *remote_addr, socklen_t remote_addr_len);
 struct connect_context *create_cctx_resolve(int family, int socktype, int protocol, int port, const char *hostname);
 struct addrinfo *getaddrinfo_request(muacc_context_t *ctx, const struct addrinfo_context *actx);
-int connect_request(muacc_context_t *ctx, const struct connect_context *cctx);
+int connect_request(muacc_context_t *ctx, const struct connect_context *cctx, int *sfd);
 void print_usage(char *argv[], void *args[]);
 
 /** Helper that creates an addrinfo context for a request for localhost and a given port
@@ -183,12 +183,12 @@ struct addrinfo *getaddrinfo_request(muacc_context_t *ctx, const struct addrinfo
 
 /** Create a socket, send a connect request to the MAM and print the context before and after
  */
-int connect_request(muacc_context_t *ctx, const struct connect_context *cctx)
+int connect_request(muacc_context_t *ctx, const struct connect_context *cctx, int *sfd)
 {
 	if (cctx == NULL) return -1;
 
-	int sfd = muacc_socket(ctx, cctx->family, cctx->socktype, cctx->protocol);
-    if (sfd <= 0)
+	*sfd = muacc_socket(ctx, cctx->family, cctx->socktype, cctx->protocol);
+    if (*sfd <= 0)
     {
         printf("Creating the socket failed!\n");
         return -1;
@@ -206,7 +206,7 @@ int connect_request(muacc_context_t *ctx, const struct connect_context *cctx)
     }
 
     printf("Sending connect_request to MAM...\n\n");
-	int ret = muacc_connect(ctx, sfd, cctx->remote_addr, cctx->remote_addr_len);
+	int ret = muacc_connect(ctx, *sfd, cctx->remote_addr, cctx->remote_addr_len);
 
     if (verbose)
     {
@@ -243,8 +243,9 @@ int main(int argc, char *argv[])
     arg_filesize = arg_int0("F", "filesize", "<n>", "Set INTENT Filesize to this value");
     arg_ipversion = arg_int0(NULL, "ipversion", "4|6", "Set IP version (default: unspecified)");
 
-    struct arg_str *arg_address, *arg_hostname, *arg_transport, *arg_category;
-    arg_address = arg_str0("a", "address", "<IP address", "Remote IP address to connect to");
+    struct arg_str *arg_address, *arg_hostname, *arg_transport, *arg_category, *arg_message;
+    arg_address = arg_str0("a", "address", "<IP address>", "Remote IP address to connect to");
+	arg_message = arg_str0("m", "message", "<message>", "Message to send to Remote");
     arg_hostname = arg_str0("h", "hostname", "<hostname>", "Remote host name to resolve");
     arg_transport = arg_str0(NULL, "transport", "TCP|UDP", "Set transport protocol to use (default: TCP)");
     arg_category = arg_str0("C", "category", "QUERY|BULKTRANSFER|CONTROLTRAFFIC|STREAM", "Set INTENT Category to this value");
@@ -257,7 +258,7 @@ int main(int argc, char *argv[])
 
     struct arg_end *end = arg_end(10);
 
-    void *argtable[] = {arg_verbose, arg_quiet, arg_localport, arg_address, arg_hostname, arg_remoteport, arg_ipversion, arg_protocol, arg_transport, arg_filesize, arg_category, arg_resolveonly, arg_connectonly, end};
+    void *argtable[] = {arg_verbose, arg_quiet, arg_localport, arg_address, arg_message, arg_hostname, arg_remoteport, arg_ipversion, arg_protocol, arg_transport, arg_filesize, arg_category, arg_resolveonly, arg_connectonly, end};
 
     /* Check arguments table for errors */
     if (arg_nullcheck(argtable) != 0)
@@ -279,6 +280,7 @@ int main(int argc, char *argv[])
 
     arg_filesize->ival[0] = -1;
     *arg_category->sval = NULL;
+	*arg_message->sval = NULL;
 
     /* Parse the command line arguments */
     int nerrors = arg_parse(argc, argv, argtable);
@@ -352,7 +354,7 @@ int main(int argc, char *argv[])
         else
             printf("Invalid Intent Category %s - Not setting category\n", *arg_category->sval);
     }
-
+	
 	printf("================================================\n");
 
     // Set up a new context
@@ -405,6 +407,7 @@ int main(int argc, char *argv[])
     }
 
     // Connect part
+	int sfd;
     if (arg_resolveonly->count > 0)
     {
         printf("Resolve-only mode - not connecting.\n");
@@ -419,7 +422,7 @@ int main(int argc, char *argv[])
         if (cctx->remote_addr->sa_family == AF_INET6)
             ((struct sockaddr_in6 *)cctx->remote_addr)->sin6_port = htons(*arg_remoteport->ival);
         
-        connect_ret = connect_request(ctx, cctx);
+        connect_ret = connect_request(ctx, cctx, &sfd);
         freeaddrinfo(result);
     }
     else if (addr4.sin_family == AF_INET)
@@ -427,17 +430,43 @@ int main(int argc, char *argv[])
         // Connect to this IPv4 address
         addr4.sin_port = htons(*arg_remoteport->ival);
         cctx = create_cctx(AF_INET, socktype, *arg_protocol->ival, (struct sockaddr *) &addr4, sizeof(addr4));
-        connect_ret = connect_request(ctx, cctx);
+        connect_ret = connect_request(ctx, cctx, &sfd);
     }
     else if (addr6.sin6_family == AF_INET6)
     {
         // Connect to this IPv6 address
         addr6.sin6_port = htons(*arg_remoteport->ival);
         cctx = create_cctx(AF_INET6, socktype, *arg_protocol->ival, (struct sockaddr *) &addr6, sizeof(addr6));
-        connect_ret = connect_request(ctx, cctx);
+        connect_ret = connect_request(ctx, cctx, &sfd);
     }
+	
+	
 
 	printf("================================================\n");
+	
+	
+	if (*arg_message->sval != NULL)
+	{
+		if (socktype != SOCK_STREAM)
+			printf("Sorry, currently sending messages is only implemented for TCP (SOCK_STREAM).\n");
+		else
+		{
+			printf("Sending message to Remote.\n");
+			//send(sfd, *arg_message->sval, strlen(*arg_message->sval),  0);
+			//TODO hardcoded strings are a bad idea...
+			send(sfd, "GET /testfile10M HTTP/1.1\r\nHost: 192.168.200.132\r\nAcept: */*\r\nConnection: close\r\n\r\n", strlen("GET /testfile10M HTTP/1.1\r\nHost: 192.168.200.132\r\nAcept: */*\r\nConnection: close\r\n\r\n"), 0);
+			
+			char buf[1024];
+			int ret = 0, count = 0;
+			do
+			{
+				ret = recv(sfd, buf, 1024, 0);
+				count += ret;
+			}
+			while (ret);
+			printf("Received: %d bytes.\n", count);
+		}
+	}
 
     // Tear down the context
     muacc_release_context(ctx);
