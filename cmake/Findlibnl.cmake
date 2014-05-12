@@ -1,14 +1,11 @@
 # - Find libnl
 #
 # This module defines
-#  LIBNL_FOUND - whether the libnl library was found
-#  LIBNL_LIBRARIES - the libnl library
-#  LIBNL_INCLUDE_DIR - the include path of the libnl library
+#  LIBNL_LIBRARIES - the libnl libraries
+#  LIBNL_INCLUDE_DIR - the include path of the libnl and libgenl libraries
 
 find_library (LIBNL_LIBRARY nl-3)
 find_library (LIBNL_GENERIC_LIBRARY nl-genl-3)
-
-
 
 if ( ${LIBNL_LIBRARY} MATCHES "LIBNL_LIBRARY-NOTFOUND")
 	message( STATUS "Compiling without libnl - Not Found." )
@@ -18,6 +15,7 @@ if ( ${LIBNL_LIBRARY} MATCHES "LIBNL_LIBRARY-NOTFOUND")
 	SET (NETLINK_CODE "")
 else ( ${LIBNL_LIBRARY} MATCHES "LIBNL_LIBRARY-NOTFOUND")
 	SET (NETLINK_CODE "mam_netlink.c")
+	SET (HAVE_LIBNL 1)
 endif ( ${LIBNL_LIBRARY} MATCHES "LIBNL_LIBRARY-NOTFOUND")
 
 set(LIBNL_LIBRARIES 
