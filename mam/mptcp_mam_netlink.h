@@ -4,25 +4,12 @@
 #ifndef __MPTCP_MAM_NETLINK_H__
 #define __MPTCP_MAM_NETLINK_H__
 
+#include <netlink/netlink.h>
+#include <netlink/types.h>
+#include <netlink/genl/genl.h>
+#include <netlink/genl/ctrl.h>
 
-/* attributes */
-enum
-{
-   MAM_MPTCP_A_UNSPEC,
-   MAM_MPTCP_A_MSG,
-   MAM_MPTCP_A_IPV4,
-   __MAM_MPTCP_A_MAX
-};
-#define MAM_MPTCP_A_MAX (__MAM_MPTCP_A_MAX - 1)
-
-/* commands */
-enum
-{
-   MAM_MPTCP_C_UNSPEC,
-   MAM_MPTCP_C_INIT,
-   MAM_MPTCP_C_NEWFLOW,
-   __MAM_MPTCP_C_MAX
-};
+#include "mptcp_netlink_types.h"
 
 /* attribute policy */
 static struct nla_policy mam_mptcp_genl_policy[MAM_MPTCP_A_MAX + 1] = {
