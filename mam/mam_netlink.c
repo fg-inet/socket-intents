@@ -9,6 +9,7 @@
 #include <netlink/genl/ctrl.h>
 
 #include "mam.h"
+#include "mam_util.h"
 #include "mam_netlink.h"
 #include "mptcp_netlink_types.h"
 #include "mptcp_netlink_parser.h"
@@ -29,6 +30,7 @@
 extern struct mam_context *global_mctx;
 
 struct nl_sock *netlink_sk;
+int family;
 
 void netlink_readcb(struct bufferevent *bev, void *dummy)
 {
@@ -36,6 +38,16 @@ void netlink_readcb(struct bufferevent *bev, void *dummy)
 	struct nlmsghdr *nhl;
 	unsigned char *buf = NULL;
 	size_t len;
+	int err;
+	int (*new_subflow_function)() = NULL;
+	
+	struct mptcp_rem_loc rem_loc;
+	
+	uint32_t inode;
+	uint32_t token;
+	
+	struct nl_msg *msg_out;
+	void *hdr;
 
 	in = bufferevent_get_input(bev);
 	len = evbuffer_get_length(in);
@@ -46,7 +58,69 @@ void netlink_readcb(struct bufferevent *bev, void *dummy)
 	switch(get_message_type(nhl))
 	{
 		case MAM_MPTCP_C_NEWFLOW:
-			new_v4_flow(nhl, NULL); //TODO replace NULL with actual ipv4 addr struct
+			new_v4_flow(nhl, &rem_loc, &inode, &token);
+						
+			if (_mam_fetch_policy_function(global_mctx->policy, "on_new_subflow_request", (void **)&new_subflow_function) == 0)
+			{
+				if (new_subflow_function(global_mctx, inode))
+				{
+					//respond with create_new_subflow message via netlink to mptcp pathmanager
+					msg_out = nlmsg_alloc();
+					
+					if (msg_out == NULL)
+						perror("Could not alloc netlink message\n");
+					
+					hdr = genlmsg_put(msg_out, NL_AUTO_PORT, NL_AUTO_SEQ, family, 0, 0, MAM_MPTCP_C_NEWFLOW, 1);
+					
+					if (hdr == NULL)
+						perror("Header of netlink message not written.\n");
+					
+					if (nla_put_flag(msg_out, MAM_MPTCP_A_OK) < 0)
+						perror("Could not add attribute to new flow response message\n");
+						
+					if (nla_put_u32(msg_out, MAM_MPTCP_A_INODE, inode) < 0)
+						perror("Could not add attribute to new flow response message\n");
+						
+					if (nla_put_u32(msg_out, MAM_MPTCP_A_TOKEN, token) < 0)
+						perror("Could not add attribute to new flow response message\n");
+						
+					if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_LOC, rem_loc.loc_addr) < 0)
+						perror("Could not add attribute to new flow response message\n");
+					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_LOC_ID, rem_loc.loc_id) < 0)
+						perror("Could not add attribute to new flow response message\n");
+					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_LOC_PRIO, rem_loc.loc_low_prio) < 0)
+						perror("Could not add attribute to new flow response message\n");
+						
+					if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_REM, rem_loc.rem_addr) < 0)
+						perror("Could not add attribute to new flow response message\n");
+					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_ID, rem_loc.rem_id) < 0)
+						perror("Could not add attribute to new flow response message\n");
+					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_PRIO, rem_loc.rem_low_prio) < 0)
+						perror("Could not add attribute to new flow response message\n");
+					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_BIT, rem_loc.rem_bitfield) < 0)
+						perror("Could not add attribute to new flow response message\n");
+					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_RETR_BIT, rem_loc.rem_retry_bitfield) < 0)
+						perror("Could not add attribute to new flow response message\n");
+					if (nla_put_u16(msg_out, MAM_MPTCP_A_IPV4_REM_PORT, rem_loc.rem_port) < 0)
+						perror("Could not add attribute to new flow response message\n");
+					
+					if((err = nl_send_auto(netlink_sk, msg_out)) < 0)
+						perror("Could not send netlink message\n");
+					else
+						printf("sent message out\n");
+
+					nlmsg_free(msg_out);
+
+				}
+			}
+			else
+			{
+				DLOG(MAM_NETLINK_NOISY_DEBUG2, "Policy-function: on_new_subflow_request could not be called!");
+			}
+			break;
+			
+		case MAM_MPTCP_C_NEWIFACE:
+			new_iface(nhl, NULL, NULL); //TODO replace NULL with actual ipv4 addr struct
 			break;
 	}
 	
@@ -60,7 +134,6 @@ int configure_netlink(void)
 	struct bufferevent *bev;
 	struct nl_msg *msg;
 	void *hdr;
-	int family;
 	int group;
 	int err;
 
@@ -75,7 +148,7 @@ int configure_netlink(void)
 		perror("MAM_MPTCP netlink family not found\n");
 		
 	group = genl_ctrl_resolve_grp(netlink_sk, "MAM_MPTCP", "MAM_MPTCP");
-    if (group == 0)
+    if (group <= 0)
         perror("MAM_MPTCP netlink group not found\n");
 	else
 		DLOG(MAM_NETLINK_NOISY_DEBUG2, "group id: %u\n", group);
@@ -90,7 +163,7 @@ int configure_netlink(void)
 	if (hdr == NULL)
 		perror("Header of netlink message not written.\n");
 	
-	if (nla_put_string(msg, MAM_MPTCP_A_MSG, "init") < 0)
+	if (nla_put_string(msg, MAM_MPTCP_A_STRMSG, "init") < 0)
 		perror("Could not add attribute to init message\n");
 	
 	if((err = nl_send_auto(netlink_sk, msg)) < 0)
@@ -106,7 +179,7 @@ int configure_netlink(void)
 	
 	nl_socket_add_membership(netlink_sk, group);
 
-	//TODO: investigate if close_on_free confricts with our own free
+	//TODO: investigate if close_on_free conflicts with our own free
 	bev = bufferevent_socket_new(global_mctx->ev_base, nl_socket_get_fd(netlink_sk), BEV_OPT_CLOSE_ON_FREE);
 	bufferevent_setcb(bev, netlink_readcb, NULL, NULL, NULL); //(void *) foo);
 	

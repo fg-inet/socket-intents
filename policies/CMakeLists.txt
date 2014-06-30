@@ -12,6 +12,10 @@ ADD_LIBRARY(policy_filesize MODULE policy_filesize.c policy_util.c)
 SET_TARGET_PROPERTIES(policy_filesize PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_filesize mam ${GLIB2_LIBRARIES})
 
+ADD_LIBRARY(policy_mptcp_filesize MODULE policy_mptcp_filesize.c policy_util.c)
+SET_TARGET_PROPERTIES(policy_mptcp_filesize PROPERTIES PREFIX "")
+TARGET_LINK_LIBRARIES(policy_mptcp_filesize mam ${GLIB2_LIBRARIES})
+
 ADD_LIBRARY(policy_intents MODULE policy_intents.c policy_util.c)
 SET_TARGET_PROPERTIES(policy_intents PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_intents mam ${GLIB2_LIBRARIES})

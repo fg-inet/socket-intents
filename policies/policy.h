@@ -14,5 +14,6 @@ void freepolicyinfo(gpointer elem, gpointer data);
 
 int init(mam_context_t *mctx);
 int cleanup(mam_context_t *mctx);
+int on_new_subflow_request(mam_context_t *mctx, uint32_t inode);
 int on_resolve_request(request_context_t *rctx, struct event_base *base);
 int on_connect_request(request_context_t *rctx, struct event_base *base);

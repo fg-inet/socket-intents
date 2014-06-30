@@ -125,6 +125,7 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 	}
 }
 
+
 /** handle errors on one of mam's client sockets
  *
  */
@@ -433,7 +434,7 @@ main(int c, char **v)
 	configure_mamma();
     
 #ifdef HAVE_LIBNL
-    /*configure netlink socket and send PID of mamma to MPTCP pathmanager kernel module */
+    /*configure netlink socket to communicate with MPTCP pathmanager kernel module */
     configure_netlink();
 #endif
 
