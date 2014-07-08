@@ -187,7 +187,7 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 }
 
 
-int on_new_subflow_request(mam_context_t *mctx, uint32_t inode)
+int on_new_subflow_request(mam_context_t *mctx, struct mptcp_flow_info *flow)
 {
 	printf("\nPolicy function: \"on_new_subflow_request\" is called.\n");
 	

@@ -38,7 +38,7 @@ static struct nla_policy mam_mptcp_genl_policy[MAM_MPTCP_A_MAX + 1] = {
    [MAM_MPTCP_A_IPV4_REM_RETR_BIT] = { .type = NLA_U8 },
    [MAM_MPTCP_A_IPV4_REM_PORT] = { .type = NLA_U16 },
    
-   [MAM_MPTCP_A_INODE] = { .type = NLA_U32 },
+   [MAM_MPTCP_A_INODE] = { .type = NLA_U64 },
    [MAM_MPTCP_A_TOKEN] = { .type = NLA_U32 },
    
    [MAM_MPTCP_A_OK] = { .type = NLA_FLAG },

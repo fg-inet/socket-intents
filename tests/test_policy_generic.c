@@ -454,17 +454,28 @@ int main(int argc, char *argv[])
 			printf("Sending message to Remote.\n");
 			//send(sfd, *arg_message->sval, strlen(*arg_message->sval),  0);
 			//TODO hardcoded strings are a bad idea...
-			send(sfd, "GET /testfile10M HTTP/1.1\r\nHost: 192.168.200.132\r\nAcept: */*\r\nConnection: close\r\n\r\n", strlen("GET /testfile10M HTTP/1.1\r\nHost: 192.168.200.132\r\nAcept: */*\r\nConnection: close\r\n\r\n"), 0);
 			
-			char buf[1024];
-			int ret = 0, count = 0;
-			do
+			if (*arg_address->sval != NULL)
 			{
-				ret = recv(sfd, buf, 1024, 0);
-				count += ret;
+				char *message;
+				int len = asprintf(&message, "GET %s HTTP/1.1\r\nHost: %s\r\nAcept: */*\r\nConnection: close\r\n\r\n", *arg_message->sval, *arg_address->sval);
+				send(sfd, message, strlen(message), 0);
+				
+				printf("message: %s\n", message);
+			
+				char buf[1024];
+				int ret = 0, count = 0;
+				do
+				{
+					ret = recv(sfd, buf, 1024, 0);
+					usleep(10000);
+					printf(".");
+					fflush(stdout);
+					count += ret;
+				}
+				while (ret);
+				printf("\nReceived: %d bytes.\n", count);
 			}
-			while (ret);
-			printf("Received: %d bytes.\n", count);
 		}
 	}
 

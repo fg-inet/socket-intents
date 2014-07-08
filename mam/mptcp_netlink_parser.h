@@ -9,7 +9,7 @@
 #include <netlink/genl/genl.h>
 #include <netlink/genl/ctrl.h>
 
-struct mptcp_rem_loc {
+struct mptcp_flow_info {
 	uint32_t loc_addr;
 	uint32_t rem_addr;
 	
@@ -22,11 +22,14 @@ struct mptcp_rem_loc {
 	uint8_t rem_bitfield;
 	uint8_t rem_retry_bitfield;
 	uint16_t rem_port;
+	
+	uint64_t inode;
+	uint32_t token;
 };
 
 unsigned short get_message_type(struct nlmsghdr *);
 void parse_message(struct nlmsghdr*, int, struct nlattr**, struct nlattr**);
-int new_v4_flow(struct nlmsghdr*, struct mptcp_rem_loc*, uint32_t*, uint32_t*);
+int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow);
 int new_iface(struct nlmsghdr*, struct in_addr*, struct in6_addr*);
 
 

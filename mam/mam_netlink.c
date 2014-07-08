@@ -41,11 +41,8 @@ void netlink_readcb(struct bufferevent *bev, void *dummy)
 	int err;
 	int (*new_subflow_function)() = NULL;
 	
-	struct mptcp_rem_loc rem_loc;
-	
-	uint32_t inode;
-	uint32_t token;
-	
+	struct mptcp_flow_info flow;
+		
 	struct nl_msg *msg_out;
 	void *hdr;
 
@@ -58,11 +55,11 @@ void netlink_readcb(struct bufferevent *bev, void *dummy)
 	switch(get_message_type(nhl))
 	{
 		case MAM_MPTCP_C_NEWFLOW:
-			new_v4_flow(nhl, &rem_loc, &inode, &token);
+			new_v4_flow(nhl, &flow);
 						
 			if (_mam_fetch_policy_function(global_mctx->policy, "on_new_subflow_request", (void **)&new_subflow_function) == 0)
 			{
-				if (new_subflow_function(global_mctx, inode))
+				if (new_subflow_function(global_mctx, &flow))
 				{
 					//respond with create_new_subflow message via netlink to mptcp pathmanager
 					msg_out = nlmsg_alloc();
@@ -78,30 +75,30 @@ void netlink_readcb(struct bufferevent *bev, void *dummy)
 					if (nla_put_flag(msg_out, MAM_MPTCP_A_OK) < 0)
 						perror("Could not add attribute to new flow response message\n");
 						
-					if (nla_put_u32(msg_out, MAM_MPTCP_A_INODE, inode) < 0)
+					if (nla_put_u64(msg_out, MAM_MPTCP_A_INODE, flow.inode) < 0)
 						perror("Could not add attribute to new flow response message\n");
 						
-					if (nla_put_u32(msg_out, MAM_MPTCP_A_TOKEN, token) < 0)
+					if (nla_put_u32(msg_out, MAM_MPTCP_A_TOKEN, flow.token) < 0)
 						perror("Could not add attribute to new flow response message\n");
 						
-					if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_LOC, rem_loc.loc_addr) < 0)
+					if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_LOC, flow.loc_addr) < 0)
 						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_LOC_ID, rem_loc.loc_id) < 0)
+					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_LOC_ID, flow.loc_id) < 0)
 						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_LOC_PRIO, rem_loc.loc_low_prio) < 0)
+					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_LOC_PRIO, flow.loc_low_prio) < 0)
 						perror("Could not add attribute to new flow response message\n");
 						
-					if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_REM, rem_loc.rem_addr) < 0)
+					if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_REM, flow.rem_addr) < 0)
 						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_ID, rem_loc.rem_id) < 0)
+					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_ID, flow.rem_id) < 0)
 						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_PRIO, rem_loc.rem_low_prio) < 0)
+					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_PRIO, flow.rem_low_prio) < 0)
 						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_BIT, rem_loc.rem_bitfield) < 0)
+					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_BIT, flow.rem_bitfield) < 0)
 						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_RETR_BIT, rem_loc.rem_retry_bitfield) < 0)
+					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_RETR_BIT, flow.rem_retry_bitfield) < 0)
 						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u16(msg_out, MAM_MPTCP_A_IPV4_REM_PORT, rem_loc.rem_port) < 0)
+					if (nla_put_u16(msg_out, MAM_MPTCP_A_IPV4_REM_PORT, flow.rem_port) < 0)
 						perror("Could not add attribute to new flow response message\n");
 					
 					if((err = nl_send_auto(netlink_sk, msg_out)) < 0)

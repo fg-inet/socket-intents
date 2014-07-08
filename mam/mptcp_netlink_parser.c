@@ -95,7 +95,7 @@ int new_iface(struct nlmsghdr *nhl, struct in_addr* addr_v4, struct in6_addr* ad
 	return -1;
 }
 
-int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_rem_loc *addr, uint32_t *inode, uint32_t *token)
+int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 {
 	struct nlattr *attrs[MAM_MPTCP_A_MAX+1];
 	
@@ -103,32 +103,30 @@ int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_rem_loc *addr, uint32_t *inod
 
 	if (attrs[MAM_MPTCP_A_IPV4_LOC])
 	{
-		if (addr)
+		if (flow)
 		{
-			addr->loc_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC]);
-			addr->loc_id = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC_ID]);
-			addr->loc_low_prio = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC_PRIO]);
+			flow->loc_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC]);
+			flow->loc_id = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC_ID]);
+			flow->loc_low_prio = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC_PRIO]);
 			
-			addr->rem_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_REM]);
-			addr->rem_id = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_ID]);
-			addr->rem_bitfield = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_BIT]);
-			addr->rem_retry_bitfield = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_RETR_BIT]);
-			addr->rem_port = nla_get_u16(attrs[MAM_MPTCP_A_IPV4_REM_PORT]);
+			flow->rem_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_REM]);
+			flow->rem_id = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_ID]);
+			flow->rem_bitfield = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_BIT]);
+			flow->rem_retry_bitfield = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_RETR_BIT]);
+			flow->rem_port = nla_get_u16(attrs[MAM_MPTCP_A_IPV4_REM_PORT]);
+			
+			flow->inode = nla_get_u64(attrs[MAM_MPTCP_A_INODE]);
+			flow->token = nla_get_u32(attrs[MAM_MPTCP_A_TOKEN]);
 		}
 			
-		if (inode)
-			*inode = nla_get_u32(attrs[MAM_MPTCP_A_INODE]);
-			
-		if (token)
-			*token = nla_get_u32(attrs[MAM_MPTCP_A_TOKEN]);
-			
 		struct in_addr ia;
-		ia.s_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC]);
+		ia.s_addr = flow->loc_addr;
 		
 		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "local IP : %s\n", inet_ntoa(ia));
-		ia.s_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_REM]);
+		ia.s_addr = flow->rem_addr;
 		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "remote IP: %s\n", inet_ntoa(ia));
-		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "INODE    : %08x\n\n", nla_get_u32(attrs[MAM_MPTCP_A_INODE]));
+		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "INODE    : %08x:%08x\n\n", (uint32_t)(nla_get_u64(attrs[MAM_MPTCP_A_INODE]) >> 32),
+																	  (uint32_t)(nla_get_u64(attrs[MAM_MPTCP_A_INODE]) & 0xFFFFFFFF));
 		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "TOKEN    : %08x\n\n", nla_get_u32(attrs[MAM_MPTCP_A_TOKEN]));
 		
 		return 0;

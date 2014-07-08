@@ -6,6 +6,8 @@
 #include "lib/muacc_util.h"
 #include "policy.h"
 
+#define test_if_in6_is_equal(a, b) (memcmp(&a, &b, sizeof(struct in6_addr)) == 0)
+
 /** Look up a socket option in a list of socketopts, copy its value into optval
  *  If optval is NULL, only look up if the option exists, but do not copy its value
  *
