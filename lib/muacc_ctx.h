@@ -10,7 +10,7 @@
 #include <netdb.h>
 
 #include "muacc.h"
-
+#include "clib/muacc_client.h"
 
 /** Helper to allocate and initialize _muacc_ctx
  *

@@ -10,8 +10,6 @@
 
 #include "lib/intents.h"
 
-#include "lib/muacc_util.h"
-
 #include "muacc_client_util.h"
 
 #ifndef CLIB_IF_NOISY_DEBUG0
@@ -531,4 +529,160 @@ int muacc_close(muacc_context_t *ctx,
 	muacc_close_fallback:
 
 	return close(socket);
+}
+
+int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domain, int type, int proto)
+{
+	DLOG(CLIB_IF_NOISY_DEBUG0, "Socketconnect request invoked\n");
+	if (s == NULL)
+		return -1;
+
+	muacc_context_t ctx;
+	muacc_init_context(&ctx);
+
+	if (ctx.ctx == NULL)
+	{
+		return -1;
+	}
+
+	DLOG(CLIB_IF_NOISY_DEBUG2, "Context created\n");
+	ctx.ctx->domain = domain;
+	ctx.ctx->type = type;
+	ctx.ctx->protocol = proto;
+	ctx.ctx->sockopts_current = _muacc_clone_socketopts((const struct socketopt*) sockopts);
+
+	if (*s == -1)
+	{
+		/* Socket does not exist yet */
+		if (url != NULL)
+		{
+			ctx.ctx->remote_addrinfo_hint = malloc(sizeof(struct addrinfo));
+			memset(ctx.ctx->remote_addrinfo_hint, 0, sizeof(struct addrinfo));
+			ctx.ctx->remote_addrinfo_hint->ai_family = domain;
+			ctx.ctx->remote_addrinfo_hint->ai_socktype = type;
+			ctx.ctx->remote_addrinfo_hint->ai_protocol = proto;
+
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Creating a new socket to connect to %s\n", url);
+			ctx.ctx->remote_hostname = _muacc_clone_string(url);
+			ctx.ctx->remote_port = 80;
+
+			if (CLIB_IF_NOISY_DEBUG2)
+			{
+				printf("Before MAM:\n");
+				muacc_print_context(&ctx);
+			}
+
+			_muacc_contact_mam(muacc_act_socketconnect_req, &ctx);
+
+			if (CLIB_IF_NOISY_DEBUG2)
+			{
+				printf("After MAM:\n");
+				muacc_print_context(&ctx);
+			}
+
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Got response from MAM - Creating socket now (Domain: %d, Type: %d, Protocol: %d)\n", ctx.ctx->domain, ctx.ctx->type, ctx.ctx->protocol);
+			if ((*s = socket(ctx.ctx->domain, ctx.ctx->type, ctx.ctx->protocol)) != -1)
+			{
+				DLOG(CLIB_IF_NOISY_DEBUG2, "Successfully created socket %d\n", *s);
+			}
+			else
+			{
+				DLOG(CLIB_IF_NOISY_DEBUG2, "Failed to create socket: %s\n", strerror(errno));				
+			}
+
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Setting suggested socket options\n");
+			if (CLIB_IF_NOISY_DEBUG2)
+			{
+				printf("Socket options:\n");
+				_muacc_print_socket_option_list(ctx.ctx->sockopts_suggested);
+			}
+
+			struct socketopt *so = NULL;
+			for (so = ctx.ctx->sockopts_suggested; so != NULL; so = so->next)
+			{
+				so->returnvalue = muacc_setsockopt(&ctx, *s, so->level, so->optname, so->optval, so->optlen);
+				if (so->returnvalue == -1)
+				{
+					DLOG(CLIB_IF_NOISY_DEBUG1, "Setting sockopt failed: %s\n", strerror(errno));
+					if (so->flags && SOCKOPT_OPTIONAL != 0)
+					{
+						// fail
+						DLOG(CLIB_IF_NOISY_DEBUG2, "Socket option was mandatory, but failed - returning\n");
+						muacc_release_context(&ctx);
+						return -1;
+					}
+				}
+				else
+				{
+					DLOG(CLIB_IF_NOISY_DEBUG2, "Socket option was set successfully\n");
+					so->flags &= SOCKOPT_IS_SET;
+				}
+
+			}
+
+			if (ctx.ctx->bind_sa_suggested != NULL)
+			{
+				DLOG(CLIB_IF_NOISY_DEBUG2, "Attempting to bind socket %d\n", *s);
+				if (CLIB_IF_NOISY_DEBUG2)
+				{
+					printf("Local address:\n");
+					_muacc_print_socket_addr(ctx.ctx->bind_sa_suggested, ctx.ctx->bind_sa_suggested_len);
+					printf("\n");
+				}
+	
+				if (0 == bind(*s, ctx.ctx->bind_sa_suggested, ctx.ctx->bind_sa_suggested_len))
+				{
+					DLOG(CLIB_IF_NOISY_DEBUG2, "Bound socket to suggested local address\n");
+				}
+				else
+				{
+					DLOG(CLIB_IF_NOISY_DEBUG1, "Error binding to local address: %s\n", strerror(errno));
+				}
+			}
+
+			if (ctx.ctx->remote_sa != NULL)
+			{
+				if (ctx.ctx->domain == AF_INET) 
+					((struct sockaddr_in *) ctx.ctx->remote_sa)->sin_port = htons(ctx.ctx->remote_port);
+		        else if (ctx.ctx->domain == AF_INET6)
+		            ((struct sockaddr_in6 *) ctx.ctx->remote_sa)->sin6_port = htons(ctx.ctx->remote_port);
+
+				DLOG(CLIB_IF_NOISY_DEBUG2, "Attempting to connect the socket\n");
+				if (CLIB_IF_NOISY_DEBUG2)
+				{
+					printf("Remote address:\n");
+					_muacc_print_socket_addr(ctx.ctx->remote_sa, ctx.ctx->remote_sa_len);
+					printf("\n");
+				}
+		
+			if (0 == connect(*s, ctx.ctx->remote_sa, ctx.ctx->remote_sa_len))
+				{
+					DLOG(CLIB_IF_NOISY_DEBUG2, "Socket was successfully connected - returning\n");
+				}
+				else
+				{
+					DLOG(CLIB_IF_NOISY_DEBUG1, "Connection failed: %s\n", strerror(errno));
+				}
+			}
+			else
+			{
+				DLOG(CLIB_IF_NOISY_DEBUG1, "Got no remote address to connect to - fail\n");
+				muacc_release_context(&ctx);
+				return -1;
+			}
+			muacc_release_context(&ctx);
+			return 1;
+		}
+		else
+		{
+			muacc_release_context(&ctx);
+			return -1;
+		}
+	}
+	else
+	{
+		/* Socket exists - TODO: Search for corresponding socket set and send socketchoose to MAM */
+		muacc_release_context(&ctx);
+		return 0;
+	}
 }

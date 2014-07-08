@@ -4,6 +4,7 @@
 
 #include "mam/mam.h"
 #include "lib/muacc_util.h"
+#include "clib/muacc_client.h"
 #include "policy.h"
 
 /** Look up a socket option in a list of socketopts, copy its value into optval
