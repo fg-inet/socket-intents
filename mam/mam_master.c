@@ -77,6 +77,26 @@ static void process_mam_request(struct request_context *ctx)
 			_muacc_send_ctx_event(ctx, muacc_act_connect_resp);
 		}
 	}
+	else if (ctx->action == muacc_act_socketconnect_req)
+	{
+		/* Respond to a socketconnect request */
+		DLOG(MAM_MASTER_NOISY_DEBUG2, "received socketconnect request\n");
+		if (_mam_fetch_policy_function(ctx->mctx->policy, "on_socketconnect_request", (void **) &callback_function) == 0)
+		{
+			/* Call policy module function */
+			DLOG(MAM_MASTER_NOISY_DEBUG2, "calling on_socketconnect_request callback\n");
+			ret = callback_function(ctx, ctx->mctx->ev_base);
+			if (ret != 0)
+			{
+				DLOG(MAM_MASTER_NOISY_DEBUG1, "on_socketconnect_request callback returned %d\n", ret);
+			}
+		}
+		else
+		{
+			DLOG(MAM_MASTER_NOISY_DEBUG2, "no callback on_socketconnect_request available.\n");
+				_muacc_send_ctx_event(ctx, muacc_act_socketconnect_resp);
+		}
+	}
 	else
 	{
 		/* Unknown request */

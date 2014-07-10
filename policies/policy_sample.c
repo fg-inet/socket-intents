@@ -208,3 +208,102 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 
 	return 0;
 }
+
+/** Asynchronous callback function for socketconnect request after resolve
+ *  Invoked once a response to the resolver query has been received
+ *  Sends back a reply to the client with the received answer
+ */
+static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *addr, void *ptr)
+{
+	strbuf_t sb;
+	strbuf_init(&sb);
+
+	request_context_t *rctx = ptr;
+
+	if (errcode) {
+	    printf("\n\tError resolving: %s -> %s\n", rctx->ctx->remote_hostname, evutil_gai_strerror(errcode));
+	}
+	else
+	{
+		printf("\n\tGot resolver response for %s: %s\n",
+			rctx->ctx->remote_hostname,
+			addr->ai_canonname ? addr->ai_canonname : "");
+	    
+		assert(rctx->ctx->remote_addrinfo_res == NULL);
+		rctx->ctx->remote_addrinfo_res = addr;
+		print_addrinfo_response (rctx->ctx->remote_addrinfo_res);
+
+		// Choose first result as the remote address
+		rctx->ctx->domain = addr->ai_family;
+		rctx->ctx->type = addr->ai_socktype;
+		rctx->ctx->protocol = addr->ai_protocol;
+		rctx->ctx->remote_sa_len = addr->ai_addrlen;
+		rctx->ctx->remote_sa = _muacc_clone_sockaddr(addr->ai_addr, addr->ai_addrlen);
+
+		// Find local address for destination
+		strbuf_printf(&sb, "\tDestination address =");
+		_muacc_print_sockaddr(&sb, rctx->ctx->remote_sa, rctx->ctx->remote_sa_len);
+		strbuf_printf(&sb, "\n");
+
+		if(rctx->ctx->bind_sa_req != NULL)
+		{	// already bound
+			strbuf_printf(&sb, "\tAlready bound to src=");
+			_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
+			strbuf_printf(&sb, "\n");
+		}
+		else
+		{
+			set_sa_if_default(rctx, sb);
+
+			// search address to bind to
+			if(rctx->ctx->bind_sa_suggested != NULL)
+			{
+				strbuf_printf(&sb, "\tSuggested address: ");
+				_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_suggested, rctx->ctx->bind_sa_suggested_len);
+				strbuf_printf(&sb, "\n");
+			}	 
+			else
+				strbuf_printf(&sb, "\tNo default address available!\n");
+		}
+	}
+
+	// send response back
+	_muacc_send_ctx_event(rctx, muacc_act_socketconnect_resp);
+
+    printf("%s\n\n", strbuf_export(&sb));
+    strbuf_release(&sb);
+
+	// clean up
+   	if(addr != NULL) evutil_freeaddrinfo(addr);
+	rctx->ctx->remote_addrinfo_res = NULL;
+	mam_release_request_context(rctx);
+}
+
+/** Socketconnect request function
+ *  Is called upon each socketconnect request from a client
+ *  Performs name resolution and then chooses a local address
+ *  Must send a reply back using _muacc_sent_ctx_event or register a callback that does so
+ */
+int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
+{
+    struct evdns_getaddrinfo_request *req;
+	
+	printf("\tSocketconnect request: %s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname));
+
+	/* Try to resolve this request using asynchronous lookup */
+    req = evdns_getaddrinfo(
+    		rctx->mctx->evdns_default_base, 
+			rctx->ctx->remote_hostname,
+			NULL /* no service name given */,
+            rctx->ctx->remote_addrinfo_hint,
+			&resolve_request_result_connect,
+			rctx);
+	printf(" - Sending request to default nameserver\n");
+    if (req == NULL) {
+		/* returned immediately - Send reply to the client */
+		_muacc_send_ctx_event(rctx, muacc_act_socketconnect_resp);
+		mam_release_request_context(rctx);
+		printf("\tRequest failed.\n");
+	}
+	return 0;
+}
