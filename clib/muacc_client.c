@@ -6,6 +6,8 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 
+#include "uriparser/Uri.h"
+
 #include "lib/dlog.h"
 
 #include "lib/intents.h"
@@ -563,8 +565,28 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 			ctx.ctx->remote_addrinfo_hint->ai_protocol = proto;
 
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Creating a new socket to connect to %s\n", url);
-			ctx.ctx->remote_hostname = _muacc_clone_string(url);
-			ctx.ctx->remote_port = 80;
+			UriParserStateA state;
+			UriUriA uri;
+
+			state.uri = &uri;
+			if (uriParseUriA(&state, url) != URI_SUCCESS)
+			{
+				/* Failed to parse URL */
+				DLOG(CLIB_IF_NOISY_DEBUG1, "Failed to parse URL\n");
+				uriFreeUriMembersA(&uri);
+				muacc_release_context(&ctx);
+				return -1;
+			}
+
+			int hostnamelen = uri.hostText.afterLast - uri.hostText.first;
+
+			ctx.ctx->remote_hostname = malloc(hostnamelen + 1);
+			ctx.ctx->remote_hostname[hostnamelen] = 0;
+			ctx.ctx->remote_hostname = strncpy(ctx.ctx->remote_hostname, uri.hostText.first, hostnamelen);
+			uri.portText.afterLast = 0;
+			ctx.ctx->remote_port = atoi(uri.portText.first);
+
+			uriFreeUriMembersA(&uri);
 
 			if (CLIB_IF_NOISY_DEBUG2)
 			{
@@ -572,7 +594,12 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 				muacc_print_context(&ctx);
 			}
 
-			_muacc_contact_mam(muacc_act_socketconnect_req, &ctx);
+			if (-1 == _muacc_contact_mam(muacc_act_socketconnect_req, &ctx))
+			{
+				DLOG(CLIB_IF_NOISY_DEBUG1, "Got no response from MAM (Is it running?) - Failing.\n");
+				muacc_release_context(&ctx);
+				return -1;
+			}
 
 			if (CLIB_IF_NOISY_DEBUG2)
 			{

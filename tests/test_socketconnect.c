@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
     arg_protocol->ival[0] = 0;
 
     *arg_transport->sval = "TCP";
-    *arg_url->sval = "www.maunz.org";
+    *arg_url->sval = "http://www.maunz.org:443";
 
     arg_filesize->ival[0] = -1;
     *arg_category->sval = NULL;
