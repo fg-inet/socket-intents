@@ -7,8 +7,6 @@
 #include <sys/un.h>
 #include <netdb.h>
 
-#include "clib/muacc_client.h"
-
 #include "muacc.h"
 #include "muacc_util.h"
 
@@ -310,4 +308,64 @@ void _muacc_print_socket_addr(const struct sockaddr *addr, size_t addr_len)
     _muacc_print_sockaddr(&sb, addr, addr_len);
     printf("%s", strbuf_export(&sb));
     strbuf_release(&sb);
+}
+
+int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const void *optval, socklen_t optlen, int flags)
+{
+	int retval = -2;
+
+	/* Go through sockopt list and look for this option */
+	struct socketopt *current = *opts;
+	struct socketopt *prev = current;
+
+	while (current != NULL && current->optname != optname)
+	{
+		prev = current;
+		current = current->next;
+	}
+
+	if (current != NULL)
+	{
+		/* Option already exists: overwrite value */
+		memcpy(current->optval, optval, current->optlen);
+		current->flags = flags;
+		DLOG(MUACC_UTIL_NOISY_DEBUG, "Changed existing sockopt:\n\t\t\t");
+		if (MUACC_UTIL_NOISY_DEBUG) _muacc_print_socket_option_list(current);
+	}
+	else
+	{
+		/* Option did not exist: create new option in list */
+		struct socketopt *newopt = malloc(sizeof(struct socketopt));
+		newopt->level = level;
+		newopt->optname = optname;
+		newopt->optlen = optlen;
+		if(optlen > 0 && optval != NULL)
+		{
+			newopt->optval = malloc(optlen);
+			if (newopt->optval == NULL)
+			{
+				perror("__function__ malloc failed");
+                free(newopt);
+				return retval;
+			}
+			memcpy(newopt->optval, optval, optlen);
+			newopt->flags = flags;
+		}
+		else
+			newopt->optval = (void *) optval;
+		newopt->next = NULL;
+
+		if (current == *opts)
+			*opts = newopt;
+		else
+			prev->next = newopt;
+
+		retval = 0;
+
+		DLOG(MUACC_UTIL_NOISY_DEBUG, "Added new option to the end of the list:\n\t\t\t");
+		if (MUACC_UTIL_NOISY_DEBUG) _muacc_print_socket_option_list(newopt);
+		if (MUACC_UTIL_NOISY_DEBUG) _muacc_print_socket_option_list(*opts);
+	}
+
+	return retval;
 }

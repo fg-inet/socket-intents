@@ -77,4 +77,16 @@ int _muacc_contact_mam (
  */
 int _muacc_connect_ctx_to_mam(muacc_context_t *ctx) ;
 
+/** Add a Socket Intent to a socket options list
+ *
+ *  @return 0 on success, a negative number otherwise
+ */
+int muacc_set_intent(socketopt_t **opts, int optname, const void *optval, socklen_t optlen, int flags);
+
+/** Free a list of socket options
+ *
+ * @return 0 on success, a negative number otherwise
+ */
+int muacc_free_socket_option_list(socketopt_t *opts);
+
 #endif /* __MUACC_CLIENT_UTIL_H__ */

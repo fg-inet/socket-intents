@@ -68,4 +68,9 @@ void _muacc_print_socket_addr(const struct sockaddr *addr, size_t addr_len);
  */
 void _muacc_print_socket_option(strbuf_t *sb, const struct socketopt *current);
 
+/** helper to set a socket option in a socketopt list
+ *
+ */
+int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const void *optval, socklen_t optlen, int flags);
+
 #endif /* __MUACC_UTIL_H__ */

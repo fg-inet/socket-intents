@@ -23,6 +23,20 @@ typedef enum
 	muacc_act_socketconnect_resp,
 } muacc_mam_action_t;
 
+/** Linked list of socket options to be set */
+typedef struct socketopt {
+	int 				level;				/**< Level at which the socket option is valid */
+	int 				optname;			/**< Identifier of the option */
+	void 				*optval;			/**< Pointer to the value */
+	socklen_t 			optlen;				/**< Length of the value */
+	int					returnvalue;		/**< Return value of setsockopt() if applicable */
+	int					flags;				/**< Flags */
+	struct socketopt 	*next;				/**< Pointer to the next socket option */
+} socketopt_t;
+
+#define SOCKOPT_IS_SET 0x0001 	/**< Sockopt has been set on the socket */
+#define SOCKOPT_OPTIONAL 0x0002	/**< If setting the option fails, still continue */
+
 /** Context identifier that is unique per MAM socket in a client */
 typedef uint64_t muacc_ctxid_t;
 

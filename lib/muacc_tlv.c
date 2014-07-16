@@ -7,8 +7,6 @@
 #include <sys/un.h>
 #include <assert.h>
 
-#include "clib/muacc_client.h"
-
 #include "muacc_tlv.h"
 #include "muacc_util.h"
 

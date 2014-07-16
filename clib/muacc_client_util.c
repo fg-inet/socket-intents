@@ -13,6 +13,7 @@
 #include "lib/muacc_ctx.h"
 #include "lib/muacc_tlv.h"
 #include "lib/muacc_util.h"
+#include "lib/intents.h"
 
 #include "muacc_client_util.h"
 #include "config.h"
@@ -258,4 +259,20 @@ _muacc_contact_mam_parse_err:
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "WARNING: failed to process response\n");
 	return(-1);
 
+}
+
+int muacc_set_intent(socketopt_t **opts, int optname, const void *optval, socklen_t optlen, int flags)
+{
+	return _muacc_add_sockopt_to_list(opts, SOL_INTENTS, optname, optval, optlen, flags);
+}
+
+int muacc_free_socket_option_list(struct socketopt *opts)
+{
+	if (opts != 0)
+	{
+		_muacc_free_socketopts(opts);
+		return 0;
+	}
+
+	return -1;
 }
