@@ -122,14 +122,14 @@ int main(int argc, char *argv[])
     int family = AF_UNSPEC;
     int socktype = SOCK_STREAM;
 
-    intent_category_t category = -1;
-
     if (strncmp(*arg_transport->sval, "UDP", 4) == 0)
         socktype = SOCK_DGRAM;
     else if (strncmp(*arg_transport->sval, "TCP", 4) != 0)
     {
         printf("Invalid Transport Protocol requested - defaulting to TCP\n");
     }
+
+    intent_category_t category = -1;
 
     if (*arg_category->sval != NULL)
     {
@@ -145,12 +145,39 @@ int main(int argc, char *argv[])
             printf("Invalid Intent Category %s - Not setting category\n", *arg_category->sval);
     }
 
+	socketopt_t *options = NULL;
+
+	if (category != -1)
+	{
+		printf("setting intent category\n");
+		if (0 != muacc_set_intent(&options, INTENT_CATEGORY, &category, sizeof(category), 0))
+		{
+			printf("Failed to set Intent Category\n");
+			return -1;
+		}
+	}
+
+	if (arg_filesize->ival[0] != -1)
+	{
+		printf("setting intent filesize\n");
+		if (0 != muacc_set_intent(&options, INTENT_FILESIZE, arg_filesize->ival, sizeof(arg_filesize->ival[0]), 0))
+		{
+			printf("Failed to set Intent Category\n");
+			return -1;
+		}
+	}
+
+	printf("Socket options:\n");
+	_muacc_print_socket_option_list(options);
+
 	printf("================================================\n");
 
 	int our_socket = -1;
 	int returnvalue = -1;
 
-	returnvalue = socketconnect(&our_socket, *arg_url->sval, NULL, family, socktype, *arg_protocol->ival);
+	returnvalue = socketconnect(&our_socket, *arg_url->sval, options, family, socktype, *arg_protocol->ival);
+
+	muacc_free_socket_option_list(options);
 
     if (returnvalue == -1)
 	{
