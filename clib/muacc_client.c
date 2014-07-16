@@ -569,10 +569,10 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 			UriUriA uri;
 
 			state.uri = &uri;
-			if (uriParseUriA(&state, url) != URI_SUCCESS)
+			if ((uriParseUriA(&state, url) != URI_SUCCESS) || (uri.hostText.first == NULL || uri.portText.first == NULL))
 			{
 				/* Failed to parse URL */
-				DLOG(CLIB_IF_NOISY_DEBUG1, "Failed to parse URL\n");
+				DLOG(CLIB_IF_NOISY_DEBUG1, "Failed to parse URL: %s (Does it contain a protocol, hostname, and port?)\n", url);
 				uriFreeUriMembersA(&uri);
 				muacc_release_context(&ctx);
 				return -1;
