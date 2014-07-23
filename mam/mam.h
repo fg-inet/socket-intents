@@ -29,9 +29,14 @@ typedef struct request_context {
 	struct evbuffer 	*out;		/**< output buffer for libevent2 */
 	struct evbuffer 	*in;		/**< input buffer for libevent2 */
 	muacc_mam_action_t	action;		/**< socket call that this request is associated to */
+	unsigned int		policy_calls_performed; /**< Policy functions that we have already called */
 	struct _muacc_ctx	*ctx;		/**< internal struct with relevant socket context data */
 	struct mam_context	*mctx;		/**< pointer to current mam context */
 } request_context_t;
+
+#define MAM_POLICY_RESOLVE_CALLED 0x001
+#define MAM_POLICY_CONNECT_CALLED 0x002
+#define MAM_POLICY_SOCKETCONNECT_CALLED 0x004
 
 /** List of sockaddrs */
 typedef struct sockaddr_list {

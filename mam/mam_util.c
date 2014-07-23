@@ -177,9 +177,63 @@ int _mam_fetch_policy_function(lt_dlhandle policy, const char *name, void **func
 	return 0;
 }
 
+int _mam_callback_or_fail(request_context_t *ctx, const char *function, unsigned int flag_if_success, muacc_mam_action_t action_if_fail)
+{
+	if (ctx == NULL || function == NULL)
+		return -1;
+
+	int (*callback_function)(request_context_t *ctx, struct event_base *base) = NULL;
+	if (_mam_fetch_policy_function(ctx->mctx->policy, function, (void **) &callback_function) == 0)
+	{
+		int ret;
+		DLOG(MAM_UTIL_NOISY_DEBUG2,"Calling %s\n", function);
+		ctx->policy_calls_performed |= flag_if_success;
+		ret = callback_function(ctx, ctx->mctx->ev_base);
+		if (ret != 0)
+		{
+			DLOG(MAM_UTIL_NOISY_DEBUG1,"Callback %s returned %d\n", function, ret);
+			_muacc_send_ctx_event(ctx, action_if_fail);
+		}
+		return 0;
+	}
+	else
+	{
+		DLOG(MAM_UTIL_NOISY_DEBUG2, "No callback %s available. Trying to send back ctx\n", function);
+		_muacc_send_ctx_event(ctx, action_if_fail);
+		return -1;
+	}
+}
+
 int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
 {
+	/* Check if we can already send a response */
+	if (ctx->action == muacc_act_socketconnect_fallback)
+	{
+		DLOG(MAM_UTIL_NOISY_DEBUG2,"Socketconnect fallback - checking whether both resolve and connect have been called\n");
 
+		if ((ctx->policy_calls_performed & MAM_POLICY_RESOLVE_CALLED) == 0)
+		{
+			DLOG(MAM_UTIL_NOISY_DEBUG0,"Calling on_resolve_request for Socketconnect fallback\n");
+			return _mam_callback_or_fail(ctx, "on_resolve_request", MAM_POLICY_RESOLVE_CALLED, reason);
+		}
+		else if ((ctx->policy_calls_performed & MAM_POLICY_CONNECT_CALLED) == 0)
+		{
+			if (ctx->ctx->remote_sa == NULL)
+			{
+				// Choose first getaddrinfo result as remote address before invoking connect callback
+				ctx->ctx->domain = ctx->ctx->remote_addrinfo_res->ai_family;
+				ctx->ctx->type = ctx->ctx->remote_addrinfo_res->ai_socktype;
+				ctx->ctx->protocol = ctx->ctx->remote_addrinfo_res->ai_protocol;
+				ctx->ctx->remote_sa_len = ctx->ctx->remote_addrinfo_res->ai_addrlen;
+				ctx->ctx->remote_sa = _muacc_clone_sockaddr(ctx->ctx->remote_addrinfo_res->ai_addr, ctx->ctx->remote_addrinfo_res->ai_addrlen);
+			}
+			DLOG(MAM_UTIL_NOISY_DEBUG0,"Calling on_connect_request to complete Socketconnect fallback\n");
+			return _mam_callback_or_fail(ctx, "on_connect_request", MAM_POLICY_CONNECT_CALLED, reason);
+		}
+	}
+
+	DLOG(MAM_UTIL_NOISY_DEBUG0,"Sending response to client request\n");
+	/* Request has finished - Actually send a reply */
 	struct evbuffer_iovec v[1];
 	ssize_t ret = 0;
 	ssize_t pos = 0;
@@ -190,11 +244,12 @@ int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
 	ret = evbuffer_reserve_space(ctx->out, MUACC_TLV_MAXLEN, v, 1);
 	if(ret <= 0)
 	{
-		DLOG(MAM_UTIL_NOISY_DEBUG0,"ERROR reserving buffer\n");
+		DLOG(MAM_UTIL_NOISY_DEBUG1,"ERROR reserving buffer\n");
+		mam_release_request_context(ctx);
 		return(-1);
 	}
 
-	DLOG(MAM_UTIL_NOISY_DEBUG1, "packing request\n");
+	DLOG(MAM_UTIL_NOISY_DEBUG2, "packing request\n");
 
 	/* pack request */
 	if( 0 > _muacc_push_tlv(v[0].iov_base, &pos, v[0].iov_len, action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_send_ctx_event_pack_err;
@@ -205,19 +260,22 @@ int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
    v[0].iov_len = pos;
 
 
-	DLOG(MAM_UTIL_NOISY_DEBUG1,"committing buffer\n");
+	DLOG(MAM_UTIL_NOISY_DEBUG2,"committing buffer\n");
 	if (evbuffer_commit_space(ctx->out, v, 1) < 0)
 	{
-		DLOG(MAM_UTIL_NOISY_DEBUG0,"ERROR committing buffer\n");
+		DLOG(MAM_UTIL_NOISY_DEBUG1,"ERROR committing buffer\n");
+		mam_release_request_context(ctx);
 	    return(-1); /* Error committing */
 	}
 	else
 	{
 		DLOG(MAM_UTIL_NOISY_DEBUG2,"committed buffer - finished sending request\n");
+		mam_release_request_context(ctx);
 	    return(0);
 	}
 
 	_muacc_send_ctx_event_pack_err:
+		mam_release_request_context(ctx);
 		return(-1);
 }
 

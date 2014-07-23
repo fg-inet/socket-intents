@@ -21,6 +21,7 @@ typedef enum
 	muacc_act_getaddrinfo_resolve_resp,
 	muacc_act_socketconnect_req,			/**< is from a socketconnect, requests a new socket */
 	muacc_act_socketconnect_resp,
+	muacc_act_socketconnect_fallback,		/**< socketconnect falls back to getaddrinfo + connect */
 } muacc_mam_action_t;
 
 /** Linked list of socket options to be set */

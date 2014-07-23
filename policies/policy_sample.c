@@ -141,13 +141,6 @@ static void resolve_request_result(int errcode, struct evutil_addrinfo *addr, vo
 
 	// send reply
 	_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
-	
-	// hack - free addr first the evutil way
-   	if(addr != NULL) evutil_freeaddrinfo(addr);
-	rctx->ctx->remote_addrinfo_res = NULL;
-	// then let mam clean up the remainings
-   	mam_release_request_context(rctx);
-	
 }
 
 /** Resolve request function (mandatory)
@@ -172,7 +165,6 @@ int on_resolve_request(request_context_t *rctx, struct event_base *base)
     if (req == NULL) {
 		/* returned immediately - Send reply to the client */
 		_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
-		mam_release_request_context(rctx);
 		printf("\tRequest failed.\n");
 	}
 	return 0;
@@ -202,7 +194,6 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 
 	// send response back
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
-	mam_release_request_context(rctx);
     printf("%s\n\n", strbuf_export(&sb));
     strbuf_release(&sb);
 
@@ -276,7 +267,6 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 	// clean up
    	if(addr != NULL) evutil_freeaddrinfo(addr);
 	rctx->ctx->remote_addrinfo_res = NULL;
-	mam_release_request_context(rctx);
 }
 
 /** Socketconnect request function
@@ -296,13 +286,12 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 			rctx->ctx->remote_hostname,
 			NULL /* no service name given */,
             rctx->ctx->remote_addrinfo_hint,
-			&resolve_request_result_connect,
+			&resolve_request_result,
 			rctx);
 	printf(" - Sending request to default nameserver\n");
     if (req == NULL) {
 		/* returned immediately - Send reply to the client */
-		_muacc_send_ctx_event(rctx, muacc_act_socketconnect_resp);
-		mam_release_request_context(rctx);
+		_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
 		printf("\tRequest failed.\n");
 	}
 	return 0;
