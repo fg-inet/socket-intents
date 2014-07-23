@@ -163,7 +163,7 @@ int _mam_fetch_policy_function(lt_dlhandle policy, const char *name, void **func
 
 	const char *ltdl_error = NULL;
 
-	DLOG(MAM_UTIL_NOISY_DEBUG2, "Trying to find original function %s\n", name);
+	DLOG(MAM_UTIL_NOISY_DEBUG2, "Trying to find function %s\n", name);
 	lt_dlerror();
 	*function = lt_dlsym(policy, name);
 
@@ -341,7 +341,7 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
 		switch( _muacc_unpack_ctx(*tag, data, *data_len, ctx->ctx) )
 		{
 			case 0:
-				DLOG(MAM_UTIL_NOISY_DEBUG1, "parsing TLV successful\n");
+				DLOG(MAM_UTIL_NOISY_DEBUG2, "parsing TLV successful\n");
 				break;
 			default:
 				DLOG(MAM_UTIL_NOISY_DEBUG0, "WARNING: parsing TLV failed: tag=%d data_len=%ld\n", (int) *tag, (long) *data_len);
