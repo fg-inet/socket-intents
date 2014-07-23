@@ -164,7 +164,7 @@ int on_resolve_request(request_context_t *rctx, struct event_base *base)
 	printf(" - Sending request to default nameserver\n");
     if (req == NULL) {
 		/* returned immediately - Send reply to the client */
-		_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
+		_muacc_send_ctx_event(rctx, muacc_act_socketconnect_resp);
 		printf("\tRequest failed.\n");
 	}
 	return 0;
@@ -263,10 +263,6 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 
     printf("%s\n\n", strbuf_export(&sb));
     strbuf_release(&sb);
-
-	// clean up
-   	if(addr != NULL) evutil_freeaddrinfo(addr);
-	rctx->ctx->remote_addrinfo_res = NULL;
 }
 
 /** Socketconnect request function
@@ -286,7 +282,7 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 			rctx->ctx->remote_hostname,
 			NULL /* no service name given */,
             rctx->ctx->remote_addrinfo_hint,
-			&resolve_request_result,
+			&resolve_request_result_connect,
 			rctx);
 	printf(" - Sending request to default nameserver\n");
     if (req == NULL) {
