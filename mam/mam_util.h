@@ -21,6 +21,9 @@ void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx);
 /** Helper that frees a source prefix list - to be called using g_slist_free_full */
 void _free_src_prefix_list (gpointer data);
 
+void _free_client_list (gpointer data);
+void _free_socket_list (gpointer data);
+
 /** Helper that frees a context */
 int _mam_free_ctx(struct mam_context *ctx);
 

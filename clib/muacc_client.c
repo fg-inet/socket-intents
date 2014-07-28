@@ -14,6 +14,8 @@
 
 #include "muacc_client_util.h"
 
+#include <uuid/uuid.h>
+
 #ifndef CLIB_IF_NOISY_DEBUG0
 #define CLIB_IF_NOISY_DEBUG0 1
 #endif
@@ -60,6 +62,9 @@ int muacc_socket(muacc_context_t *ctx,
 
 	ret = socket(domain, type, protocol);
     
+	ctx->ctx->sockfd = ret;
+	
+	uuid_generate(ctx->ctx->ctxid);
     ctx->ctx->ctxino = _muacc_get_ctxino(ret);
 
 	_unlock_ctx(ctx);
@@ -406,6 +411,10 @@ int muacc_connect(muacc_context_t *ctx,
 	int retval;
 
 	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
+	
+	char uuid_str[37];
+	uuid_unparse_lower(ctx->ctx->ctxid, uuid_str);
+	printf("id: %s\n", uuid_str);
 
 	if( ctx == NULL )
 	{
@@ -479,6 +488,9 @@ int muacc_connect(muacc_context_t *ctx,
 		}
 		strbuf_release(&sb);
 	}
+	
+	uuid_unparse_lower(ctx->ctx->ctxid, uuid_str);
+	printf("id: %s\n", uuid_str);
 
 	/* unlock context and do request */
 	_unlock_ctx(ctx);

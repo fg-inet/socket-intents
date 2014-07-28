@@ -139,6 +139,37 @@ void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx)
 	strbuf_printf(sb, "}\n");
 }
 
+void _free_client_list (gpointer data)
+{
+	if (!data)
+		return;
+		
+	client_list_t *element = (client_list_t *) data;
+	
+	char uuid_str[37];
+	uuid_unparse_lower(element->id, uuid_str);
+	printf("cleaning client list %s:\n", uuid_str);
+	
+	if (element->sockets != NULL)
+		g_slist_free_full(element->sockets,  &_free_socket_list);
+		
+	free (element);
+	return;
+}
+
+void _free_socket_list (gpointer data)
+{
+	if (!data)
+		return;
+	
+	socket_list_t *element = (socket_list_t *) data;
+	
+	printf("list had socket: %d\n", element->sk);
+	
+	free(data);
+	return;
+}
+
 int _mam_free_ctx(struct mam_context *ctx)
 {
 	DLOG(MAM_UTIL_NOISY_DEBUG2, "freeing mam_context %p\n",(void *) ctx);
@@ -149,6 +180,7 @@ int _mam_free_ctx(struct mam_context *ctx)
 	}
 
 	g_slist_free_full(ctx->prefixes, &_free_src_prefix_list);
+	g_slist_free_full(ctx->clients,  &_free_client_list);
 	free(ctx);
 
 	return 0;

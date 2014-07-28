@@ -1,6 +1,6 @@
 
 ADD_LIBRARY(muacc-client SHARED muacc_client.c muacc_client_util.c)
-TARGET_LINK_LIBRARIES(muacc-client muacc)
+TARGET_LINK_LIBRARIES(muacc-client muacc uuid)
 
 INSTALL(TARGETS muacc-client
     LIBRARY DESTINATION lib

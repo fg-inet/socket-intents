@@ -20,7 +20,7 @@ struct _muacc_ctx *_muacc_create_ctx();
 /** Helper that computes a new context ID from a counter and the current PID
  *
  */
-muacc_ctxid_t _get_ctxid();
+//muacc_ctxid_t _get_ctxid();
 
 /** Helper to free _muacc_ctx if reference count reaches 0
  *

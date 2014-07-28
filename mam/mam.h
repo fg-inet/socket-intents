@@ -18,6 +18,8 @@
 #include <event2/bufferevent.h>
 #include <event2/dns.h>
 
+#include <uuid/uuid.h>
+
 #include <ltdl.h>
 #include <glib.h>
 
@@ -80,7 +82,21 @@ typedef struct mam_context {
 	struct event_base 		*ev_base;			/**< Libevent Event Base */
 	struct evdns_base 		*evdns_default_base; /**< DNS base to do look ups if all other fails */
 	GHashTable 				*policy_set_dict; /**< dictionary for policy configuration */
+	GSList					*clients;  /**< list of all applications that are connected to the MAM */
 } mam_context_t;
+
+/** List of clients connected to the MAM */
+typedef struct _client_list {
+	int						client_sk;
+	uuid_t					id;
+	GSList					*sockets;
+	void (*callback_function)(GSList*);
+} client_list_t;
+
+/** List of sockets opened by a client application */
+typedef struct _socket_list {
+	int sk;
+} socket_list_t;
 
 /** Model that describes a prefix, used for lookup in the list */
 struct src_prefix_model {
