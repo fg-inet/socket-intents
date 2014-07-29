@@ -35,7 +35,6 @@ int muacc_init_context(struct muacc_context *ctx)
 
 	if(_ctx == NULL || ctx == NULL)
 		return(-1);
-	_ctx->ctxid = _get_ctxid();
 
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1,"context successfully initialized\n");
 
@@ -151,7 +150,7 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 	_ctx->sockopts_current = _muacc_clone_socketopts(src->ctx->sockopts_current);
 	_ctx->sockopts_suggested = _muacc_clone_socketopts(src->ctx->sockopts_suggested);
 
-	_ctx->ctxid = _get_ctxid();
+	_ctx->ctxid[0] += 1;
 
 	dst->usage = 1;
 	dst->locks = 0;

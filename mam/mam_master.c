@@ -30,11 +30,14 @@
 #endif
 
 #ifndef MAM_MASTER_NOISY_DEBUG2
-#define MAM_MASTER_NOISY_DEBUG2 0
+#define MAM_MASTER_NOISY_DEBUG2 1
 #endif
 
 struct mam_context *global_mctx = NULL;
 int config_fd = -1;
+
+void clean_client_state(GSList *client);
+int compare_id_in_struct(gconstpointer list_data,  gconstpointer user_data);
 
 static void process_mam_request(struct request_context *ctx)
 {
@@ -86,9 +89,6 @@ static void process_mam_request(struct request_context *ctx)
 		/* Unknown request */
 		DLOG(MAM_MASTER_NOISY_DEBUG1, "received unknown request (action id: %d\n", ctx->action);
 	}
-	
-
-
 }
 
 /** read next tlvs on one of mam's client sockets
@@ -97,11 +97,17 @@ static void process_mam_request(struct request_context *ctx)
 static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 {
 	struct request_context **rctx = (struct request_context **) prctx;
-
+	uuid_t old;
+	
+#if MAM_MASTER_NOISY_DEBUG2 == 1
+	char uuid_str[37];
+#endif
+		
     for(;;)
 	{
 		/* prepair stuff of this round */
-		struct request_context *crctx = *rctx; 	
+		struct request_context *crctx = *rctx;
+		
 	    crctx->in = bufferevent_get_input(bev);
 	    crctx->out = bufferevent_get_output(bev);
 		
@@ -111,12 +117,34 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
     			/* need more data - wait for next read event */
     			return;
     		case _muacc_proc_tlv_event_eof:
-				/* re-initialize muacc context to back up further communication */
+				/* re-initialize muacc context to back up further communication (keep uuid)*/
+				uuid_copy(old, crctx->ctx->ctxid);
+				 
 				 *rctx = malloc(sizeof(struct request_context));
 				(*rctx)->mctx = global_mctx;
 				(*rctx)->ctx = _muacc_create_ctx();
-    			/* done processing - do MAM's magic */
+				printf("in read cb\n");
+    			uuid_copy((*rctx)->ctx->ctxid, old);
+				
+				/* done processing - do MAM's magic */
 				process_mam_request(crctx);
+												
+				if (global_mctx->clients)
+				{
+					GSList *client_list = g_slist_find_custom(global_mctx->clients, crctx->ctx->ctxid, compare_id_in_struct);
+			
+					if (client_list)
+					{
+						socket_list_t *sk = malloc(sizeof(socket_list_t));
+						sk->sk = crctx->ctx->sockfd;
+
+#if MAM_MASTER_NOISY_DEBUG2 == 1
+						uuid_unparse_lower(crctx->ctx->ctxid, uuid_str);
+						printf("(mam callback) add sockfd: %d to id: %s\n", sk->sk, uuid_str);
+						((client_list_t*)client_list->data)->sockets = g_slist_append(((client_list_t*)client_list->data)->sockets, sk);
+#endif
+					}
+				}
     			continue;
     		default:
     			/* read a TLV - are there more out there? */
@@ -125,6 +153,16 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 	}
 }
 
+int compare_id_in_struct(gconstpointer list_data,  gconstpointer user_data)
+{
+	client_list_t *list = (client_list_t*) list_data;
+	uuid_t *id = (uuid_t*) user_data;
+	
+	if (uuid_compare(list->id, *id) == 0)
+		return 0;
+	
+	return -1;
+}
 
 /** handle errors on one of mam's client sockets
  *
@@ -132,10 +170,18 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 static void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
 {
 	struct request_context **rctx = (struct request_context **) ctx;
-
+	struct request_context *crctx = *rctx;
+	
     if (error & BEV_EVENT_EOF) {
         /* connection has been closed, do any clean up here */
-        /* ... */
+		GSList *client_list = g_slist_find_custom(global_mctx->clients, crctx->ctx->ctxid, compare_id_in_struct);
+		
+		if (client_list)
+		{
+			if (((client_list_t*)client_list->data)->callback_function)
+				((client_list_t*)client_list->data)->callback_function(client_list);
+		}
+		
     } else if (error & BEV_EVENT_ERROR) {
         /* check errno to see what error occurred */
         /* ... */
@@ -143,9 +189,24 @@ static void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
         /* must be a timeout event handle, handle it */
         /* ... */
     }
-	if (*rctx != NULL)			mam_release_request_context(*rctx);
-	free(rctx);
+	if (*rctx != NULL)
+	{
+		mam_release_request_context(*rctx);
+		free(rctx);
+	}
     bufferevent_free(bev);
+}
+
+void clean_client_state(GSList *client_list)
+{
+#if MAM_MASTER_NOISY_DEBUG2 == 1
+	char uuid_str[37];
+	client_list_t *list = ((client_list_t*)client_list->data);
+	uuid_unparse_lower(list->id, uuid_str);
+	printf("cleaning up state for client with fd:%d and id: %s\n", list->client_sk, uuid_str);
+#endif
+	
+	global_mctx->clients = g_slist_remove(global_mctx->clients, client_list->data);
 }
 
 /** accept new clients of mam
@@ -156,6 +217,8 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
     mam_context_t *mctx = arg;
     struct sockaddr_storage ss;
     socklen_t slen = sizeof(ss);
+	client_list_t *client_list;
+	
     int fd = accept(listener, (struct sockaddr*)&ss, &slen);
     if (fd < 0) {
         perror("accept");
@@ -172,7 +235,15 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
 		*ctx = malloc(sizeof(struct request_context));
 		(*ctx)->ctx = _muacc_create_ctx();
 		(*ctx)->mctx = mctx;
-
+				
+		client_list = malloc(sizeof(client_list_t));
+		client_list->client_sk = fd; //bufferevent_getfd(bev);
+		uuid_generate((*ctx)->ctx->ctxid);
+		uuid_copy(client_list->id, (*ctx)->ctx->ctxid);
+		client_list->callback_function = &clean_client_state;
+		client_list->sockets = NULL;
+		global_mctx->clients = g_slist_append(global_mctx->clients, client_list);
+						
     	/* set up bufferevent magic */
         evutil_make_socket_nonblocking(fd);
         bev = bufferevent_socket_new(mctx->ev_base, fd, BEV_OPT_CLOSE_ON_FREE);

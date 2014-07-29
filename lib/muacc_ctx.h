@@ -12,6 +12,11 @@
 #include "muacc.h"
 
 
+/** Type for uuid
+ *
+ */
+typedef unsigned char uuid_t[16];
+
 /** Helper to allocate and initialize _muacc_ctx
  *
  */
@@ -20,7 +25,7 @@ struct _muacc_ctx *_muacc_create_ctx();
 /** Helper that computes a new context ID from a counter and the current PID
  *
  */
-muacc_ctxid_t _get_ctxid();
+//muacc_ctxid_t _get_ctxid();
 
 /** Helper to free _muacc_ctx if reference count reaches 0
  *
