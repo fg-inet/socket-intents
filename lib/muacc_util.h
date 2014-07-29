@@ -68,4 +68,13 @@ void _muacc_print_socket_addr(const struct sockaddr *addr, size_t addr_len);
  */
 void _muacc_print_socket_option(strbuf_t *sb, const struct socketopt *current);
 
+
+/** helper to avoid having to link the uuid lib into the client
+ *
+ */
+void __uuid_copy(uuid_t dst, uuid_t src);
+int  __uuid_compare(uuid_t a, uuid_t b);
+int  __uuid_is_null(uuid_t uuid);
+void __uuid_unparse_lower(const uuid_t uuid, char* dst);
+
 #endif /* __MUACC_UTIL_H__ */

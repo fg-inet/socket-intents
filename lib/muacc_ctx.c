@@ -12,8 +12,6 @@
 #include "muacc_tlv.h"
 #include "muacc_util.h"
 
-#include <uuid/uuid.h>
-
 #ifndef MUACC_CTX_NOISY_DEBUG0
 #define MUACC_CTX_NOISY_DEBUG0 1
 #endif
@@ -25,14 +23,6 @@
 #ifndef MUACC_CTX_NOISY_DEBUG2
 #define MUACC_CTX_NOISY_DEBUG2 0
 #endif
-
-
-/*muacc_ctxid_t _get_ctxid()
-{
-    static uint32_t cnt = 0;
-	return ( ((uint64_t) (cnt++)) + (((uint64_t) getpid()) << 32) );
-}
-*/
 
 struct _muacc_ctx *_muacc_create_ctx()
 {
@@ -55,9 +45,8 @@ struct _muacc_ctx *_muacc_create_ctx()
 void _muacc_print_ctx(strbuf_t *sb, const struct _muacc_ctx *_ctx)
 {
 		strbuf_printf(sb, "_ctx = {\n");
-		//strbuf_printf(sb, "\tctxid = (%6d,%6d),\n", (uint32_t) (_ctx->ctxid>>32), (uint32_t) _ctx->ctxid & (0x00000000ffffffff));
 		char uuid_str[37];
-        uuid_unparse_lower(_ctx->ctxid, uuid_str);
+        __uuid_unparse_lower(_ctx->ctxid, uuid_str);
 		strbuf_printf(sb, "\tctxid = %s\n", uuid_str);
         strbuf_printf(sb, "\tctxino = 0x%X%X,\n", _ctx->ctxino >> 32,  _ctx->ctxino & 0xFFFFFFFF);
 		strbuf_printf(sb, "\tcalls_performed = %x,\n", _ctx->calls_performed);
@@ -181,23 +170,27 @@ _muacc_pack_ctx_err:
 
 }
 
+
 int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, ssize_t data_len, struct _muacc_ctx *_ctx)
 {
 	struct addrinfo *ai;
 	struct sockaddr *sa;
 	struct socketopt *so;
 	char *str;
-
-
+	
 	switch(tag)
 	{
 		case ctxid:
-			if(uuid_is_null(_ctx->ctxid))
+			if(__uuid_is_null(*((uuid_t *) data)) && _ctx->calls_performed == 0)
+			{
+				DLOG(MUACC_CTX_NOISY_DEBUG2, "ignoring empty ctxid from first packet\n");
+			}
+			else if(__uuid_is_null(_ctx->ctxid))
 			{
 				DLOG(MUACC_CTX_NOISY_DEBUG2, "unpacking ctxid\n");
-				uuid_copy(_ctx->ctxid, *((uuid_t *) data));
+				__uuid_copy(_ctx->ctxid, *((uuid_t *) data));
 			}
-			else if (uuid_compare(_ctx->ctxid, *((uuid_t *) data)) == 0)
+			else if (__uuid_compare(_ctx->ctxid, *((uuid_t *) data)) == 0)
 			{
 				DLOG(MUACC_CTX_NOISY_DEBUG2, "ctxid check ok\n");
 			}

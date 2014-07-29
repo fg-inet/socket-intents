@@ -12,6 +12,11 @@
 #include "muacc.h"
 
 
+/** Type for uuid
+ *
+ */
+typedef unsigned char uuid_t[16];
+
 /** Helper to allocate and initialize _muacc_ctx
  *
  */

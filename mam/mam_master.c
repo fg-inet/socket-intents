@@ -93,9 +93,11 @@ static void process_mam_request(struct request_context *ctx)
 static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 {
 	struct request_context **rctx = (struct request_context **) prctx;
-	client_list_t *client_list;
-	char uuid_str[37];
 	uuid_t old;
+	
+#if MAM_MASTER_NOISY_DEBUG2 == 1
+	char uuid_str[37];
+#endif
 		
     for(;;)
 	{
@@ -111,48 +113,34 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
     			/* need more data - wait for next read event */
     			return;
     		case _muacc_proc_tlv_event_eof:
-				/* re-initialize muacc context to back up further communication */
-				 
-				 uuid_copy(old, crctx->ctx->ctxid);
+				/* re-initialize muacc context to back up further communication (keep uuid)*/
+				uuid_copy(old, crctx->ctx->ctxid);
 				 
 				 *rctx = malloc(sizeof(struct request_context));
 				(*rctx)->mctx = global_mctx;
 				(*rctx)->ctx = _muacc_create_ctx();
+				printf("in read cb\n");
     			uuid_copy((*rctx)->ctx->ctxid, old);
 				
 				/* done processing - do MAM's magic */
 				process_mam_request(crctx);
-				
-				client_list = malloc(sizeof(client_list_t));
-				client_list->client_sk = bufferevent_getfd(bev);
-				uuid_copy(client_list->id, crctx->ctx->ctxid);
-				client_list->callback_function = &clean_client_state;
-				client_list->sockets = NULL;
-				global_mctx->clients = g_slist_append(global_mctx->clients, client_list);
-				
-				//char uuid_str[37];
-				uuid_unparse_lower(crctx->ctx->ctxid, uuid_str);
-				printf("(mam callback) id: %s\n", uuid_str);
-				
+												
 				if (global_mctx->clients)
 				{
 					GSList *client_list = g_slist_find_custom(global_mctx->clients, crctx->ctx->ctxid, compare_id_in_struct);
 			
 					if (client_list)
 					{
-						//((client_list_t*)client_list->data)->id = crctx->ctx->ctxid;
-						//todo search if entry is already there...
 						socket_list_t *sk = malloc(sizeof(socket_list_t));
 						sk->sk = crctx->ctx->sockfd;
 
+#if MAM_MASTER_NOISY_DEBUG2 == 1
 						uuid_unparse_lower(crctx->ctx->ctxid, uuid_str);
 						printf("(mam callback) add sockfd: %d to id: %s\n", sk->sk, uuid_str);
 						((client_list_t*)client_list->data)->sockets = g_slist_append(((client_list_t*)client_list->data)->sockets, sk);
+#endif
 					}
 				}
-				
-				uuid_unparse_lower(crctx->ctx->ctxid, uuid_str);
-				printf("(mam callback) id: %s\n", uuid_str);
     			continue;
     		default:
     			/* read a TLV - are there more out there? */
@@ -180,26 +168,15 @@ static void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
 	struct request_context **rctx = (struct request_context **) ctx;
 	struct request_context *crctx = *rctx;
 	
-	//mam_print_request_context(crctx);
-	
-	char uuid_str[37];
-	uuid_unparse_lower((*rctx)->ctx->ctxid, uuid_str);
-	printf("(error callback) id: %s\n", uuid_str);
-
     if (error & BEV_EVENT_EOF) {
-		printf("socket close / eof\n");
         /* connection has been closed, do any clean up here */
-		
 		GSList *client_list = g_slist_find_custom(global_mctx->clients, crctx->ctx->ctxid, compare_id_in_struct);
 		
 		if (client_list)
 		{
 			if (((client_list_t*)client_list->data)->callback_function)
 				((client_list_t*)client_list->data)->callback_function(client_list);
-				printf("found client\n");
 		}
-		else
-			printf("client not found\n");
 		
     } else if (error & BEV_EVENT_ERROR) {
         /* check errno to see what error occurred */
@@ -218,11 +195,12 @@ static void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
 
 void clean_client_state(GSList *client_list)
 {
+#if MAM_MASTER_NOISY_DEBUG2 == 1
 	char uuid_str[37];
 	client_list_t *list = ((client_list_t*)client_list->data);
-	
 	uuid_unparse_lower(list->id, uuid_str);
 	printf("cleaning up state for client with fd:%d and id: %s\n", list->client_sk, uuid_str);
+#endif
 	
 	global_mctx->clients = g_slist_remove(global_mctx->clients, client_list->data);
 }
@@ -235,6 +213,7 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
     mam_context_t *mctx = arg;
     struct sockaddr_storage ss;
     socklen_t slen = sizeof(ss);
+	client_list_t *client_list;
 	
     int fd = accept(listener, (struct sockaddr*)&ss, &slen);
     if (fd < 0) {
@@ -252,13 +231,22 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
 		*ctx = malloc(sizeof(struct request_context));
 		(*ctx)->ctx = _muacc_create_ctx();
 		(*ctx)->mctx = mctx;
-
+				
+		client_list = malloc(sizeof(client_list_t));
+		client_list->client_sk = fd; //bufferevent_getfd(bev);
+		uuid_generate((*ctx)->ctx->ctxid);
+		uuid_copy(client_list->id, (*ctx)->ctx->ctxid);
+		client_list->callback_function = &clean_client_state;
+		client_list->sockets = NULL;
+		global_mctx->clients = g_slist_append(global_mctx->clients, client_list);
+						
     	/* set up bufferevent magic */
         evutil_make_socket_nonblocking(fd);
         bev = bufferevent_socket_new(mctx->ev_base, fd, BEV_OPT_CLOSE_ON_FREE);
         bufferevent_setcb(bev, mamsock_readcb, NULL, mamsock_errorcb, (void *) ctx);
         bufferevent_setwatermark(bev, EV_READ, MIN_BUF, MAX_BUF);
         bufferevent_enable(bev, EV_READ|EV_WRITE);
+		printf("do_accept done\n");
     }
 }
 
