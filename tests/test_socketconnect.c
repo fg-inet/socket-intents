@@ -61,6 +61,15 @@ void print_usage(char *argv[], void *args[])
         printf("\n");
 }
 
+void cleanup(void *argtable, struct socketopt *options)
+{
+	if (argtable != NULL)
+		arg_freetable(argtable, sizeof(argtable)/sizeof(argtable[0]));
+	
+	if (options != NULL)
+		muacc_free_socket_option_list(options);
+}
+
 int main(int argc, char *argv[])
 {
     /* Set up command line arguments table */
@@ -73,13 +82,17 @@ int main(int argc, char *argv[])
     arg_transport = arg_str0(NULL, "transport", "TCP|UDP", "Set transport protocol to use (default: TCP)");
     arg_category = arg_str0("C", "category", "QUERY|BULKTRANSFER|CONTROLTRAFFIC|STREAM", "Set INTENT Category to this value");
 
-	struct arg_lit *arg_verbose, *arg_quiet;
+	struct arg_int *arg_times;
+	arg_times = arg_int0("t", "times", "<n>", "Call socketconnect this many times");
+
+	struct arg_lit *arg_verbose, *arg_quiet, *arg_clearsocket;
     arg_verbose = arg_lit0("v", "verbose", "Verbose output (Print socket contexts before and after every request");
     arg_quiet = arg_lit0("q", "quiet", "Quiet output (Do not print socket contexts before and after every request");
+    arg_clearsocket = arg_lit0(NULL, "clearsocket", "When calling socketconnect multiple times, always clear the socket file descriptor");
 
     struct arg_end *end = arg_end(10);
 
-    void *argtable[] = {arg_verbose, arg_quiet, arg_url, arg_protocol, arg_transport, arg_filesize, arg_category, end};
+    void *argtable[] = {arg_verbose, arg_quiet, arg_times, arg_clearsocket, arg_url, arg_protocol, arg_transport, arg_filesize, arg_category, end};
 
     /* Check arguments table for errors */
     if (arg_nullcheck(argtable) != 0)
@@ -90,6 +103,7 @@ int main(int argc, char *argv[])
     }
 
     /* Initialize default values for arguments */
+	arg_times->ival[0] = 1;
     arg_protocol->ival[0] = 0;
 
     *arg_transport->sval = "TCP";
@@ -174,28 +188,33 @@ int main(int argc, char *argv[])
 
 	int our_socket = -1;
 	int returnvalue = -1;
+	int try = 0;
 
-	returnvalue = socketconnect(&our_socket, *arg_url->sval, options, family, socktype, *arg_protocol->ival);
-
-	muacc_free_socket_option_list(options);
-
-    if (returnvalue == -1)
+	for (try; try < arg_times->ival[0]; try++)
 	{
-		printf("Failed to create and connect the socket!\n");
-        return -1;
+		printf("Try #%d:\n", try+1);
+		returnvalue = socketconnect(&our_socket, *arg_url->sval, options, family, socktype, *arg_protocol->ival);
+
+		if (returnvalue == -1)
+		{
+			printf("Failed to create and connect the socket!\n");
+			cleanup(argtable, options);
+			return -1;
+		}
+
+		char *buf = "testblah";
+		
+		returnvalue = write(our_socket, buf, sizeof(buf));
+		if (returnvalue == -1)
+		{
+			printf("Failed to write text on the socket!\n");
+			cleanup(argtable, options);
+			return -1;
+		}
+		if (arg_clearsocket->count > 0)
+			our_socket = -1; // Clearing socket
 	}
 
-	char *buf = "testblah";
-	
-	returnvalue = write(our_socket, buf, sizeof(buf));
-
-    arg_freetable(argtable, sizeof(argtable)/sizeof(argtable[0]));
-
-    if (returnvalue == -1)
-	{
-		printf("Failed to write text on the socket!\n");
-        return -1;
-	}
-    else
-        return 0;
+	cleanup(argtable, options);
+    return 0;
 }

@@ -83,10 +83,46 @@ int _muacc_connect_ctx_to_mam(muacc_context_t *ctx) ;
  */
 int muacc_set_intent(socketopt_t **opts, int optname, const void *optval, socklen_t optlen, int flags);
 
+typedef struct socketlist
+{
+	struct socketset 	*set;
+	struct socketlist 	*next;
+} socketlist_t;
+
+typedef struct socketset
+{
+	int		file;				/**< File descriptor */
+	struct	_muacc_ctx *ctx;
+	struct	socketset *next;
+} socketset_t;
+
 /** Free a list of socket options
  *
  * @return 0 on success, a negative number otherwise
  */
 int muacc_free_socket_option_list(socketopt_t *opts);
+
+/** Add socket to a socketset
+ *
+ * @return 0 on success, a negative number otherwise
+ */
+int _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muacc_ctx *ctx);
+
+/** Find the socket set that contains the given socket, if any
+ *
+ * @return Pointer to the socket set if found, or NULL
+ */
+struct socketset *_muacc_find_socketset(struct socketlist *list, int socket);
+
+/** Find a socket set that matches the socket
+ *
+ * @return Pointer to the socket set if found, or NULL
+ */
+struct socketset *_muacc_find_set_for_socket(struct socketlist *list, struct _muacc_ctx *ctx);
+
+/** Print contents of a socket list
+ *
+ */
+void muacc_print_socketlist(struct socketlist *list);
 
 #endif /* __MUACC_CLIENT_UTIL_H__ */

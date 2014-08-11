@@ -275,3 +275,105 @@ int muacc_free_socket_option_list(struct socketopt *opts)
 
 	return -1;
 }
+
+int _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muacc_ctx *ctx)
+{
+	struct socketset *set = NULL;
+	struct socketlist *newlist = NULL;
+	if ((set = _muacc_find_set_for_socket(*list, ctx)) == NULL)
+	{
+		/* No matching socket set - create it */
+		newlist = malloc(sizeof(struct socketlist));
+		newlist->next = NULL;
+		newlist->set = malloc(sizeof(struct socketset));
+		newlist->set->next = NULL;
+		newlist->set->file = socket;
+		newlist->set->ctx = ctx;
+
+		if (*list == NULL)
+		{
+			*list = newlist;
+		}
+		else
+		{
+			while ((*list)->next !=NULL)
+			{
+				*list = (*list)->next;
+			}
+			(*list)->next = newlist;
+		}
+	}
+	else
+	{
+		/* Add socket to existing socket set */
+		while (set->next != NULL)
+		{
+			set = set->next;
+		}
+		set->next = malloc(sizeof(struct socketset));
+		set->next->next = NULL;
+		set->next->file = socket;
+		set->next->ctx = ctx;
+	}
+	return 0;
+}
+
+struct socketset *_muacc_find_set_for_socket(struct socketlist *list, struct _muacc_ctx *ctx)
+{
+	while (list != NULL && list->set != NULL)
+	{
+		if (list->set->ctx->domain == ctx->domain && list->set->ctx->type == ctx->type && list->set->ctx->protocol == ctx->protocol && (memcmp(list->set->ctx->remote_sa, ctx->remote_sa, (ctx->domain == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6)) == 0))
+		{
+			return list->set;
+		}
+
+		list = list->next;
+	}
+
+	return NULL;
+}
+
+struct socketset *_muacc_find_socketset(struct socketlist *list, int socket)
+{
+	while (list != NULL )
+	{
+		struct socketset *set = list->set;
+		while (set != NULL)
+		{
+			if (set->file == socket)
+			{
+				return set;
+			}
+			set = set->next;
+		}
+		list = list->next;
+	}
+	return NULL;
+}
+
+void muacc_print_socketlist(struct socketlist *list)
+{
+	printf("\n\t\tSocketlist:\n{ ");
+	while (list != NULL)
+	{
+		printf("{ ");
+		struct socketset *set = list->set;
+		while (set != NULL)
+		{
+			strbuf_t sb;
+			strbuf_init(&sb);
+
+			printf("{ file = %d\n", set->file);
+			printf("ctx = ");
+			_muacc_print_ctx(&sb, set->ctx);
+			printf("%s", strbuf_export(&sb));
+			strbuf_release(&sb);
+
+			set = set->next;
+			printf("}, ");
+		}
+		printf("} <next socket set...>\n");
+		list = list->next;
+	}
+	printf("}\n\n");
+}

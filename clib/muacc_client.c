@@ -26,6 +26,8 @@
 #define CLIB_IF_NOISY_DEBUG2 0
 #endif
 
+struct socketlist *sockets = NULL;
+
 int muacc_socket(muacc_context_t *ctx,
         int domain, int type, int protocol)
 {
@@ -636,7 +638,14 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 		
 			if (0 == connect(*s, ctx.ctx->remote_sa, ctx.ctx->remote_sa_len))
 				{
-					DLOG(CLIB_IF_NOISY_DEBUG2, "Socket was successfully connected - returning\n");
+					DLOG(CLIB_IF_NOISY_DEBUG2, "Socket was successfully connected\n");
+					_muacc_add_socket_to_list(&sockets, *s, ctx.ctx);
+					if (CLIB_IF_NOISY_DEBUG2)
+					{
+						printf("Added socket to list:\n");
+						muacc_print_socketlist(sockets);
+					}
+					return 1;
 				}
 				else
 				{
@@ -649,7 +658,6 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 				muacc_release_context(&ctx);
 				return -1;
 			}
-			muacc_release_context(&ctx);
 			return 1;
 		}
 		else
@@ -660,7 +668,15 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 	}
 	else
 	{
-		/* Socket exists - TODO: Search for corresponding socket set and send socketchoose to MAM */
+		/* Socket exists - Search for corresponding socket set */
+		struct socketset *set;
+
+		if ((set = _muacc_find_socketset(sockets, *s)) != NULL)
+		{
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Found Socket Set\n");
+		}
+
+		/* TODO send socketchoose to MAM */
 		muacc_release_context(&ctx);
 		return 0;
 	}
