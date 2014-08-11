@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "dlog.h"
-#include "strbuf.h"
+#include "clib/dlog.h"
+#include "clib/strbuf.h"
 
 #define STRBUF_NOISY_DEBUG 0
 #define STRBUF_DEFAULT_CHUNKSIZE	512	

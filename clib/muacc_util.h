@@ -11,7 +11,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#include "libmuacc-client/muacc.h"
+#include "muacc.h"
 
 /** helper to copy a cstring
  *

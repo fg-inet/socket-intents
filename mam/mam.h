@@ -21,7 +21,7 @@
 #include <ltdl.h>
 #include <glib.h>
 
-#include "lib/muacc.h"
+#include "clib/muacc.h"
 #include "config.h"
 
 /** Context of an incoming request to the MAM */

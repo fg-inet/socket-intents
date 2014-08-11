@@ -6,11 +6,11 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 
-#include "dlog.h"
+#include "clib/dlog.h"
 
 #include "muacc_ctx.h"
 #include "muacc_tlv.h"
-#include "muacc_util.h"
+#include "clib/muacc_util.h"
 
 #ifndef MUACC_CTX_NOISY_DEBUG0
 #define MUACC_CTX_NOISY_DEBUG0 1

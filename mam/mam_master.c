@@ -7,7 +7,7 @@
 #include <sys/un.h>
 #include <sys/stat.h>
 
-#include "lib/muacc.h"
+#include "clib/muacc.h"
 #include "lib/muacc_ctx.h"
 #include "lib/muacc_tlv.h"
 

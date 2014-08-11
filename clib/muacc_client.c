@@ -8,7 +8,7 @@
 
 #include "uriparser/Uri.h"
 
-#include "lib/dlog.h"
+#include "dlog.h"
 
 #include "lib/intents.h"
 

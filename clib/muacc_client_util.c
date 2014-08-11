@@ -9,10 +9,9 @@
 #include <netdb.h>
 #include <errno.h>
 
-#include "lib/dlog.h"
+#include "dlog.h"
 #include "lib/muacc_ctx.h"
 #include "lib/muacc_tlv.h"
-#include "lib/muacc_util.h"
 #include "lib/intents.h"
 
 #include "muacc_client_util.h"

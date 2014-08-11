@@ -7,8 +7,8 @@
 #include <sys/un.h>
 #include <netdb.h>
 
-#include "muacc.h"
-#include "muacc_util.h"
+#include "clib/muacc.h"
+#include "clib/muacc_util.h"
 
 #include "intents.h"
 

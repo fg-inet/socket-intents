@@ -3,11 +3,11 @@
 #include <ltdl.h>
 #include <assert.h>
 
-#include "lib/muacc_util.h"
+#include "clib/muacc_util.h"
 #include "lib/muacc_tlv.h"
 #include "lib/muacc_ctx.h"
-#include "lib/dlog.h"
-#include "lib/strbuf.h"
+#include "clib/dlog.h"
+#include "clib/strbuf.h"
 
 #include "mam_util.h"
 

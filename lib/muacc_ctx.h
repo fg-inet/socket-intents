@@ -9,7 +9,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#include "muacc.h"
+#include "clib/muacc.h"
 
 /** Helper to allocate and initialize _muacc_ctx
  *

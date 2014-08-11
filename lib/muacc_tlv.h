@@ -9,7 +9,7 @@
 #include <sys/socket.h>
 
 #include <netdb.h>
-#include "muacc.h"
+#include "clib/muacc.h"
 
 #define MUACC_TLV_MAXLEN 2048
 
