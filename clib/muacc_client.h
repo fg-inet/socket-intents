@@ -13,7 +13,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#include "lib/muacc_util.h"
+#include "muacc_util.h"
 
 /** Context of a socket on the client side */
 typedef struct muacc_context
