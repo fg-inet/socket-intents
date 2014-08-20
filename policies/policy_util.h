@@ -33,6 +33,7 @@ void make_v4v6_enabled_lists (GSList *baselist, GSList **v4list, GSList **v6list
  *  to the first address of the chosen prefix
  */
 void set_bind_sa(request_context_t *rctx, struct src_prefix_list *chosen, strbuf_t *sb);
+void _set_bind_sa(request_context_t *rctx, struct sockaddr *addr, strbuf_t *sb);
 
 /** Helper that prints the addresses returned by getaddrinfo */
 void print_addrinfo_response (struct addrinfo *res);

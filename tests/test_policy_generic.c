@@ -372,6 +372,7 @@ int main(int argc, char *argv[])
     struct addrinfo_context *local_actx = NULL;
     struct addrinfo_context *remote_actx = NULL;
     int connect_ret = 0;
+    int pretty_dots = 0;
 
     // Do local name resolution
     if (*arg_localport->ival > 0)
@@ -463,13 +464,18 @@ int main(int argc, char *argv[])
 				
 				printf("message: %s\n", message);
 			
-				char buf[1024];
+				char buf[8192];
 				int ret = 0, count = 0;
 				do
 				{
-					ret = recv(sfd, buf, 1024, 0);
-					usleep(10000);
-					printf(".");
+					ret = recv(sfd, buf, 8192, 0);
+					usleep(20000);
+
+                    if (++pretty_dots > 50)
+                    {
+					   printf(".");
+                       pretty_dots = 0;
+                    }
 					fflush(stdout);
 					count += ret;
 				}

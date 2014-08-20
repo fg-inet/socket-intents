@@ -40,6 +40,8 @@ int mam_init_context(struct mam_context *ctx)
 	ctx->usage = 1;
 	//TODO
 
+	ctx->state = g_hash_table_new(NULL, NULL);
+
 	return 0;
 }
 

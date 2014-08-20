@@ -47,13 +47,19 @@ void parse_message(struct nlmsghdr *nlh, int type, struct nlattr **attrs, struct
 	
 	if(genlmsg_parse(nlh, 0, attrs, MAM_MPTCP_A_MAX, mam_mptcp_genl_policy) < 0)
 		perror("Could not parse netlink message attributes!\n");
+	else
+		printf("Parsed message attributes\n");
 	
 	if (nested)
+	{
 		for (i = 0; i < MAM_MPTCP_A_MAX; ++i)
 			if (attrs[i])
 				if (attrs[i]->nla_type == NLA_NESTED)
 					if (nla_parse_nested(nested, MAM_MPTCP_N_A_MAX, attrs[i], mam_mptcp_genl_nested_policy) < 0)
 						perror("Could not parse netlink message nested attributes.\n");
+	}
+	else
+		printf("no nesting found\n");
 	
 }
 
@@ -100,40 +106,106 @@ int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 	struct nlattr *attrs[MAM_MPTCP_A_MAX+1];
 	
 	parse_message(nhl, MAM_MPTCP_C_NEWFLOW, attrs, NULL);
+	
+	printf("parsed message!\n");
 
-	if (attrs[MAM_MPTCP_A_IPV4_LOC])
+	if (flow)
 	{
-		if (flow)
-		{
+		if (attrs[MAM_MPTCP_A_IPV4_LOC])
 			flow->loc_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC]);
-			flow->loc_id = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC_ID]);
-			flow->loc_low_prio = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC_PRIO]);
-			
-			flow->rem_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_REM]);
-			flow->rem_id = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_ID]);
-			flow->rem_bitfield = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_BIT]);
-			flow->rem_retry_bitfield = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_RETR_BIT]);
-			flow->rem_port = nla_get_u16(attrs[MAM_MPTCP_A_IPV4_REM_PORT]);
-			
-			flow->inode = nla_get_u64(attrs[MAM_MPTCP_A_INODE]);
-			flow->token = nla_get_u32(attrs[MAM_MPTCP_A_TOKEN]);
+		else
+		{
+			printf("no loc \n");
+			return -1;
 		}
 			
-		struct in_addr ia;
-		ia.s_addr = flow->loc_addr;
+		if (attrs[MAM_MPTCP_A_IPV4_LOC_ID])
+			flow->loc_id = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC_ID]);
+		else
+		{
+			printf("no loc id\n");
+			return -1;
+		}
 		
-		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "local IP : %s\n", inet_ntoa(ia));
-		ia.s_addr = flow->rem_addr;
-		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "remote IP: %s\n", inet_ntoa(ia));
-		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "INODE    : %08x:%08x\n\n", (uint32_t)(nla_get_u64(attrs[MAM_MPTCP_A_INODE]) >> 32),
-																	  (uint32_t)(nla_get_u64(attrs[MAM_MPTCP_A_INODE]) & 0xFFFFFFFF));
-		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "TOKEN    : %08x\n\n", nla_get_u32(attrs[MAM_MPTCP_A_TOKEN]));
+		if (attrs[MAM_MPTCP_A_IPV4_LOC_PRIO])
+			flow->loc_low_prio = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC_PRIO]);
+		else
+		{
+			printf("no loc prio \n");
+			return -1;
+		}
 		
-		return 0;
+		if (attrs[MAM_MPTCP_A_IPV4_REM])
+			flow->rem_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_REM]);
+		else
+		{
+			printf("no rem\n");
+			return -1;
+		}
+			
+		if (attrs[MAM_MPTCP_A_IPV4_REM_ID])
+			flow->rem_id = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_ID]);
+		else
+		{
+			printf("no rem id\n");
+			return -1;
+		}
+			
+		if (attrs[MAM_MPTCP_A_IPV4_REM_BIT])
+			flow->rem_bitfield = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_BIT]);
+		else
+		{
+			printf("no rem bit\n");
+			return -1;
+		}
+			
+		if (attrs[MAM_MPTCP_A_IPV4_REM_RETR_BIT])
+			flow->rem_retry_bitfield = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_RETR_BIT]);
+		else
+		{
+			printf("no rem retr bit\n");
+			return -1;
+		}
+			
+		if (attrs[MAM_MPTCP_A_IPV4_REM_PORT])
+			flow->rem_port = nla_get_u16(attrs[MAM_MPTCP_A_IPV4_REM_PORT]);
+		else
+		{
+			printf("no rem port\n");
+			return -1;
+		}
+			
+		if (attrs[MAM_MPTCP_A_INODE])
+			flow->inode = nla_get_u64(attrs[MAM_MPTCP_A_INODE]);
+		else
+		{
+			printf("no inode\n");
+			return -1;
+		}
+		
+		if (attrs[MAM_MPTCP_A_TOKEN])
+			flow->token = nla_get_u32(attrs[MAM_MPTCP_A_TOKEN]);
+		else
+		{
+			printf("no token \n");
+			return -1;
+		}
 	}
-	else
-	{
-		perror("Message did not contain ipv4 attribute!\n");
-		return -1;
-	}
+			
+	struct in_addr ia;
+	ia.s_addr = flow->loc_addr;
+	
+	DLOG(NETLINK_PARSER_NOISY_DEBUG2, "local IP : %s\n", inet_ntoa(ia));
+	ia.s_addr = flow->rem_addr;
+	DLOG(NETLINK_PARSER_NOISY_DEBUG2, "remote IP: %s\n", inet_ntoa(ia));
+	DLOG(NETLINK_PARSER_NOISY_DEBUG2, "INODE    : %08x:%08x\n\n", (uint32_t)(nla_get_u64(attrs[MAM_MPTCP_A_INODE]) >> 32),
+																  (uint32_t)(nla_get_u64(attrs[MAM_MPTCP_A_INODE]) & 0xFFFFFFFF));
+	DLOG(NETLINK_PARSER_NOISY_DEBUG2, "TOKEN    : %08x\n\n", nla_get_u32(attrs[MAM_MPTCP_A_TOKEN]));
+	
+	return 0;
+	
+error_case:
+	
+	perror("Message did not contain ipv4 attribute!\n");
+	return -1;
 }
