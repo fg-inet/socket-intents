@@ -72,8 +72,6 @@ int netlink_readcb(struct nl_msg *msg, void *dummy)
 					perror("Could not add attribute to new flow response message\n");
 				if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_BIT, flow.rem_bitfield) < 0)
 					perror("Could not add attribute to new flow response message\n");
-				if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_RETR_BIT, flow.rem_retry_bitfield) < 0)
-					perror("Could not add attribute to new flow response message\n");
 				if (nla_put_u16(msg_out, MAM_MPTCP_A_IPV4_REM_PORT, flow.rem_port) < 0)
 					perror("Could not add attribute to new flow response message\n");
 				

@@ -20,7 +20,6 @@ struct mptcp_flow_info {
 	uint8_t rem_low_prio;
 	
 	uint8_t rem_bitfield;
-	uint8_t rem_retry_bitfield;
 	uint16_t rem_port;
 	
 	uint64_t inode;
@@ -31,6 +30,5 @@ unsigned short get_message_type(struct nlmsghdr *);
 void parse_message(struct nlmsghdr*, int, struct nlattr**, struct nlattr**);
 int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow);
 int new_iface(struct nlmsghdr*, struct in_addr*, struct in6_addr*);
-
 
 #endif /* __MPTCP_NETLINK_PARSER_H__ */

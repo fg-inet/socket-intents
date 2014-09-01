@@ -34,7 +34,6 @@ unsigned short get_message_type(struct nlmsghdr *nlh)
 
 void parse_message(struct nlmsghdr *nlh, int type, struct nlattr **attrs, struct nlattr **nested)
 {
-	int i = 0;
 	if (genlmsg_hdr(nlh)->cmd == type)
 	{
 		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "New Message. Type: %s\n", commands[type]);
@@ -50,7 +49,7 @@ void parse_message(struct nlmsghdr *nlh, int type, struct nlattr **attrs, struct
 	else
 		printf("Parsed message attributes\n");
 	
-	if (nested)
+	/*if (nested)
 	{
 		for (i = 0; i < MAM_MPTCP_A_MAX; ++i)
 			if (attrs[i])
@@ -60,15 +59,15 @@ void parse_message(struct nlmsghdr *nlh, int type, struct nlattr **attrs, struct
 	}
 	else
 		printf("no nesting found\n");
-	
+	*/
 }
 
 int new_iface(struct nlmsghdr *nhl, struct in_addr* addr_v4, struct in6_addr* addr_v6)
 {
 	struct nlattr *attrs[MAM_MPTCP_A_MAX+1];
-	struct nlattr *nested[MAM_MPTCP_N_A_MAX+1];
+	//struct nlattr *nested[MAM_MPTCP_N_A_MAX+1];
 	
-	parse_message(nhl, MAM_MPTCP_C_NEWIFACE, attrs, nested);
+	parse_message(nhl, MAM_MPTCP_C_NEWIFACE, attrs, NULL);
 
 	if (attrs[MAM_MPTCP_A_IPV4])
 	{
@@ -86,7 +85,7 @@ int new_iface(struct nlmsghdr *nhl, struct in_addr* addr_v4, struct in6_addr* ad
 	{
 		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "new-interface v6 message\n");
 	
-		if (nested[MAM_MPTCP_N_A_IPV6_0] && nested[MAM_MPTCP_N_A_IPV6_1] && nested[MAM_MPTCP_N_A_IPV6_2] && nested[MAM_MPTCP_N_A_IPV6_3])
+		/*if (nested[MAM_MPTCP_N_A_IPV6_0] && nested[MAM_MPTCP_N_A_IPV6_1] && nested[MAM_MPTCP_N_A_IPV6_2] && nested[MAM_MPTCP_N_A_IPV6_3])
 		{
 			
 			DLOG(NETLINK_PARSER_NOISY_DEBUG2, "Content of new-interface v6 message: %04x:%04x:%04x:%04x\n\n", nla_get_u32(nested[MAM_MPTCP_N_A_IPV6_0]),
@@ -94,7 +93,7 @@ int new_iface(struct nlmsghdr *nhl, struct in_addr* addr_v4, struct in6_addr* ad
 																											nla_get_u32(nested[MAM_MPTCP_N_A_IPV6_2]),
 																											nla_get_u32(nested[MAM_MPTCP_N_A_IPV6_3]));
 			return 0;
-		}
+		}*/
 	}
 
 	perror("Message did not contain ip attributes!\n");
@@ -159,14 +158,7 @@ int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			return -1;
 		}
 			
-		if (attrs[MAM_MPTCP_A_IPV4_REM_RETR_BIT])
-			flow->rem_retry_bitfield = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_RETR_BIT]);
-		else
-		{
-			printf("no rem retr bit\n");
-			return -1;
-		}
-			
+	
 		if (attrs[MAM_MPTCP_A_IPV4_REM_PORT])
 			flow->rem_port = nla_get_u16(attrs[MAM_MPTCP_A_IPV4_REM_PORT]);
 		else
@@ -203,9 +195,5 @@ int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 	DLOG(NETLINK_PARSER_NOISY_DEBUG2, "TOKEN    : %08x\n\n", nla_get_u32(attrs[MAM_MPTCP_A_TOKEN]));
 	
 	return 0;
-	
-error_case:
-	
-	perror("Message did not contain ipv4 attribute!\n");
-	return -1;
 }
+
