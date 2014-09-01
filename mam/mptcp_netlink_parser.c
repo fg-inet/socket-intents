@@ -4,6 +4,7 @@
  */
 
 #include "lib/dlog.h"
+#include "mam_netlink.h"
 #include "mptcp_netlink_types.h"
 #include "mptcp_mam_netlink.h"
 #include "mptcp_netlink_parser.h"

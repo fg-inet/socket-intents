@@ -9,6 +9,7 @@
 #include <errno.h>
 
 #include "../mam/mptcp_netlink_parser.h"
+#include "../mam/mam_netlink.h"
 
 GSList *in4_enabled = NULL;
 GSList *in6_enabled = NULL;
@@ -92,13 +93,7 @@ static void set_sa(request_context_t *rctx, strbuf_t sb, int do_not_bind)
 
 				strbuf_printf(&sb, "\nspl: %s | default: %s\n", inet_ntoa(((struct sockaddr_in *) spl->if_addrs->addr)->sin_addr), inet_ntoa(ad));
 
-				if  (
-						( 
-							( 
-								ad.s_addr - ((struct sockaddr_in *) rctx->ctx->remote_sa)->sin_addr.s_addr  
-					   		) &
-					   		((struct sockaddr_in *) spl->if_netmask)->sin_addr.s_addr
-						) == 0)
+				if  (((ad.s_addr - ((struct sockaddr_in *) rctx->ctx->remote_sa)->sin_addr.s_addr) & ((struct sockaddr_in *) spl->if_netmask)->sin_addr.s_addr) == 0)
 				{
 					struct sockaddr_in sock = {.sin_family = AF_INET, .sin_port = 0, .sin_addr = ad};
 
@@ -208,14 +203,26 @@ void establish_new_flow(gpointer elem, gpointer ip)
 {
 	int i;
 	client_list_t *list = (client_list_t*) elem;
-	struct in_addr in;
+	struct in_addr in, in_comp;
+	struct mptcp_flow_info flow;
 
 	for (i = 0; i < 8; ++i)
 	{
-		if(list->flow[i].loc_addr == *(uint32_t*)ip)
+		flow = ((struct mptcp_flow_info*) (list->flow))[i];
+
+		if(flow.loc_addr == *(uint32_t*)ip)
 		{
 			in.s_addr = *(uint32_t*)ip;
 			printf("matching!!! would create new flow over: %s\n", inet_ntoa(in));
+
+			create_new_v4_flow(&flow);
+			break;
+		}
+		else
+		{
+			in.s_addr = *(uint32_t*)ip;
+			in_comp.s_addr = flow.loc_addr;
+			printf("did not match: (%X) and (%X)\n", *(uint32_t*)ip, flow.loc_addr);
 		}
 	}
 }
@@ -296,7 +303,6 @@ int on_new_subflow_request(mam_context_t *mctx, struct mptcp_flow_info *flow)
 			new_flow->loc_low_prio = flow->loc_low_prio;
 			new_flow->rem_low_prio = flow->rem_low_prio;
 			new_flow->rem_bitfield = flow->rem_bitfield;
-			new_flow->rem_retry_bitfield = flow->rem_retry_bitfield;
 			new_flow->rem_port = flow->rem_port;
 			new_flow->inode = flow->inode;
 			new_flow->token = flow->token;
