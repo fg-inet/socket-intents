@@ -115,7 +115,7 @@ void netlink_readcb(struct bufferevent *bev, void *dummy)
 			break;
 			
 		case MAM_MPTCP_C_NEWIFACE:
-			new_iface(nhl, NULL, NULL); //TODO replace NULL with actual ipv4 addr struct
+			new_iface(nhl, NULL, NULL); //TODO replace NULL with actual struct
 			break;
 	}
 	

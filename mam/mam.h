@@ -79,14 +79,14 @@ typedef struct iface_list {
 
 /** Context of the MAM */
 typedef struct mam_context {
-	int						usage;			/**< Reference counter */
-	GSList					*prefixes;		/**< Possible source prefixes on this system */
-	lt_dlhandle				policy;			/**< Handle of policy module */
+	int						usage;				/**< Reference counter */
+	GSList					*prefixes;			/**< Possible source prefixes on this system */
+	lt_dlhandle				policy;				/**< Handle of policy module */
 	struct event_base 		*ev_base;			/**< Libevent Event Base */
-	struct evdns_base 		*evdns_default_base; /**< DNS base to do look ups if all other fails */
-	GHashTable 				*policy_set_dict; /**< dictionary for policy configuration */
-	GSList					*clients;  /**< list of all applications that are connected to the MAM */
-	GHashTable				*state; /** global mam state */
+	struct evdns_base 		*evdns_default_base;/**< DNS base to do look ups if all other fails */
+	GHashTable 				*policy_set_dict; 	/**< dictionary for policy configuration */
+	GSList					*clients; 	 		/**< list of all applications that are connected to the MAM */
+	GHashTable				*state; 			/** global mam state */
 } mam_context_t;
 
 /** List of clients connected to the MAM */

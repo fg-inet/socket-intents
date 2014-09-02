@@ -127,7 +127,6 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 				printf("in read cb\n");
     			uuid_copy((*rctx)->ctx->ctxid, old);
 
-				
 				/* done processing - do MAM's magic */
 				process_mam_request(crctx);
 												
