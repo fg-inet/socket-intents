@@ -23,27 +23,35 @@ static struct nla_policy mam_mptcp_genl_policy[MAM_MPTCP_A_MAX + 1] = {
 	[MAM_MPTCP_A_STRMSG]  = { .type = NLA_STRING,
 							  .maxlen = MAM_MPTCP_A_STRMSG_MAXLEN },
 	[MAM_MPTCP_A_IPV6] = { .type = NLA_UNSPEC},
+	[MAM_MPTCP_A_IPV6_LOC] = { .type = NLA_UNSPEC},
+	[MAM_MPTCP_A_IPV6_REM] = { .type = NLA_UNSPEC},
 #else
 	[MAM_MPTCP_A_STRMSG]  = { .type = NLA_NUL_STRING,
 							  .len = MAM_MPTCP_A_STRMSG_MAXLEN },
 	[MAM_MPTCP_A_IPV6] = { .type = NLA_BINARY,
 						   .len = sizeof(struct in6_addr) },
+	[MAM_MPTCP_A_IPV6_LOC] = { .type = NLA_BINARY,
+						   .len = sizeof(struct in6_addr) },
+	[MAM_MPTCP_A_IPV6_REM] = { .type = NLA_BINARY,
+						   .len = sizeof(struct in6_addr) },
 #endif
 	[MAM_MPTCP_A_IPV4_LOC] = { .type = NLA_U32 },
-	[MAM_MPTCP_A_IPV4_LOC_ID] = { .type = NLA_U8 },
-	[MAM_MPTCP_A_IPV4_LOC_PRIO] = { .type = NLA_U8 },
+	[MAM_MPTCP_A_LOC_ID] = { .type = NLA_U8 },
+	[MAM_MPTCP_A_LOC_PRIO] = { .type = NLA_U8 },
 	
 	[MAM_MPTCP_A_IPV4_REM] = { .type = NLA_U32 },
-	[MAM_MPTCP_A_IPV4_REM_ID] = { .type = NLA_U8 },
-	[MAM_MPTCP_A_IPV4_REM_PRIO] = { .type = NLA_U8 },
-	[MAM_MPTCP_A_IPV4_REM_BIT] = { .type = NLA_U8 },
-	[MAM_MPTCP_A_IPV4_REM_PORT] = { .type = NLA_U16 },
+	[MAM_MPTCP_A_REM_ID] = { .type = NLA_U8 },
+	[MAM_MPTCP_A_REM_PRIO] = { .type = NLA_U8 },
+	[MAM_MPTCP_A_REM_BIT] = { .type = NLA_U8 },
+	[MAM_MPTCP_A_REM_PORT] = { .type = NLA_U16 },
 	
 	[MAM_MPTCP_A_INODE] = { .type = NLA_U64 },
 	[MAM_MPTCP_A_TOKEN] = { .type = NLA_U32 },
 	
 	[MAM_MPTCP_A_OK] = { .type = NLA_FLAG },
-	[MAM_MPTCP_A_NOT_OK] = { .type = NLA_FLAG }
+	[MAM_MPTCP_A_NOT_OK] = { .type = NLA_FLAG },
+
+	[MAM_MPTCP_A_IS_V6] = { .type = NLA_FLAG }
 };
 
 #endif /* __MPTCP_MAM_NETLINK_H__ */

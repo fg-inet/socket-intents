@@ -1,35 +1,18 @@
-#include "policy.h"
-#include "policy_util.h"
-#include "../lib/muacc.h"
-#include <sys/socket.h>
-#include <linux/netlink.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-
-#include "../mam/mptcp_netlink_parser.h"
-#include "../mam/mam_netlink.h"
+#include "policy_mptcp_default_flow.h"
 
 GSList *in4_enabled = NULL;
 GSList *in6_enabled = NULL;
 
 static mam_context_t *global_mctx = NULL;
 
-
-/** Policy-specific per-prefix data structure that contains additional information */
-struct default_flow_info {
-	int is_enabled_for_flow;
-	int is_default;
-};
-
 void print_policy_info(void *policy_info)
 {
 	struct default_flow_info *info = policy_info;
 	if (info->is_enabled_for_flow == 1)
-		printf(" (flow enabled)");
+		printf(" (allowing flows)");
+	else
+		printf(" (NOT allowing flows)");
 }
-
 
 /** Helper to set the policy information for each prefix
  *  Here, check if this prefix has been configured as default
@@ -45,7 +28,7 @@ void set_policy_info(gpointer elem, gpointer _mctx)
 	if (spl->policy_set_dict != NULL)
 	{
 		gpointer value = NULL;
-		if ((value = g_hash_table_lookup(spl->policy_set_dict, "flow")) != NULL)
+		if ((value = g_hash_table_lookup(spl->policy_set_dict, "allowflow")) != NULL)
 			new->is_enabled_for_flow = atoi(value);
 		if (((value = g_hash_table_lookup(spl->policy_set_dict, "default")) != NULL) && value)
 		{
@@ -68,10 +51,7 @@ static void set_sa(request_context_t *rctx, strbuf_t sb, int do_not_bind)
 	struct src_prefix_list *defaultaddr = NULL;
 	struct default_flow_info *info = NULL;
     int assigned = 0;
-	
-	//struct sockaddr_in *sin;
-	//char straddr[INET6_ADDRSTRLEN];
-	
+		
 	strbuf_printf(&sb, "\nDEBUG: set_sa called\n");
 
 	if (rctx->ctx->domain == AF_INET)
@@ -88,7 +68,6 @@ static void set_sa(request_context_t *rctx, strbuf_t sb, int do_not_bind)
 		{
 			if (!do_not_bind)
 			{
-
 				struct in_addr ad = {.s_addr = *(unsigned long*)g_hash_table_lookup(global_mctx->state, "default-interface")};
 
 				strbuf_printf(&sb, "\nspl: %s | default: %s\n", inet_ntoa(((struct sockaddr_in *) spl->if_addrs->addr)->sin_addr), inet_ntoa(ad));
@@ -197,70 +176,66 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	return 0;
 }
 
-
-void establish_new_flow(gpointer elem, gpointer ip);
 void establish_new_flow(gpointer elem, gpointer ip)
 {
-	int i;
-	client_list_t *list = (client_list_t*) elem;
-	struct in_addr in, in_comp;
-	struct mptcp_flow_info flow;
+	struct mptcp_flow_info *flow = (struct mptcp_flow_info*) elem;
+	struct in_addr in;
+	struct sockaddr_storage *ss_ip = (struct sockaddr_storage*) ip;
 
-	for (i = 0; i < 8; ++i)
+	if (ss_ip->ss_family == AF_INET)
 	{
-		flow = ((struct mptcp_flow_info*) (list->flow))[i];
+		in = ((struct sockaddr_in *)ss_ip)->sin_addr;
 
-		if(flow.loc_addr == *(uint32_t*)ip)
+		if(((struct sockaddr_in *)&(flow->loc_addr))->sin_addr.s_addr == in.s_addr)
 		{
-			in.s_addr = *(uint32_t*)ip;
-			printf("matching!!! would create new flow over: %s\n", inet_ntoa(in));
+			printf("matching!!! create new flow over: %s\n", inet_ntoa(in));
+			printf("flow: loc_addr: %x\n      rem_addr: %x\n      rem_port: %u\n      inode: %x:%x\n      token: %x", (uint32_t)((struct sockaddr_in *)&(flow->loc_addr))->sin_addr.s_addr, (uint32_t)((struct sockaddr_in *)&(flow->rem_addr))->sin_addr.s_addr, flow->rem_port, (uint32_t)(flow->inode >> 32), (uint32_t)(flow->inode & 0xFFFFFFFF), flow->token);
 
-			create_new_v4_flow(&flow);
-			break;
-		}
-		else
-		{
-			in.s_addr = *(uint32_t*)ip;
-			in_comp.s_addr = flow.loc_addr;
-			printf("did not match: (%X) and (%X)\n", *(uint32_t*)ip, flow.loc_addr);
+			create_new_flow(flow);
 		}
 	}
+	else
+	if (ss_ip->ss_family == AF_INET6)
+	{}
+	else
+	{}
 }
 
-int on_config_request(mam_context_t *mctx, char* config);
+void __g_slist_foreach(gpointer key, gpointer value, gpointer user) {
+	g_slist_foreach(value, &establish_new_flow, user);
+}
+
+void __g_hash_table_foreach(gpointer elem, gpointer ip) {
+	g_hash_table_foreach((GHashTable*)((client_list_t*)elem)->flow_table, &__g_slist_foreach, ip);
+}
+
 int on_config_request(mam_context_t *mctx, char* config)
 {
-	struct in_addr ip;
-	struct in6_addr ip6;
-	unsigned long *gu_ip;
+	struct sockaddr_storage *ip;
+	ip = malloc(sizeof(struct sockaddr_storage));
+
 	printf("on_config got called from mptcp default flow policy\n");
 
-	if (inet_pton(AF_INET, config, &ip))
-	{
-		gu_ip = malloc(sizeof(unsigned long));
-		*gu_ip = ip.s_addr;
-		g_hash_table_replace(mctx->state, "default-interface", gu_ip);
-		struct in_addr ad = {.s_addr = *(unsigned long*)g_hash_table_lookup(global_mctx->state, "default-interface")};
-		printf("new default: %s\n", inet_ntoa(ad));
-
-		g_slist_foreach(global_mctx->clients, &establish_new_flow, gu_ip);
-
-		return 0;
-	}
+	if (inet_pton(AF_INET, config, &((struct sockaddr_in *)ip)->sin_addr))
+		ip->ss_family = AF_INET;
 	else
-	if (inet_pton(AF_INET6, config, &ip6))
-	{
-		return 0;
-	}
+	if (inet_pton(AF_INET6, config, &((struct sockaddr_in6 *)ip)->sin6_addr))
+		ip->ss_family = AF_INET6;
 	else
 	{
-		printf("could not parse new confgi data - ignoring\n");
+		printf("could not parse new config data - ignoring\n");
+		free(ip);
+		return -1;
 	}
 
-	return -1;
+	g_hash_table_replace(mctx->state, "default-interface", ip);
+	printf("new default: %s\n", config);
+	g_slist_foreach(global_mctx->clients, &__g_hash_table_foreach, ip);
+
+	return 0;
 }
-int compare_inode_in_struct(gconstpointer list_data,  gconstpointer user_data);
-int compare_inode_in_struct(gconstpointer list_data,  gconstpointer user_data)
+
+gint compare_inode_in_struct(gpointer list_data,  gpointer user_data)
 {
 	client_list_t *list = (client_list_t*) list_data;
 	uint64_t *inode = (uint64_t*) user_data;
@@ -279,25 +254,28 @@ int compare_inode_in_struct(gconstpointer list_data,  gconstpointer user_data)
 int on_new_subflow_request(mam_context_t *mctx, struct mptcp_flow_info *flow)
 {
 	printf("\nPolicy function: \"on_new_subflow_request\" is called.\n");
-	
-	int flow_count = 0;
 
-	if (flow->loc_addr == (*(unsigned long*)(g_hash_table_lookup(mctx->state, "default-interface"))))
+	if ((uint32_t)((struct sockaddr_in *)&(flow->loc_addr))->sin_addr.s_addr == (*(unsigned long*)(g_hash_table_lookup(mctx->state, "default-interface"))))
 	{
 		printf("establishing subflow!\n");
 		return 1;	
 	}
 	else
 	{
-		GSList *client_list = g_slist_find_custom(global_mctx->clients, &flow->inode, compare_inode_in_struct);
+		GSList *client_list = g_slist_find_custom(global_mctx->clients, &flow->inode, (GCompareFunc)compare_inode_in_struct);
+
+		printf("Adding new flow to candiats: loc: %x, rem: %X\n", ((struct sockaddr_in *)&(flow->loc_addr))->sin_addr.s_addr, ((struct sockaddr_in *)&(flow->rem_addr))->sin_addr.s_addr);
 
 		if (client_list)
 		{
 			struct mptcp_flow_info *new_flow;
+			GSList *flow_table_entry;
+			GHashTable *flow_hash = (GHashTable*)((client_list_t*)client_list->data)->flow_table;
+
 			new_flow = malloc(sizeof(struct mptcp_flow_info));
 
-			new_flow->loc_addr = flow->loc_addr;
-			new_flow->rem_addr = flow->rem_addr;
+			memcpy(&new_flow->loc_addr, &flow->loc_addr, sizeof(struct sockaddr_storage));
+			memcpy(&new_flow->rem_addr, &flow->rem_addr, sizeof(struct sockaddr_storage));
 			new_flow->loc_id = flow->loc_id;
 			new_flow->rem_id = flow->rem_id;
 			new_flow->loc_low_prio = flow->loc_low_prio;
@@ -307,8 +285,9 @@ int on_new_subflow_request(mam_context_t *mctx, struct mptcp_flow_info *flow)
 			new_flow->inode = flow->inode;
 			new_flow->token = flow->token;
 
-			((client_list_t*)client_list->data)->flow[flow_count] = *new_flow;
-			flow_count+=1;
+			flow_table_entry = g_hash_table_lookup(flow_hash, GINT_TO_POINTER(flow->token));
+			flow_table_entry = g_slist_append(flow_table_entry, new_flow);
+			g_hash_table_replace(flow_hash, GINT_TO_POINTER(flow->token), flow_table_entry);
 		}
 		else
 			printf("COULD NOT FIND CLIENT\n");

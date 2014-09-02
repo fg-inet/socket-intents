@@ -59,20 +59,20 @@ int netlink_readcb(struct nl_msg *msg, void *dummy)
 					
 				if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_LOC, flow.loc_addr) < 0)
 					perror("Could not add attribute to new flow response message\n");
-				if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_LOC_ID, flow.loc_id) < 0)
+				if (nla_put_u8(msg_out, MAM_MPTCP_A_LOC_ID, flow.loc_id) < 0)
 					perror("Could not add attribute to new flow response message\n");
-				if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_LOC_PRIO, flow.loc_low_prio) < 0)
+				if (nla_put_u8(msg_out, MAM_MPTCP_A_LOC_PRIO, flow.loc_low_prio) < 0)
 					perror("Could not add attribute to new flow response message\n");
 					
 				if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_REM, flow.rem_addr) < 0)
 					perror("Could not add attribute to new flow response message\n");
-				if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_ID, flow.rem_id) < 0)
+				if (nla_put_u8(msg_out, MAM_MPTCP_A_REM_ID, flow.rem_id) < 0)
 					perror("Could not add attribute to new flow response message\n");
-				if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_PRIO, flow.rem_low_prio) < 0)
+				if (nla_put_u8(msg_out, MAM_MPTCP_A_REM_PRIO, flow.rem_low_prio) < 0)
 					perror("Could not add attribute to new flow response message\n");
-				if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_BIT, flow.rem_bitfield) < 0)
+				if (nla_put_u8(msg_out, MAM_MPTCP_A_REM_BIT, flow.rem_bitfield) < 0)
 					perror("Could not add attribute to new flow response message\n");
-				if (nla_put_u16(msg_out, MAM_MPTCP_A_IPV4_REM_PORT, flow.rem_port) < 0)
+				if (nla_put_u16(msg_out, MAM_MPTCP_A_REM_PORT, flow.rem_port) < 0)
 					perror("Could not add attribute to new flow response message\n");
 				
 				if((err = nl_send_auto(netlink_sk, msg_out)) < 0)

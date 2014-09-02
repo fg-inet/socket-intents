@@ -141,16 +141,16 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
  										   		(uint32_t)((crctx->ctx->ctxino) & 0xFFFFFFFF));
 
 						((client_list_t*)client_list->data)->inode = crctx->ctx->ctxino;
+						((client_list_t*)client_list->data)->flow_table = g_hash_table_new(NULL, NULL);
 						
-
 						socket_list_t *sk = malloc(sizeof(socket_list_t));
 						sk->sk = crctx->ctx->sockfd;
 
 #if MAM_MASTER_NOISY_DEBUG2 == 1
 						uuid_unparse_lower(crctx->ctx->ctxid, uuid_str);
 						printf("(mam callback) add sockfd: %d to id: %s\n", sk->sk, uuid_str);
-						((client_list_t*)client_list->data)->sockets = g_slist_append(((client_list_t*)client_list->data)->sockets, sk);
 #endif
+						((client_list_t*)client_list->data)->sockets = g_slist_append(((client_list_t*)client_list->data)->sockets, sk);
 					}
 					else
 						printf("COULD NOT FIND CLIENT!!!!!!!!\n\n");

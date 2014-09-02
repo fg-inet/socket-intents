@@ -10,8 +10,8 @@
 #include <netlink/genl/ctrl.h>
 
 struct mptcp_flow_info {
-	uint32_t loc_addr;
-	uint32_t rem_addr;
+	struct sockaddr_storage loc_addr;
+	struct sockaddr_storage rem_addr;
 	
 	uint8_t loc_id;
 	uint8_t rem_id;
@@ -28,7 +28,7 @@ struct mptcp_flow_info {
 
 unsigned short get_message_type(struct nlmsghdr *);
 void parse_message(struct nlmsghdr*, int, struct nlattr**, struct nlattr**);
-int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow);
+int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow);
 int new_iface(struct nlmsghdr*, struct in_addr*, struct in6_addr*);
 
 #endif /* __MPTCP_NETLINK_PARSER_H__ */

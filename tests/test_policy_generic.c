@@ -452,15 +452,12 @@ int main(int argc, char *argv[])
 			printf("Sorry, currently sending messages is only implemented for TCP (SOCK_STREAM).\n");
 		else
 		{
-			printf("Sending message to Remote.\n");
-			//send(sfd, *arg_message->sval, strlen(*arg_message->sval),  0);
-			//TODO hardcoded strings are a bad idea...
-			
+			printf("Sending HTTP request to Remote.\n");			
 			if (*arg_address->sval != NULL)
 			{
 				char *message;
 				int len = asprintf(&message, "GET %s HTTP/1.1\r\nHost: %s\r\nAcept: */*\r\nConnection: close\r\n\r\n", *arg_message->sval, *arg_address->sval);
-				send(sfd, message, strlen(message), 0);
+				send(sfd, message, len, 0);
 				
 				printf("message: %s\n", message);
 			

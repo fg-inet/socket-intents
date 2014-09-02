@@ -38,13 +38,8 @@ void netlink_readcb(struct bufferevent *bev, void *dummy)
 	struct nlmsghdr *nhl;
 	unsigned char *buf = NULL;
 	size_t len;
-	int err;
-	int (*new_subflow_function)() = NULL;
-	
+	int (*new_subflow_function)() = NULL;	
 	struct mptcp_flow_info flow;
-		
-	struct nl_msg *msg_out;
-	void *hdr;
 
 	in = bufferevent_get_input(bev);
 	len = evbuffer_get_length(in);
@@ -55,57 +50,13 @@ void netlink_readcb(struct bufferevent *bev, void *dummy)
 	switch(get_message_type(nhl))
 	{
 		case MAM_MPTCP_C_NEWFLOW:
-			new_v4_flow(nhl, &flow);
+			new_flow(nhl, &flow);
 						
 			if (_mam_fetch_policy_function(global_mctx->policy, "on_new_subflow_request", (void **)&new_subflow_function) == 0)
 			{
 				if (new_subflow_function(global_mctx, &flow))
 				{
-					//respond with create_new_subflow message via netlink to fullmesh-userspace pathmanager
-					msg_out = nlmsg_alloc();
-					
-					if (msg_out == NULL)
-						perror("Could not alloc netlink message\n");
-					
-					hdr = genlmsg_put(msg_out, NL_AUTO_PORT, NL_AUTO_SEQ, family, 0, 0, MAM_MPTCP_C_NEWFLOW, 1);
-					
-					if (hdr == NULL)
-						perror("Header of netlink message not written.\n");
-					
-					if (nla_put_flag(msg_out, MAM_MPTCP_A_OK) < 0)
-						perror("Could not add attribute to new flow response message\n");
-						
-					if (nla_put_u64(msg_out, MAM_MPTCP_A_INODE, flow.inode) < 0)
-						perror("Could not add attribute to new flow response message\n");
-						
-					if (nla_put_u32(msg_out, MAM_MPTCP_A_TOKEN, flow.token) < 0)
-						perror("Could not add attribute to new flow response message\n");
-						
-					if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_LOC, flow.loc_addr) < 0)
-						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_LOC_ID, flow.loc_id) < 0)
-						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_LOC_PRIO, flow.loc_low_prio) < 0)
-						perror("Could not add attribute to new flow response message\n");
-						
-					if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_REM, flow.rem_addr) < 0)
-						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_ID, flow.rem_id) < 0)
-						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_PRIO, flow.rem_low_prio) < 0)
-						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_BIT, flow.rem_bitfield) < 0)
-						perror("Could not add attribute to new flow response message\n");
-					if (nla_put_u16(msg_out, MAM_MPTCP_A_IPV4_REM_PORT, flow.rem_port) < 0)
-						perror("Could not add attribute to new flow response message\n");
-					
-					if((err = nl_send_auto(netlink_sk, msg_out)) < 0)
-						perror("Could not send netlink message\n");
-					else
-						printf("sent message out\n");
-
-					nlmsg_free(msg_out);
-
+					create_new_flow(&flow);
 				}
 			}
 			else
@@ -186,13 +137,13 @@ int configure_netlink(void)
 	return 0;
 }
 
-int create_new_v4_flow(struct mptcp_flow_info *flow)
+int create_new_flow(struct mptcp_flow_info *flow)
 {
 	struct nl_msg *msg_out;
 	void *hdr;
 	int err;
 
-	//respond with create_new_subflow message via netlink to fullmesh-userspace pathmanager
+	//respond with newflow message via netlink to fullmesh-userspace pathmanager
 	msg_out = nlmsg_alloc();
 	
 	if (msg_out == NULL)
@@ -212,22 +163,51 @@ int create_new_v4_flow(struct mptcp_flow_info *flow)
 	if (nla_put_u32(msg_out, MAM_MPTCP_A_TOKEN, flow->token) < 0)
 		perror("Could not add attribute to new flow response message\n");
 		
-	if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_LOC, flow->loc_addr) < 0)
+	if (flow->loc_addr.ss_family == AF_INET)
+	{
+
+		if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_LOC, (uint32_t)(((struct sockaddr_in*)&flow->loc_addr)->sin_addr).s_addr) < 0)
+			perror("Could not add attribute to new flow response message\n");
+	}
+	else
+	if (flow->loc_addr.ss_family == AF_INET6)
+	{
+	}
+	else
+	{
+		perror("loc_addr has no family\n");
+		goto error_case;
+	}
+
+	if (flow->rem_addr.ss_family == AF_INET)
+	{
+		if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_REM, (uint32_t)(((struct sockaddr_in*)&flow->rem_addr)->sin_addr).s_addr) < 0)
+			perror("Could not add attribute to new flow response message\n");
+		else
+			printf("include ipv4_rem!\n");
+	}
+	else
+	if (flow->rem_addr.ss_family == AF_INET6)
+	{
+		printf("is v6....\n");
+	}
+	else
+	{
+		perror("rem_addr has no family\n");
+		goto error_case;
+	}
+
+	if (nla_put_u8(msg_out, MAM_MPTCP_A_LOC_ID, flow->loc_id) < 0)
 		perror("Could not add attribute to new flow response message\n");
-	if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_LOC_ID, flow->loc_id) < 0)
+	if (nla_put_u8(msg_out, MAM_MPTCP_A_LOC_PRIO, flow->loc_low_prio) < 0)
 		perror("Could not add attribute to new flow response message\n");
-	if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_LOC_PRIO, flow->loc_low_prio) < 0)
+	if (nla_put_u8(msg_out, MAM_MPTCP_A_REM_ID, flow->rem_id) < 0)
 		perror("Could not add attribute to new flow response message\n");
-		
-	if (nla_put_u32(msg_out, MAM_MPTCP_A_IPV4_REM, flow->rem_addr) < 0)
+	if (nla_put_u8(msg_out, MAM_MPTCP_A_REM_PRIO, flow->rem_low_prio) < 0)
 		perror("Could not add attribute to new flow response message\n");
-	if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_ID, flow->rem_id) < 0)
+	if (nla_put_u8(msg_out, MAM_MPTCP_A_REM_BIT, flow->rem_bitfield) < 0)
 		perror("Could not add attribute to new flow response message\n");
-	if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_PRIO, flow->rem_low_prio) < 0)
-		perror("Could not add attribute to new flow response message\n");
-	if (nla_put_u8(msg_out, MAM_MPTCP_A_IPV4_REM_BIT, flow->rem_bitfield) < 0)
-		perror("Could not add attribute to new flow response message\n");
-	if (nla_put_u16(msg_out, MAM_MPTCP_A_IPV4_REM_PORT, flow->rem_port) < 0)
+	if (nla_put_u16(msg_out, MAM_MPTCP_A_REM_PORT, flow->rem_port) < 0)
 		perror("Could not add attribute to new flow response message\n");
 	
 	if((err = nl_send_auto(netlink_sk, msg_out)) < 0)
@@ -235,8 +215,8 @@ int create_new_v4_flow(struct mptcp_flow_info *flow)
 	else
 		printf("sent message out\n");
 
+error_case:
 	nlmsg_free(msg_out);
-
 	return 0;
 }
 

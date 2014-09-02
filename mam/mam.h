@@ -95,15 +95,13 @@ typedef struct _client_list {
 	uuid_t					id;
 	GSList					*sockets;
 	uint64_t				inode;
+	GHashTable				*flow_table;
 	void (*callback_function)(GSList*);
-	//TODO make it dynamic!
-	struct mptcp_flow_info flow[8];
 } client_list_t;
 
 /** List of sockets opened by a client application */
 typedef struct _socket_list {
-	int sk;
-	uint32_t token;
+	int 					sk;
 } socket_list_t;
 
 /** Model that describes a prefix, used for lookup in the list */

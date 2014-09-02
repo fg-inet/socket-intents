@@ -10,6 +10,6 @@
 void netlink_readcb(struct bufferevent*, void*);
 int configure_netlink(void);
 void shutdown_netlink(void);
-int create_new_v4_flow(struct mptcp_flow_info *flow);
+int create_new_flow(struct mptcp_flow_info *flow);
 
 #endif /* __MAM_NETLINK_H__ */

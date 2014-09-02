@@ -78,7 +78,7 @@ int new_iface(struct nlmsghdr *nhl, struct in_addr* addr_v4, struct in6_addr* ad
 	return -1;
 }
 
-int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
+int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 {
 	struct nlattr *attrs[MAM_MPTCP_A_MAX+1];
 	
@@ -88,48 +88,61 @@ int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 
 	if (flow)
 	{
-		if (attrs[MAM_MPTCP_A_IPV4_LOC])
-			flow->loc_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC]);
+		if (attrs[MAM_MPTCP_A_IS_V6])
+		{
+
+		}
 		else
 		{
-			printf("no loc \n");
-			return -1;
+			if (attrs[MAM_MPTCP_A_IPV4_LOC])
+			{
+				((struct sockaddr_in *)&(flow->loc_addr))->sin_addr.s_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC]);
+				flow->loc_addr.ss_family = AF_INET;
+			}
+			else
+			{
+				printf("no loc \n");
+				return -1;
+			}
+
+			if (attrs[MAM_MPTCP_A_IPV4_REM])
+			{
+				((struct sockaddr_in *)&(flow->rem_addr))->sin_addr.s_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_REM]);
+				flow->rem_addr.ss_family = AF_INET;
+			}
+			else
+			{
+				printf("no rem\n");
+				return -1;
+			}
 		}
 			
-		if (attrs[MAM_MPTCP_A_IPV4_LOC_ID])
-			flow->loc_id = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC_ID]);
+		if (attrs[MAM_MPTCP_A_LOC_ID])
+			flow->loc_id = nla_get_u32(attrs[MAM_MPTCP_A_LOC_ID]);
 		else
 		{
 			printf("no loc id\n");
 			return -1;
 		}
 		
-		if (attrs[MAM_MPTCP_A_IPV4_LOC_PRIO])
-			flow->loc_low_prio = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_LOC_PRIO]);
+		if (attrs[MAM_MPTCP_A_LOC_PRIO])
+			flow->loc_low_prio = nla_get_u32(attrs[MAM_MPTCP_A_LOC_PRIO]);
 		else
 		{
 			printf("no loc prio \n");
 			return -1;
 		}
-		
-		if (attrs[MAM_MPTCP_A_IPV4_REM])
-			flow->rem_addr = nla_get_u32(attrs[MAM_MPTCP_A_IPV4_REM]);
-		else
-		{
-			printf("no rem\n");
-			return -1;
-		}
 			
-		if (attrs[MAM_MPTCP_A_IPV4_REM_ID])
-			flow->rem_id = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_ID]);
+		if (attrs[MAM_MPTCP_A_REM_ID])
+			flow->rem_id = nla_get_u8(attrs[MAM_MPTCP_A_REM_ID]);
 		else
 		{
 			printf("no rem id\n");
 			return -1;
 		}
 			
-		if (attrs[MAM_MPTCP_A_IPV4_REM_BIT])
-			flow->rem_bitfield = nla_get_u8(attrs[MAM_MPTCP_A_IPV4_REM_BIT]);
+		if (attrs[MAM_MPTCP_A_REM_BIT])
+			flow->rem_bitfield = nla_get_u8(attrs[MAM_MPTCP_A_REM_BIT]);
 		else
 		{
 			printf("no rem bit\n");
@@ -137,8 +150,8 @@ int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 		}
 			
 	
-		if (attrs[MAM_MPTCP_A_IPV4_REM_PORT])
-			flow->rem_port = nla_get_u16(attrs[MAM_MPTCP_A_IPV4_REM_PORT]);
+		if (attrs[MAM_MPTCP_A_REM_PORT])
+			flow->rem_port = nla_get_u16(attrs[MAM_MPTCP_A_REM_PORT]);
 		else
 		{
 			printf("no rem port\n");
@@ -161,13 +174,15 @@ int new_v4_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			return -1;
 		}
 	}
-			
-	struct in_addr ia;
-	ia.s_addr = flow->loc_addr;
-	
-	DLOG(NETLINK_PARSER_NOISY_DEBUG2, "local IP : %s\n", inet_ntoa(ia));
-	ia.s_addr = flow->rem_addr;
-	DLOG(NETLINK_PARSER_NOISY_DEBUG2, "remote IP: %s\n", inet_ntoa(ia));
+
+	if (attrs[MAM_MPTCP_A_IS_V6])
+	{		
+	}
+	else
+	{
+		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "local IP : %s\n", inet_ntoa(((struct sockaddr_in *)&(flow->loc_addr))->sin_addr));
+		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "remote IP: %s\n", inet_ntoa(((struct sockaddr_in *)&(flow->rem_addr))->sin_addr));
+	}
 	DLOG(NETLINK_PARSER_NOISY_DEBUG2, "INODE    : %08x:%08x\n\n", (uint32_t)(nla_get_u64(attrs[MAM_MPTCP_A_INODE]) >> 32),
 																  (uint32_t)(nla_get_u64(attrs[MAM_MPTCP_A_INODE]) & 0xFFFFFFFF));
 	DLOG(NETLINK_PARSER_NOISY_DEBUG2, "TOKEN    : %08x\n\n", nla_get_u32(attrs[MAM_MPTCP_A_TOKEN]));
