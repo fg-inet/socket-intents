@@ -71,6 +71,7 @@ int muacc_close(muacc_context_t *ctx,
 /** Function that returns a connected socket to the given URL
  *  Supply a "-1" socket and URL, type, proto, family to get a new, freshly connected socket
  *  Alternatively, supply an existing socket as representant of a socket set to choose from
+ *  If your supplied socket is not part of a socket set, a new socket will be created and returned!
  *
  *  @return 0 if successful (socket is from an existing socket set), 1 if successful (socket is new), -1 if fail
  */
@@ -82,5 +83,17 @@ int socketconnect(
 	int type,			/**< [in]		Type for socket() call (e.g. SOCK_STREAM or SOCK_DGRAM */
 	int proto			/**< [in]		Protocol for socket() call */
 );
+
+/** Parse a URL and send a socketconnect request to MAM
+ *
+ *  @return 0 if successful, -1 if fail
+ */
+int _socketconnect_request(muacc_context_t *ctx, int *s, const char *url);
+
+/** Process a socketconnect response, create a new socket, bind and connect it
+ *
+ *  @return 0 if successful, -1 if fail
+ */
+int _muacc_socketconnect_create(muacc_context_t *ctx, int *s);
 
 #endif
