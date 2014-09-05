@@ -553,15 +553,21 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 
 		}
 
-		if ((ret = _muacc_send_socketchoose (set, &ctx, s)) != 0)
+		if ((ret = _socketchoose_request (&ctx, s, set)) == -1)
 		{
 			DLOG(CLIB_IF_NOISY_DEBUG1, "Socketchoose error!\n");
 			muacc_release_context(&ctx);
 			return -1;
 		}
+		else if (ret == 1)
+		{
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Successfully opened new socket.\n");
+			muacc_release_context(&ctx);
+			return 1;
+		}
 		else
 		{
-			DLOG(CLIB_IF_NOISY_DEBUG2, "Successfully chose socket.\n");
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Successfully chose existing socket.\n");
 			muacc_release_context(&ctx);
 			return 0;
 		}
@@ -734,7 +740,36 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 				muacc_print_socketlist(sockets);
 			}
 			return 1;
-			return 0;
 		}
 	}
+}
+
+int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set)
+{
+	int ret = -1;
+	ret = _muacc_send_socketchoose (ctx, s, set);
+
+	if (ret == 0)
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG2, "Chose existing socket\n");
+		struct socketset *set_of_socket = _muacc_socketset_find_file(set, *s);
+		if (set_of_socket != NULL)
+		{
+			/* Update socket context stored in socket set and returning */
+			memcpy(set_of_socket->ctx, ctx->ctx, sizeof(struct _muacc_ctx));
+			return 0;
+		}
+			else
+		{
+			DLOG(CLIB_IF_NOISY_DEBUG1, "Error finding socket in set - creating a new one after all\n");
+			return _muacc_socketconnect_create(ctx, s);
+		}
+	}
+	else if (ret == 1)
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG2, "Open new socket\n");
+
+		return _muacc_socketconnect_create(ctx, s);
+	}
+	return -1;
 }

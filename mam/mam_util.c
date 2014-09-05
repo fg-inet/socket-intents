@@ -232,7 +232,7 @@ int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
 		}
 	}
 
-	DLOG(MAM_UTIL_NOISY_DEBUG0,"Sending response to client request\n");
+	DLOG(MAM_UTIL_NOISY_DEBUG0,"Sending response %d to client request\n", reason);
 	/* Request has finished - Actually send a reply */
 	struct evbuffer_iovec v[1];
 	ssize_t ret = 0;
@@ -296,7 +296,7 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
     buf = evbuffer_pullup(ctx->in, tlv_len);
 	if(buf == NULL)
 	{
-		DLOG(MAM_UTIL_NOISY_DEBUG1, "header read failed: buffer too small - please try again later\n");
+		DLOG(MAM_UTIL_NOISY_DEBUG1, "TLV read failed: not enough data \n");
 		return(_muacc_proc_tlv_event_too_short);
 	}
 	assert(evbuffer_get_length(ctx->in) >= tlv_len );
@@ -323,7 +323,7 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
     buf = evbuffer_pullup(ctx->in, tlv_len);
 	if(buf == NULL)
 	{
-		DLOG(MAM_UTIL_NOISY_DEBUG1, "header read failed: buffer too small - please try again later\n");
+		DLOG(MAM_UTIL_NOISY_DEBUG1, "TLV read failed: not enough data\n");
 		return(_muacc_proc_tlv_event_too_short);
 	}
 	assert(evbuffer_get_length(ctx->in) >= tlv_len );

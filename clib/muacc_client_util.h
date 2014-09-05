@@ -89,13 +89,6 @@ typedef struct socketlist
 	struct socketlist 	*next;
 } socketlist_t;
 
-typedef struct socketset
-{
-	int		file;				/**< File descriptor */
-	struct	_muacc_ctx *ctx;
-	struct	socketset *next;
-} socketset_t;
-
 /** Free a list of socket options
  *
  * @return 0 on success, a negative number otherwise
@@ -124,6 +117,12 @@ struct socketset *_muacc_find_set_for_socket(struct socketlist *list, struct _mu
  *
  */
 void muacc_print_socketlist(struct socketlist *list);
+
+/** Send socketchoose request and process response
+ *
+ * @return 0 for choosing existing socket, 1 for opening new socket, -1 otherwise
+ */
+int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketset *set);
 
 /** Find the socketset struct from a given file descriptor
  *

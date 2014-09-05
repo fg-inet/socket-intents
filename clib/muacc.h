@@ -20,8 +20,12 @@ typedef enum
 	muacc_act_getaddrinfo_resolve_req,	    /**< is from a getaddrinfo, pre resolving */
 	muacc_act_getaddrinfo_resolve_resp,
 	muacc_act_socketconnect_req,			/**< is from a socketconnect, requests a new socket */
-	muacc_act_socketconnect_resp,
+	muacc_act_socketconnect_resp,			/**< socketconnect response, create new socket */
 	muacc_act_socketconnect_fallback,		/**< socketconnect falls back to getaddrinfo + connect */
+	muacc_act_socketchoose_req,				/**< choose between existing set of sockets or open new one */
+	muacc_act_socketchoose_resp_existing,	/**< socketchoose response, choose existing socket */
+	muacc_act_socketchoose_resp_new,		/**< socketchoose response, create new socket */
+	muacc_error_unknown_request,			/**< indicates an error */
 } muacc_mam_action_t;
 
 /** Linked list of socket options to be set */
@@ -71,6 +75,7 @@ typedef enum
 {
 	eof = 0x00,		    	/**< end of TLV data – always 0 bytes */
 	action,					/**< action triggering request */
+	socketset_file,			/**< file descriptor of an existing socket from a socketset */
 	calls_performed,		/**< flags of which socket calls have already been performed */
 	ctxid = 0x08,			/**< identifier for the context if sharing mamsock */
     ctxino,                 /**< inode of the socket (used as identifier for MPTCP sessions) */

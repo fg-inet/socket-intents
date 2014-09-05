@@ -371,6 +371,127 @@ void muacc_print_socketlist(struct socketlist *list)
 	}
 	printf("}\n\n");
 }
+
+int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketset *set)
+{
+	int returnvalue = -1;
+
+	char buf[MUACC_TLV_MAXLEN];
+	ssize_t pos = 0;
+	ssize_t ret = 0;
+	muacc_tlv_t tag;
+    void *data;
+    ssize_t data_len;
+
+	muacc_mam_action_t reason = muacc_act_socketchoose_req;
+
+	if ( _muacc_connect_ctx_to_mam(ctx) != 0 )
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "WARNING: failed to contact MAM\n");
+		return -1;
+	}
+
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "packing request\n");
+	if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), action, &reason, sizeof(muacc_mam_action_t)) )
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing label\n");
+		return -1;
+	}
+
+	/* Pack context from request */
+	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), ctx->ctx) )
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing request context of %d\n", set->file);
+		return -1;
+	}
+
+	/* Pack contexts from socketset */
+	while (set != NULL)
+	{
+		if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), socketset_file, &(set->file), sizeof(int)) )
+		{
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing socketset file descriptor %d\n", set->file);
+			return -1;
+		}
+		if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), set->ctx) )
+		{
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing socket set context of %d\n", set->file);
+			return -1;
+		}
+		set = set->next;
+	}
+	if( 0 > _muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) )
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing eof\n");
+		return -1;
+	}
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "packing request done\n");
+
+	if ( 0 > (ret = send(ctx->mamsock, buf, pos, 0)) )
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error sending request: %s\n", strerror(errno));
+		return -1;
+	}
+	else
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Sent request - %ld of %ld bytes\n", (long int) ret, (long int) pos);
+	}
+
+	/* read & unpack response */
+    DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Getting response:\n");
+    pos = 0;
+	int ret2 = -1;
+
+    while( (ret = _muacc_read_tlv(ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0)
+    {
+        DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "\tpos=%ld tag=%x, len=%ld\n", (long int) pos, tag, (long int) data_len);
+		if (tag == action)
+		{
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Got action tag, data= %d\n", *(muacc_mam_action_t *) data);
+			if (*(muacc_mam_action_t *) data == muacc_act_socketchoose_resp_existing)
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "MAM says: Use existing socket!\n");
+			}
+			else if (*(muacc_mam_action_t *) data == muacc_act_socketchoose_resp_new)
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "MAM says: Open a new socket!\n");
+				*socket = -1;
+				returnvalue = 1;
+			}
+			else if (*(muacc_mam_action_t *) data == muacc_error_unknown_request)
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error: MAM sent error code \"Unknown Request\" -- Aborting.\n");
+				return -1;
+			}
+			else
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error: Unknown MAM Response Action Type\n");
+				return -1;
+			}
+		}
+		else if (tag == socketset_file && data_len == sizeof(int))
+		{
+			memcpy(socket, (int *)data, data_len);
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Use socket %d from set.\n", *socket);
+			returnvalue = 0;
+		}
+        else if( tag == eof )
+            break;
+        else
+		{
+			ret2 = _muacc_unpack_ctx(tag, data, data_len, ctx->ctx);
+			if ( 0 > ret2 )
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error unpacking context\n");
+				return -1;
+			}
+		}
+    }
+    DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "processing response done: pos=%li last_res=%li done\n", (long int) pos, (long int) ret);
+
+	return returnvalue;
+}
+
 struct socketset *_muacc_socketset_find_file (struct socketset *set, int socket)
 {
 	while (set != NULL)

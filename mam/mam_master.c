@@ -92,7 +92,8 @@ static void process_mam_request(struct request_context *ctx)
 	else
 	{
 		/* Unknown request */
-		DLOG(MAM_MASTER_NOISY_DEBUG1, "received unknown request (action id: %d\n", ctx->action);
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "received unknown request (action id: %d)\n", ctx->action);
+		_muacc_send_ctx_event(ctx, muacc_error_unknown_request);
 	}
 	
 

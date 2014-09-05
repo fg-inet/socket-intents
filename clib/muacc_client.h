@@ -24,6 +24,13 @@ typedef struct muacc_context
     struct _muacc_ctx *ctx;     /**< internal struct with relevant socket context data */
 } muacc_context_t;
 
+typedef struct socketset
+{
+	int		file;				/**< File descriptor */
+	struct	_muacc_ctx *ctx;
+	struct	socketset *next;
+} socketset_t;
+
 /** wrapper for socket, initializes an uninitialized context
  *
  */
@@ -89,6 +96,12 @@ int socketconnect(
  *  @return 1 if successful, -1 if fail
  */
 int _socketconnect_request(muacc_context_t *ctx, int *s, const char *url);
+
+/** Send a socketchoose request to MAM
+ *
+ *  @return 0 if existing socket was chosen, 1 if new socket was created, -1 if fail
+ */
+int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set);
 
 /** Process a socketconnect response, create a new socket, bind and connect it
  *
