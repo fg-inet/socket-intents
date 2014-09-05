@@ -337,15 +337,9 @@ struct socketset *_muacc_find_socketset(struct socketlist *list, int socket)
 {
 	while (list != NULL )
 	{
-		struct socketset *set = list->set;
-		while (set != NULL)
-		{
-			if (set->file == socket)
-			{
-				return set;
-			}
-			set = set->next;
-		}
+		struct socketset *set = _muacc_socketset_find_file (list->set, socket);
+		if (set != NULL)
+			return set;
 		list = list->next;
 	}
 	return NULL;
