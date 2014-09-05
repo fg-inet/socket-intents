@@ -86,13 +86,13 @@ int socketconnect(
 
 /** Parse a URL and send a socketconnect request to MAM
  *
- *  @return 0 if successful, -1 if fail
+ *  @return 1 if successful, -1 if fail
  */
 int _socketconnect_request(muacc_context_t *ctx, int *s, const char *url);
 
 /** Process a socketconnect response, create a new socket, bind and connect it
  *
- *  @return 0 if successful, -1 if fail
+ *  @return 1 if successful, -1 if fail
  */
 int _muacc_socketconnect_create(muacc_context_t *ctx, int *s);
 

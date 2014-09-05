@@ -629,16 +629,7 @@ int _socketconnect_request(muacc_context_t *ctx, int *s, const char *url)
 			muacc_print_context(ctx);
 		}
 
-		int ret = -1;
-
-		if ((ret = _muacc_socketconnect_create(ctx, s)) == 0)
-		{
-			return 0;
-		}
-		else
-		{
-			return -1;
-		}
+		return _muacc_socketconnect_create(ctx, s);
 	}
 }
 
@@ -647,7 +638,7 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 	if (ctx == NULL || s == NULL)
 		return -1;
 
-	DLOG(CLIB_IF_NOISY_DEBUG2, "Got response from MAM - Creating socket now (Domain: %d, Type: %d, Protocol: %d)\n", ctx->ctx->domain, ctx->ctx->type, ctx->ctx->protocol);
+	DLOG(CLIB_IF_NOISY_DEBUG2, "Creating socket (Domain: %d, Type: %d, Protocol: %d)\n", ctx->ctx->domain, ctx->ctx->type, ctx->ctx->protocol);
 	if ((*s = socket(ctx->ctx->domain, ctx->ctx->type, ctx->ctx->protocol)) != -1)
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG2, "Successfully created socket %d\n", *s);
@@ -742,6 +733,7 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 				printf("Added socket to list:\n");
 				muacc_print_socketlist(sockets);
 			}
+			return 1;
 			return 0;
 		}
 	}

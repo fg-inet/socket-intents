@@ -125,4 +125,10 @@ struct socketset *_muacc_find_set_for_socket(struct socketlist *list, struct _mu
  */
 void muacc_print_socketlist(struct socketlist *list);
 
+/** Find the socketset struct from a given file descriptor
+ *
+ * @return The corresponding socketset
+ */
+struct socketset *_muacc_socketset_find_file (struct socketset *set, int socket);
+
 #endif /* __MUACC_CLIENT_UTIL_H__ */

@@ -377,3 +377,13 @@ void muacc_print_socketlist(struct socketlist *list)
 	}
 	printf("}\n\n");
 }
+struct socketset *_muacc_socketset_find_file (struct socketset *set, int socket)
+{
+	while (set != NULL)
+	{
+		if (set->file == socket)
+			return set;
+		set = set->next;
+	}
+	return NULL;
+}
