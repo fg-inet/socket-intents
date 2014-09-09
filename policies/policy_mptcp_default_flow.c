@@ -179,26 +179,60 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 void establish_new_flow(gpointer elem, gpointer ip)
 {
 	struct mptcp_flow_info *flow = (struct mptcp_flow_info*) elem;
-	struct in_addr in;
 	struct sockaddr_storage *ss_ip = (struct sockaddr_storage*) ip;
 
 	if (ss_ip->ss_family == AF_INET)
 	{
+		struct in_addr in;
 		in = ((struct sockaddr_in *)ss_ip)->sin_addr;
 
 		if(((struct sockaddr_in *)&(flow->loc_addr))->sin_addr.s_addr == in.s_addr)
 		{
-			printf("matching!!! create new flow over: %s\n", inet_ntoa(in));
-			printf("flow: loc_addr: %x\n      rem_addr: %x\n      rem_port: %u\n      inode: %x:%x\n      token: %x", (uint32_t)((struct sockaddr_in *)&(flow->loc_addr))->sin_addr.s_addr, (uint32_t)((struct sockaddr_in *)&(flow->rem_addr))->sin_addr.s_addr, flow->rem_port, (uint32_t)(flow->inode >> 32), (uint32_t)(flow->inode & 0xFFFFFFFF), flow->token);
+			printf("matching!!! create new v4 flow over: %s\n", inet_ntoa(in));
+			printf("flow: loc_addr: %x\n      rem_addr: %x\n      rem_port: %u\n      inode: %x:%x\n      token: %x", 
+										(uint32_t)((struct sockaddr_in *)&(flow->loc_addr))->sin_addr.s_addr, 
+										(uint32_t)((struct sockaddr_in *)&(flow->rem_addr))->sin_addr.s_addr, 
+										flow->rem_port, 
+										(uint32_t)(flow->inode >> 32), 
+										(uint32_t)(flow->inode & 0xFFFFFFFF), 
+										flow->token);
 
 			create_new_flow(flow);
 		}
 	}
 	else
 	if (ss_ip->ss_family == AF_INET6)
-	{}
+	{
+		struct in6_addr in;
+		in = ((struct sockaddr_in6 *)ss_ip)->sin6_addr;
+
+		if(test_if_in6_is_equal(((struct sockaddr_in6 *)&(flow->loc_addr))->sin6_addr, in))
+		{
+			char straddr[INET6_ADDRSTRLEN];
+			char straddr_loc[INET6_ADDRSTRLEN];
+			char straddr_rem[INET6_ADDRSTRLEN];
+			inet_ntop(AF_INET6, &in, straddr, sizeof(straddr));
+			inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&(flow->loc_addr))->sin6_addr), straddr_loc, sizeof(straddr_loc));
+			inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&(flow->rem_addr))->sin6_addr), straddr_rem, sizeof(straddr_rem));
+
+
+			printf("matching!!! create new v6 flow over: %s\n", straddr);
+
+			printf("flow: loc_addr: %s\n      rem_addr: %s\n      rem_port: %u\n      inode: %x:%x\n      token: %x", 
+										straddr_loc, 
+										straddr_rem, 
+										flow->rem_port, 
+										(uint32_t)(flow->inode >> 32), 
+										(uint32_t)(flow->inode & 0xFFFFFFFF), 
+										flow->token);
+
+			create_new_flow(flow);
+		}
+	}
 	else
-	{}
+	{
+		perror("family of new subflow is not set!\n");
+	}
 }
 
 void __g_slist_foreach(gpointer key, gpointer value, gpointer user) {
@@ -264,7 +298,17 @@ int on_new_subflow_request(mam_context_t *mctx, struct mptcp_flow_info *flow)
 	{
 		GSList *client_list = g_slist_find_custom(global_mctx->clients, &flow->inode, (GCompareFunc)compare_inode_in_struct);
 
-		printf("Adding new flow to candiats: loc: %x, rem: %X\n", ((struct sockaddr_in *)&(flow->loc_addr))->sin_addr.s_addr, ((struct sockaddr_in *)&(flow->rem_addr))->sin_addr.s_addr);
+		if (flow->loc_addr.ss_family == AF_INET)
+			printf("Adding new v4 flow to candiats: loc: %x, rem: %X\n", ((struct sockaddr_in *)&(flow->loc_addr))->sin_addr.s_addr, ((struct sockaddr_in *)&(flow->rem_addr))->sin_addr.s_addr);
+		else
+		{
+			char straddr_loc[INET6_ADDRSTRLEN];
+			char straddr_rem[INET6_ADDRSTRLEN];
+			inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&(flow->loc_addr))->sin6_addr), straddr_loc, sizeof(straddr_loc));
+			inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&(flow->rem_addr))->sin6_addr), straddr_rem, sizeof(straddr_rem));
+
+			printf("Adding new v6 flow to candiats: loc: %s, rem: %s\n", straddr_loc, straddr_rem);
+		}
 
 		if (client_list)
 		{

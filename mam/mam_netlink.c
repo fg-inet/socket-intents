@@ -170,7 +170,10 @@ int create_new_flow(struct mptcp_flow_info *flow)
 	}
 	else
 	if (flow->loc_addr.ss_family == AF_INET6)
-	{
+	{	
+		if (nla_put(msg_out, MAM_MPTCP_A_IPV6_LOC, sizeof(struct in6_addr), &((struct sockaddr_in6*)&flow->loc_addr)->sin6_addr) < 0)
+			perror("Could not add IPV6_LOC to new flow response message\n");
+		printf("is v6 - loc\n");
 	}
 	else
 	{
@@ -186,12 +189,21 @@ int create_new_flow(struct mptcp_flow_info *flow)
 	else
 	if (flow->rem_addr.ss_family == AF_INET6)
 	{
-		printf("is v6....\n");
+		if (nla_put(msg_out, MAM_MPTCP_A_IPV6_REM, sizeof(struct in6_addr), &((struct sockaddr_in6*)&flow->rem_addr)->sin6_addr) < 0)
+			perror("Could not add IPV6_REM to new flow response message\n");
+
+		printf("is v6 - rem\n");
 	}
 	else
 	{
 		perror("rem_addr has no family\n");
 		goto error_case;
+	}
+
+	if (flow->rem_addr.ss_family == AF_INET6)
+	{
+		if (nla_put_flag(msg_out, MAM_MPTCP_A_IS_V6) < 0)
+			perror("Could not add IS_V6 to new flow response message\n");
 	}
 
 	if (nla_put_u8(msg_out, MAM_MPTCP_A_LOC_ID, flow->loc_id) < 0)

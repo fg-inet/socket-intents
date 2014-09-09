@@ -90,7 +90,27 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 	{
 		if (attrs[MAM_MPTCP_A_IS_V6])
 		{
+			if (attrs[MAM_MPTCP_A_IPV6_LOC])
+			{
+				((struct sockaddr_in6 *)&(flow->loc_addr))->sin6_addr = *(struct in6_addr*) nla_data(attrs[MAM_MPTCP_A_IPV6_LOC]);
+				flow->loc_addr.ss_family = AF_INET6;
+			}
+			else
+			{
+				printf("no loc6\n");
+				return -1;
+			}
 
+			if (attrs[MAM_MPTCP_A_IPV6_REM])
+			{
+				((struct sockaddr_in6 *)&(flow->rem_addr))->sin6_addr = *(struct in6_addr*) nla_data(attrs[MAM_MPTCP_A_IPV6_REM]);
+				flow->rem_addr.ss_family = AF_INET6;
+			}
+			else
+			{
+				printf("no rem6\n");
+				return -1;
+			}
 		}
 		else
 		{
@@ -176,7 +196,14 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 	}
 
 	if (attrs[MAM_MPTCP_A_IS_V6])
-	{		
+	{	
+		char straddr_loc[INET6_ADDRSTRLEN];
+		char straddr_rem[INET6_ADDRSTRLEN];
+		inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&(flow->loc_addr))->sin6_addr), straddr_loc, sizeof(straddr_loc));
+		inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&(flow->rem_addr))->sin6_addr), straddr_rem, sizeof(straddr_rem));
+
+		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "local IP : %s\n", straddr_loc);
+		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "remote IP: %s\n", straddr_rem);	
 	}
 	else
 	{
