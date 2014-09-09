@@ -101,7 +101,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			}
 			else
 			{
-				printf("no loc \n");
+				printf("no loc\n");
 				return -1;
 			}
 
