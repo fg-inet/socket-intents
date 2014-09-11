@@ -253,6 +253,12 @@ int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
 
 	/* pack request */
 	if( 0 > _muacc_push_tlv(v[0].iov_base, &pos, v[0].iov_len, action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_send_ctx_event_pack_err;
+
+	if (reason == muacc_act_socketchoose_resp_existing && ctx->set != NULL)
+	{
+		if( 0 > _muacc_push_tlv(v[0].iov_base, &pos, v[0].iov_len, socketset_file, &(ctx->set->file), sizeof(int)) ) goto  _muacc_send_ctx_event_pack_err;
+	}
+
 	if( 0 > _muacc_pack_ctx(v[0].iov_base, &pos, v[0].iov_len, ctx->ctx) ) goto  _muacc_send_ctx_event_pack_err;
 	if( 0 > _muacc_push_tlv_tag(v[0].iov_base, &pos, v[0].iov_len, eof) ) goto  _muacc_send_ctx_event_pack_err;
 	DLOG(MAM_UTIL_NOISY_DEBUG2,"packing request done\n");
@@ -335,10 +341,42 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
 		DLOG(MAM_UTIL_NOISY_DEBUG2, "unpacking action: %d \n" , *((muacc_mam_action_t *) data));
 		ctx->action = *((muacc_mam_action_t *) data);
 	}
+	else if (*tag == socketset_file)
+	{
+		DLOG(MAM_UTIL_NOISY_DEBUG2, "socketset file descriptor %d \n" , *((muacc_mam_action_t *) data));
+		struct socketset *new = ctx->set;
+		while (new != NULL)
+		{
+			new = new->next;
+		}
+		new = malloc(sizeof(struct socketset));
+		new->next = NULL;
+		new->file = *(int *) data;
+		new->ctx = NULL;
+		ctx->set = new;
+	}
 	else
 	{
-		/* process tlv */
-		switch( _muacc_unpack_ctx(*tag, data, *data_len, ctx->ctx) )
+		struct _muacc_ctx *parsectx = ctx->ctx;
+
+		if (ctx->set != NULL)
+		{
+			/* parse incoming context into the socket set */
+			struct socketset *sockset = ctx->set;
+			while (sockset->next != NULL)
+			{
+				sockset = sockset->next;
+			}
+			DLOG(MAM_UTIL_NOISY_DEBUG2, "receiving context for socketset member %d\n", sockset->file);
+			if (sockset->ctx == NULL)
+			{
+				sockset->ctx = _muacc_create_ctx();
+			}
+			parsectx = sockset->ctx;
+		}
+
+		/* unpack context */
+		switch( _muacc_unpack_ctx(*tag, data, *data_len, parsectx) )
 		{
 			case 0:
 				DLOG(MAM_UTIL_NOISY_DEBUG2, "parsing TLV successful\n");

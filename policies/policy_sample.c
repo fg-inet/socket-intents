@@ -258,8 +258,13 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 		}
 	}
 
+	muacc_mam_action_t action = muacc_act_socketconnect_resp;
 	// send response back
-	_muacc_send_ctx_event(rctx, muacc_act_socketconnect_resp);
+	if (rctx->action == muacc_act_socketchoose_req)
+	{
+		action = muacc_act_socketchoose_resp_new;
+	}
+	_muacc_send_ctx_event(rctx, action);
 
     printf("%s\n\n", strbuf_export(&sb));
     strbuf_release(&sb);
@@ -290,5 +295,44 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 		_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
 		printf("\tRequest failed.\n");
 	}
+	return 0;
+}
+
+/** Socketchoose request function
+ *  Is called upon each socketchoose request from a client
+ *  Chooses from a set of existing sockets
+ *  Must send a reply back using _muacc_sent_ctx_event or register a callback that does so
+ */
+int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
+{
+    struct evdns_getaddrinfo_request *req;
+	
+	printf("\tSocketchoose request\n");
+
+	if (rctx->set != NULL)
+	{
+		printf("\tSuggest using socket %d\n", rctx->set->file);
+		_muacc_send_ctx_event(rctx, muacc_act_socketchoose_resp_existing);
+	}
+	else
+	{
+		printf("\tSocketchoose with empty set - trying to create new socket, resolving %s\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname));
+
+		/* Try to resolve this request using asynchronous lookup */
+		req = evdns_getaddrinfo(
+    		rctx->mctx->evdns_default_base, 
+			rctx->ctx->remote_hostname,
+			NULL /* no service name given */,
+            rctx->ctx->remote_addrinfo_hint,
+			&resolve_request_result_connect,
+			rctx);
+		printf(" - Sending request to default nameserver\n");
+		if (req == NULL) {
+			/* returned immediately - Send reply to the client */
+			_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
+			printf("\tRequest failed.\n");
+		}
+	}
+
 	return 0;
 }

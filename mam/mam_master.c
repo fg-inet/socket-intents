@@ -89,6 +89,11 @@ static void process_mam_request(struct request_context *ctx)
 			}
 		}
 	}
+	else if (ctx->action == muacc_act_socketchoose_req)
+	{
+		DLOG(MAM_MASTER_NOISY_DEBUG0, "Received new socketchoose request\n");
+		_mam_callback_or_fail(ctx, "on_socketchoose_request", MAM_POLICY_SOCKETCHOOSE_CALLED, muacc_act_socketchoose_resp_new);
+	}
 	else
 	{
 		/* Unknown request */
@@ -122,6 +127,7 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
     		case _muacc_proc_tlv_event_eof:
 				/* re-initialize muacc context to back up further communication */
 				 *rctx = malloc(sizeof(struct request_context));
+				(*rctx)->set = NULL;
 				(*rctx)->mctx = global_mctx;
 				(*rctx)->ctx = _muacc_create_ctx();
     			/* done processing - do MAM's magic */
@@ -180,6 +186,7 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
 		*ctx = malloc(sizeof(struct request_context));
 		(*ctx)->ctx = _muacc_create_ctx();
 		(*ctx)->mctx = mctx;
+		(*ctx)->set = NULL;
 		(*ctx)->policy_calls_performed = 0;
 
     	/* set up bufferevent magic */
