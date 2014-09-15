@@ -123,40 +123,25 @@ int muacc_release_context(struct muacc_context *ctx)
 
 int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 {
-	struct _muacc_ctx *_ctx;
+	if (dst == NULL)
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0,"WARNING: cloning into empty context\n");
+		return 0;
+	}
 
-	if(src->ctx == NULL)
+	if (src == NULL)
 	{
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0,"WARNING: cloning uninitialized context\n");
 		dst->ctx = NULL;
-		return(0);
 	}
-
-	if( (_ctx = malloc( sizeof(struct _muacc_ctx) )) == NULL )
+	else
 	{
-		perror("muacc_clone_context malloc failed");
-		return(-1);
+		dst->ctx = _muacc_clone_ctx(src->ctx);
 	}
-
-	memcpy(_ctx, src->ctx, sizeof(struct _muacc_ctx));
-
-	_ctx->bind_sa_req   = _muacc_clone_sockaddr(src->ctx->bind_sa_req, src->ctx->bind_sa_req_len);
-	_ctx->bind_sa_suggested   = _muacc_clone_sockaddr(src->ctx->bind_sa_suggested, src->ctx->bind_sa_suggested_len);
-
-	_ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(src->ctx->remote_addrinfo_hint);
-	_ctx->remote_addrinfo_res  = _muacc_clone_addrinfo(src->ctx->remote_addrinfo_res);
-
-	_ctx->remote_hostname = _muacc_clone_string(src->ctx->remote_hostname);
-
-	_ctx->sockopts_current = _muacc_clone_socketopts(src->ctx->sockopts_current);
-	_ctx->sockopts_suggested = _muacc_clone_socketopts(src->ctx->sockopts_suggested);
-
-	_ctx->ctxid = _get_ctxid();
 
 	dst->usage = 1;
 	dst->locks = 0;
 	dst->mamsock = -1;
-	dst->ctx = _ctx;
 
 	return(0);
 }
@@ -288,7 +273,7 @@ int _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muac
 		newlist->set = malloc(sizeof(struct socketset));
 		newlist->set->next = NULL;
 		newlist->set->file = socket;
-		newlist->set->ctx = ctx;
+		newlist->set->ctx = _muacc_clone_ctx(ctx);
 
 		if (*list == NULL)
 		{
@@ -313,7 +298,7 @@ int _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muac
 		set->next = malloc(sizeof(struct socketset));
 		set->next->next = NULL;
 		set->next->file = socket;
-		set->next->ctx = ctx;
+		set->next->ctx = _muacc_clone_ctx(ctx);
 	}
 	return 0;
 }

@@ -152,6 +152,40 @@ struct socketopt *_muacc_clone_socketopts(const struct socketopt *src)
 	return ret;
 }
 
+struct _muacc_ctx *_muacc_clone_ctx(struct _muacc_ctx *origin)
+{
+	if (origin == NULL)
+	{
+		DLOG(MUACC_UTIL_NOISY_DEBUG, "Warning: Cloned NULL ctx\n");
+		return NULL;
+	}
+
+	struct _muacc_ctx *_ctx;
+
+	if( (_ctx = malloc( sizeof(struct _muacc_ctx) )) == NULL )
+	{
+		perror("muacc_clone_context malloc failed");
+		return NULL;
+	}
+
+	memcpy(_ctx, origin, sizeof(struct _muacc_ctx));
+
+	_ctx->bind_sa_req   = _muacc_clone_sockaddr(origin->bind_sa_req, origin->bind_sa_req_len);
+	_ctx->bind_sa_suggested   = _muacc_clone_sockaddr(origin->bind_sa_suggested, origin->bind_sa_suggested_len);
+
+	_ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(origin->remote_addrinfo_hint);
+	_ctx->remote_addrinfo_res  = _muacc_clone_addrinfo(origin->remote_addrinfo_res);
+
+	_ctx->remote_hostname = _muacc_clone_string(origin->remote_hostname);
+
+	_ctx->sockopts_current = _muacc_clone_socketopts(origin->sockopts_current);
+	_ctx->sockopts_suggested = _muacc_clone_socketopts(origin->sockopts_suggested);
+
+	_ctx->ctxid = origin->ctxid;
+
+	return _ctx;
+}
+
 void _muacc_free_socketopts(struct socketopt *so)
 {
 	struct socketopt *next = so;

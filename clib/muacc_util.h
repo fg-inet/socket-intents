@@ -33,6 +33,11 @@ struct addrinfo *_muacc_clone_addrinfo(const struct addrinfo *src);
  */
 struct socketopt *_muacc_clone_socketopts(const struct socketopt *src);
 
+/** helper to deep copy a _muacc_ctx
+ *
+ */
+struct _muacc_ctx *_muacc_clone_ctx(struct _muacc_ctx *origin);
+
 /** helper to deep free socketopt linked lists
  *
  */
