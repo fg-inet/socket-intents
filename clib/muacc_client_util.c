@@ -487,3 +487,114 @@ struct socketset *_muacc_socketset_find_file (struct socketset *set, int socket)
 	}
 	return NULL;
 }
+
+struct socketset *_muacc_socketset_find_dup (struct socketset *set)
+{
+	struct socketset *duplicate = set->next;
+
+	while (duplicate != NULL)
+	{
+		if (duplicate->ctx == set->ctx)
+		{
+			// Found duplicate! (i.e. different file descriptor, but same socket context)
+			break;
+		}
+		duplicate = duplicate->next;
+	}
+
+	return duplicate;
+}
+
+int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
+{
+	struct socketlist *currentlist = *list;
+	struct socketset *currentset = NULL;
+
+	struct socketlist *base = NULL;
+	struct socketlist *prevlist = NULL;
+	struct socketset *set = NULL;
+	struct socketset *prevset = NULL;
+
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Trying to delete set for socket %d\n", socket);
+
+	while (currentlist != NULL)
+	{
+		// Go through list of socket sets
+		currentset = currentlist->set;
+
+		if (currentset->next == NULL)
+		{
+			// This set contains only one socket
+			if (currentset->file == socket)
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Found set to delete for %d\n", socket);
+				set = currentset; // Found the set to delete!
+				base = currentlist; // Store list entry of set
+				prevset = NULL;
+				break;
+			}
+		}
+		else
+		{
+			// This set contains more than one socket
+			while (currentset->next != NULL)
+			{
+				if (currentset->next->file == socket)
+				{
+					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Found set to delete for %d\n", socket);
+					set = currentset->next; // Found the set to delete!
+					base = currentlist; // Store list entry of set
+					prevset = currentset;
+					break;
+				}
+
+				currentset = currentset->next;
+			}
+		}
+		prevlist = currentlist;
+		base = base->next;
+	}
+
+	if (set == NULL || base == NULL)
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d not found in set!\n", socket);
+		return -1;
+	}
+	else
+	{
+		// Free context if no other file descriptor needs it
+		if (_muacc_socketset_find_dup(set) == NULL)
+		{
+			// No duplicate (i.e., no other file descriptor shares this socket/context)
+			_muacc_free_ctx(set->ctx);
+		}
+
+		// Re-adjust pointers
+		if (prevset != NULL)
+		{
+			prevset->next = set->next;
+		}
+
+		// Remove socket set entry
+		free(set);
+
+		if (prevset == NULL)
+		{
+			// This was the only socket in the set - clear the list entry
+			if (prevlist != NULL)
+			{
+				// Set the pointer of the previous list entry
+				prevlist->next = base->next;
+			}
+			else
+			{
+				// We freed the first list entry - set the list head
+				*list = base->next;
+			}
+			free(base);
+		}
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Socketset successfully cleared\n");
+
+	}
+	return 0;
+}

@@ -109,4 +109,10 @@ int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set);
  */
 int _muacc_socketconnect_create(muacc_context_t *ctx, int *s);
 
+/** Close a socket that was supplied by socketconnect, drop it from the socket set
+ *
+ *  @return 0 if successful, -1 if fail
+ */
+int socketconnect_close(int socket);
+
 #endif

@@ -51,6 +51,8 @@ int verbose = 1;
 
 void print_usage(char *argv[], void *args[]);
 
+void cleanup(void *argtable, struct socketopt *options);
+
 void print_usage(char *argv[], void *args[])
 {
         printf("\nUsage:\n");
@@ -212,7 +214,16 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 		if (arg_clearsocket->count > 0)
+			if (our_socket != -1)
+			{
+				socketconnect_close(our_socket);
+			}
 			our_socket = -1; // Clearing socket
+	}
+
+	if (our_socket != -1)
+	{
+		socketconnect_close(our_socket);
 	}
 
 	cleanup(argtable, options);

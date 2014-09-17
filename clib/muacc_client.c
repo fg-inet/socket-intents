@@ -773,3 +773,19 @@ int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set)
 	}
 	return -1;
 }
+
+int socketconnect_close(int socket)
+{
+	if (_muacc_remove_socket_from_list(&sockets, socket) == -1)
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "Could not remove socket %d from socketset list\n", socket);
+	}
+
+	if (close(socket) == -1)
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "Close failed: %s\n", strerror(errno));
+		return -1;
+	}
+
+	return 0;
+}

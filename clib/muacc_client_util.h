@@ -130,4 +130,16 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
  */
 struct socketset *_muacc_socketset_find_file (struct socketset *set, int socket);
 
+/** Find socketset that is a duplicate of the given one (i.e. has different file descriptor but same context)
+ * 
+ *  @return next duplicate socket set, or NULL if none exists
+ */
+struct socketset *_muacc_socketset_find_dup (struct socketset *set);
+
+/** Remove socket from set, and clean up socketset if set is now empty
+ *
+ * @return 0 on success, -1 otherwise
+ */
+int _muacc_remove_socket_from_list (struct socketlist **list, int socket);
+
 #endif /* __MUACC_CLIENT_UTIL_H__ */
