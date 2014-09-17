@@ -172,6 +172,7 @@ struct _muacc_ctx *_muacc_clone_ctx(struct _muacc_ctx *origin)
 
 	_ctx->bind_sa_req   = _muacc_clone_sockaddr(origin->bind_sa_req, origin->bind_sa_req_len);
 	_ctx->bind_sa_suggested   = _muacc_clone_sockaddr(origin->bind_sa_suggested, origin->bind_sa_suggested_len);
+	_ctx->remote_sa   = _muacc_clone_sockaddr(origin->remote_sa, origin->remote_sa_len);
 
 	_ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(origin->remote_addrinfo_hint);
 	_ctx->remote_addrinfo_res  = _muacc_clone_addrinfo(origin->remote_addrinfo_res);
