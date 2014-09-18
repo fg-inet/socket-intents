@@ -21,6 +21,7 @@
 #include <sys/socket.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #include "argtable2.h"
 
@@ -52,6 +53,20 @@ int verbose = 1;
 void print_usage(char *argv[], void *args[]);
 
 void cleanup(void *argtable, struct socketopt *options);
+
+struct test_worker_args {
+	int inital_socket;
+	const char *url;
+  int family;
+  int socktype;
+	int protocol;
+	const socketopt_t *options;
+	int times;
+  int clearsocket;
+	int thread_id;
+};
+
+void *test_worker (void *args);
 
 void print_usage(char *argv[], void *args[])
 {
@@ -86,6 +101,9 @@ int main(int argc, char *argv[])
 
 	struct arg_int *arg_times;
 	arg_times = arg_int0("t", "times", "<n>", "Call socketconnect this many times");
+	
+	struct arg_int *arg_threads;
+	arg_threads = arg_int0("p", "threads", "<n>", "Spawn threads in parallel");
 
 	struct arg_lit *arg_verbose, *arg_quiet, *arg_clearsocket;
     arg_verbose = arg_lit0("v", "verbose", "Verbose output (Print socket contexts before and after every request");
@@ -94,7 +112,7 @@ int main(int argc, char *argv[])
 
     struct arg_end *end = arg_end(10);
 
-    void *argtable[] = {arg_verbose, arg_quiet, arg_times, arg_clearsocket, arg_url, arg_protocol, arg_transport, arg_filesize, arg_category, end};
+    void *argtable[] = {arg_verbose, arg_quiet, arg_times, arg_threads, arg_clearsocket, arg_url, arg_protocol, arg_transport, arg_filesize, arg_category, end};
 
     /* Check arguments table for errors */
     if (arg_nullcheck(argtable) != 0)
@@ -105,8 +123,10 @@ int main(int argc, char *argv[])
     }
 
     /* Initialize default values for arguments */
-	arg_times->ival[0] = 1;
+		arg_times->ival[0] = 4;
+    arg_threads->ival[0] = 4;
     arg_protocol->ival[0] = 0;
+		
 
     *arg_transport->sval = "TCP";
     *arg_url->sval = "http://www.maunz.org:443";
@@ -188,20 +208,100 @@ int main(int argc, char *argv[])
 
 	printf("================================================\n");
 
+	printf("Initial Try:\n");
 	int our_socket = -1;
 	int returnvalue = -1;
-	int try = 0;
+	returnvalue = socketconnect(&our_socket, *arg_url->sval, options, family, socktype, *arg_protocol->ival);
 
-	for (try; try < arg_times->ival[0]; try++)
+	if (returnvalue == -1)
 	{
-		printf("Try #%d:\n", try+1);
-		returnvalue = socketconnect(&our_socket, *arg_url->sval, options, family, socktype, *arg_protocol->ival);
+		printf("Failed to create and connect the socket!\n");
+		cleanup(argtable, options);
+		return -1;
+	}
+
+	char *buf = "testblah";
+	
+	returnvalue = write(our_socket, buf, sizeof(buf));
+	if (returnvalue == -1)
+	{
+		printf("Failed to write text on the socket!\n");
+		cleanup(argtable, options);
+		return -1;
+	}
+
+	if (arg_clearsocket->count > 0) 
+	{	
+		if (our_socket != -1)
+		{
+			socketconnect_close(our_socket);
+		}
+		our_socket = -1; // Clearing socket
+	}
+
+	printf("================================================\n");
+
+	printf("Spawning threads:");
+
+  struct test_worker_args targs;
+	targs.inital_socket = our_socket;
+	targs.url = *arg_url->sval;
+  targs.family = family;
+  targs.socktype = socktype;
+	targs.protocol = *arg_protocol->ival;
+	targs.options = options;
+	targs.times = arg_times->ival[0];
+	targs.clearsocket = (arg_clearsocket->count > 0);
+	
+  pthread_t *thread = malloc(sizeof(pthread_t) * arg_threads->ival[0]);
+
+	int t;	
+
+	for(t = 1; t<=arg_threads->ival[0]; t++)
+	{
+		struct test_worker_args *cargs = malloc(sizeof(struct test_worker_args));
+		memcpy(cargs, &targs, sizeof(struct test_worker_args));
+		cargs->thread_id = t;
+    pthread_create(&thread[t], NULL, test_worker, (void *) cargs);
+		printf(" %d", t);
+	}
+	printf(" done\n");
+
+	printf("================================================\n");
+
+
+	for(t = 0; t<arg_threads->ival[0]; t++)
+	{
+		void *status;
+    pthread_join(thread[t], &status); 
+	}	
+	
+	printf("================================================\n");
+	
+	printf("All threads terminated.\n");
+	
+
+	cleanup(argtable, options);
+	return 0;
+	
+}
+
+void *test_worker (void *argp) {
+
+	struct test_worker_args *args = (struct test_worker_args *) argp;
+	int our_socket = args->inital_socket;
+	int returnvalue = -1;
+	int try = 0;
+	int ret = -1;
+
+	for (try = 0; try < args->times; try++)
+	{
+		returnvalue = socketconnect(&our_socket, args->url, args->options, args->family, args->socktype, args->protocol);
 
 		if (returnvalue == -1)
 		{
-			printf("Failed to create and connect the socket!\n");
-			cleanup(argtable, options);
-			return -1;
+			printf("Thread %d Try #%d: Failed to create and connect the socket!\n",  args->thread_id, try+1);
+			goto exit_test_worker;
 		}
 
 		char *buf = "testblah";
@@ -209,23 +309,28 @@ int main(int argc, char *argv[])
 		returnvalue = write(our_socket, buf, sizeof(buf));
 		if (returnvalue == -1)
 		{
-			printf("Failed to write text on the socket!\n");
-			cleanup(argtable, options);
-			return -1;
+			printf("Thread %d Try #%d: Failed to write text on the socket!\n", args->thread_id, try+1);
+			
+			goto exit_test_worker;
 		}
-		if (arg_clearsocket->count > 0)
+
+		if (args->clearsocket)
 			if (our_socket != -1)
 			{
 				socketconnect_close(our_socket);
 			}
 			our_socket = -1; // Clearing socket
-	}
 
+			printf("Thread %d Try #%d: OK\n", args->thread_id, try+1);
+
+	}
+	ret = 0;
+
+	exit_test_worker:
 	if (our_socket != -1)
 	{
 		socketconnect_close(our_socket);
 	}
-
-	cleanup(argtable, options);
-    return 0;
+	free(argp);
+  pthread_exit((void*) ret);
 }

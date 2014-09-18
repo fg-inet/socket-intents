@@ -133,9 +133,11 @@ static void resolve_request_result(int errcode, struct evutil_addrinfo *addr, vo
 		printf("\n\tGot resolver response for %s: %s\n",
 			rctx->ctx->remote_hostname,
 			addr->ai_canonname ? addr->ai_canonname : "");
-	    
+		
+		assert(addr != NULL);  
 		assert(rctx->ctx->remote_addrinfo_res == NULL);
-		rctx->ctx->remote_addrinfo_res = addr;
+		rctx->ctx->remote_addrinfo_res = _muacc_clone_addrinfo(addr);
+		evutil_freeaddrinfo(addr);
 		print_addrinfo_response (rctx->ctx->remote_addrinfo_res);
 	}
 
@@ -219,9 +221,10 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 		printf("\n\tGot resolver response for %s: %s\n",
 			rctx->ctx->remote_hostname,
 			addr->ai_canonname ? addr->ai_canonname : "");
-	    
+	 
+		assert(addr != NULL);   
 		assert(rctx->ctx->remote_addrinfo_res == NULL);
-		rctx->ctx->remote_addrinfo_res = addr;
+		rctx->ctx->remote_addrinfo_res = _muacc_clone_addrinfo(addr);
 		print_addrinfo_response (rctx->ctx->remote_addrinfo_res);
 
 		// Choose first result as the remote address
@@ -230,6 +233,9 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 		rctx->ctx->protocol = addr->ai_protocol;
 		rctx->ctx->remote_sa_len = addr->ai_addrlen;
 		rctx->ctx->remote_sa = _muacc_clone_sockaddr(addr->ai_addr, addr->ai_addrlen);
+
+		// free libevent addrinfo
+		evutil_freeaddrinfo(addr);
 
 		// Find local address for destination
 		strbuf_printf(&sb, "\tDestination address =");
