@@ -235,6 +235,7 @@ int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
 	DLOG(MAM_UTIL_NOISY_DEBUG0,"Sending response %d to client request\n", reason);
 	/* Request has finished - Actually send a reply */
 	struct evbuffer_iovec v[1];
+	v[0].iov_len = 0;
 	ssize_t ret = 0;
 	ssize_t pos = 0;
 
