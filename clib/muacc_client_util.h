@@ -124,12 +124,6 @@ void muacc_print_socketlist(struct socketlist *list);
  */
 int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketset *set);
 
-/** Find the socketset struct from a given file descriptor
- *
- * @return The corresponding socketset
- */
-struct socketset *_muacc_socketset_find_file (struct socketset *set, int socket);
-
 /** Find socketset that is a duplicate of the given one (i.e. has different file descriptor but same context)
  * 
  *  @return next duplicate socket set, or NULL if none exists

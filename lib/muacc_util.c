@@ -9,6 +9,7 @@
 
 #include "clib/muacc.h"
 #include "clib/muacc_util.h"
+#include "clib/muacc_client.h"
 
 #include "intents.h"
 
@@ -403,4 +404,15 @@ int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const
 	}
 
 	return retval;
+}
+
+struct socketset *_muacc_socketset_find_file (struct socketset *set, int socket)
+{
+       while (set != NULL)
+       {
+               if (set->file == socket)
+                       return set;
+               set = set->next;
+       }
+       return NULL;
 }

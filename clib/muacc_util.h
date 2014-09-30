@@ -78,4 +78,10 @@ void _muacc_print_socket_option(strbuf_t *sb, const struct socketopt *current);
  */
 int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const void *optval, socklen_t optlen, int flags);
 
+/** Find the socketset struct from a given file descriptor
+ *
+ * @return The corresponding socketset
+ */
+struct socketset *_muacc_socketset_find_file (struct socketset *set, int socket);
+
 #endif /* __MUACC_UTIL_H__ */
