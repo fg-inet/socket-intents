@@ -16,3 +16,6 @@ ADD_LIBRARY(policy_intents MODULE policy_intents.c policy_util.c)
 SET_TARGET_PROPERTIES(policy_intents PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_intents mam ${GLIB2_LIBRARIES})
 
+ADD_LIBRARY(policy_rr_pipelining MODULE policy_rr_pipelining.c policy_util.c)
+SET_TARGET_PROPERTIES(policy_rr_pipelining PROPERTIES PREFIX "")
+TARGET_LINK_LIBRARIES(policy_rr_pipelining mam ${GLIB2_LIBRARIES})
