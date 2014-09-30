@@ -103,7 +103,7 @@ int _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muac
 
 /** Find the socket set that contains the given socket, if any
  *
- * @return Pointer to the socket set if found, or NULL
+ * @return Pointer to the start of the socket set, if found, or NULL
  */
 struct socketset *_muacc_find_socketset(struct socketlist *list, int socket);
 

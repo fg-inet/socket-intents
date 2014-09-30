@@ -322,11 +322,13 @@ struct socketset *_muacc_find_set_for_socket(struct socketlist *list, struct _mu
 
 struct socketset *_muacc_find_socketset(struct socketlist *list, int socket)
 {
+	struct socketset *anchor = NULL;
 	while (list != NULL )
 	{
+		anchor = list->set;
 		struct socketset *set = _muacc_socketset_find_file (list->set, socket);
 		if (set != NULL)
-			return set;
+			return anchor;
 		list = list->next;
 	}
 	return NULL;
