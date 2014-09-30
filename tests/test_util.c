@@ -13,7 +13,6 @@
 #include "clib/muacc.h"
 #include "lib/muacc_ctx.h"
 #include "lib/muacc_tlv.h"
-#include "lib/muacc_util.h"
 
 #include "lib/intents.h"
 #include "clib/dlog.h"
