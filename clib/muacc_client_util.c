@@ -363,6 +363,7 @@ void muacc_print_socketlist(struct socketlist *list)
 
 int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketset *set)
 {
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Sending socketchoose\n");
 	int returnvalue = -1;
 
 	char buf[MUACC_TLV_MAXLEN];
@@ -397,6 +398,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 	/* Pack contexts from socketset */
 	while (set != NULL)
 	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Packing socket set file %d\n", set->file);
 		if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), socketset_file, &(set->file), sizeof(int)) )
 		{
 			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing socketset file descriptor %d\n", set->file);
