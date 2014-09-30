@@ -11,6 +11,8 @@
 #include "lib/muacc_ctx.h"
 #include "lib/muacc_tlv.h"
 
+#include "mam_pmeasure.h"
+
 #include "mam_configp.h"
 #include "mam.h"
 
@@ -432,6 +434,7 @@ static void do_reconfigure(evutil_socket_t _, short what, void* evctx) {
 static void do_print_state(evutil_socket_t _, short what, void* evctx) {
 	DLOG(1, "got USR1 signal - dumping state\n");
 	mam_print_context(global_mctx);
+	g_slist_foreach(global_mctx->prefixes, &pmeasure_print_summary, NULL);
 }
 
 int
@@ -499,6 +502,13 @@ main(int c, char **v)
 	/* apply config and read policy */
 	configure_mamma();
 
+	/* pmeasure event */
+	pmeasure_setup();
+	struct event *pmeasure_event;
+	struct timeval ten_seconds = {10, 0};
+	pmeasure_event = event_new(global_mctx->ev_base, -1, EV_PERSIST, pmeasure_callback, global_mctx);
+	evtimer_add(pmeasure_event, &ten_seconds);
+
 	/* set mam socket */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "setting up mamma's socket %s\n", MUACC_SOCKET);
 	sun.sun_family = AF_UNIX;
@@ -527,6 +537,7 @@ main(int c, char **v)
     close(listener);
     unlink(MUACC_SOCKET);
 	cleanup_policy_module(global_mctx);
+	pmeasure_cleanup();
 	mam_release_context(global_mctx);
 	lt_dlexit();
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "exiting\n");

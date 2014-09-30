@@ -65,6 +65,7 @@ typedef struct src_prefix_list {
 	struct evdns_base 		*evdns_base; 		/**< DNS base to do look ups for that prefix */
 	GHashTable 				*policy_set_dict; 	/**< dictionary for policy configuration */
 	void					*policy_info;		/**< Policy-internal data structure for additional information */
+	GHashTable				*measure_dict;		/**< Dictionary for measurement data of this interface */
 } src_prefix_list_t;
 
 /** list of interfacses */

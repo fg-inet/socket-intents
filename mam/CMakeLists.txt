@@ -15,7 +15,7 @@ SET_DIRECTORY_PROPERTIES(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES "${cleanup_files
 ADD_LIBRARY(mam SHARED mam_ctx.c mam_iface.c mam_util.c)
 TARGET_LINK_LIBRARIES(mam muacc y ltdl ${LIBEVENT_LIBRARIES} ${GLIB2_LIBRARIES})
 
-ADD_EXECUTABLE(mamma mam mam_configp.c mam_configs.c mam_master.c)
+ADD_EXECUTABLE(mamma mam mam_configp.c mam_configs.c mam_master.c mam_pmeasure.c)
 TARGET_LINK_LIBRARIES(mamma mam uuid ${LIBEVENT_LIBRARIES} ${GLIB2_LIBRARIES})
 
 INSTALL(TARGETS mamma

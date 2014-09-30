@@ -10,6 +10,7 @@
 #include "lib/strbuf.h"
 
 #include "mam_util.h"
+#include "mam_pmeasure.h"
 
 #ifndef MAM_UTIL_NOISY_DEBUG0
 #define MAM_UTIL_NOISY_DEBUG0 0
@@ -55,6 +56,16 @@ void _mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags)
 static void _mam_print_dict_kv (gpointer key,  gpointer val, gpointer sb)
 {
 	strbuf_printf((strbuf_t *) sb, " %s -> %s", (char *) key, (char *) val);
+}
+
+void _mam_print_measure_dict (gpointer key,  gpointer val, gpointer sb)
+{
+	if (strncmp((const char *) key, "srtt", 4) == 0)
+	{
+		strbuf_printf((strbuf_t *) sb, " %s -> %f", (char *) key, *(double *) val);
+	}
+	else
+		strbuf_printf((strbuf_t *) sb, " %s -> (unknown format)", (char *) key);
 }
 
 void _mam_print_prefix_list(strbuf_t *sb, GSList *prefixes)

@@ -18,6 +18,9 @@ void _mam_print_prefix(strbuf_t *sb, struct src_prefix_list *current);
 /** Helper to print a mam context to a string */
 void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx);
 
+/** Helper that prints the measurement dictionary */
+void _mam_print_measure_dict (gpointer key,  gpointer val, gpointer sb);
+
 /** Helper that frees a source prefix list - to be called using g_slist_free_full */
 void _free_src_prefix_list (gpointer data);
 
