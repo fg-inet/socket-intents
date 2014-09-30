@@ -345,16 +345,31 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
 	else if (*tag == socketset_file)
 	{
 		DLOG(MAM_UTIL_NOISY_DEBUG2, "socketset file descriptor %d \n" , *((muacc_mam_action_t *) data));
-		struct socketset *new = ctx->set;
-		while (new != NULL)
+
+		/* Searching for a place to insert the new socketset member */
+		if (ctx->set == NULL)
 		{
-			new = new->next;
+			DLOG(MAM_UTIL_NOISY_DEBUG2, "Receiving new socket set\n");
+			ctx->set = malloc(sizeof(struct socketset));
+			ctx->set->next = NULL;
+			ctx->set->file = *(int *) data;
+			ctx->set->ctx = _muacc_create_ctx();
 		}
-		new = malloc(sizeof(struct socketset));
-		new->next = NULL;
-		new->file = *(int *) data;
-		new->ctx = NULL;
-		ctx->set = new;
+		else
+		{
+			DLOG(MAM_UTIL_NOISY_DEBUG2, "Adding to existing set\n");
+			struct socketset *new = ctx->set;
+			while (new->next != NULL)
+			{
+				new = new->next;
+			}
+
+			/* Creating socket set member */
+			new->next = malloc(sizeof(struct socketset));
+			new->next->next = NULL;
+			new->next->file = *(int *) data;
+			new->next->ctx = _muacc_create_ctx();
+		}
 	}
 	else
 	{
@@ -369,10 +384,6 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
 				sockset = sockset->next;
 			}
 			DLOG(MAM_UTIL_NOISY_DEBUG2, "receiving context for socketset member %d\n", sockset->file);
-			if (sockset->ctx == NULL)
-			{
-				sockset->ctx = _muacc_create_ctx();
-			}
 			parsectx = sockset->ctx;
 		}
 
