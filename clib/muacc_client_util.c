@@ -309,7 +309,7 @@ struct socketset *_muacc_find_set_for_socket(struct socketlist *list, struct _mu
 {
 	while (list != NULL && list->set != NULL)
 	{
-		if (list->set->ctx->domain == ctx->domain && list->set->ctx->type == ctx->type && list->set->ctx->protocol == ctx->protocol && (memcmp(list->set->ctx->remote_sa, ctx->remote_sa, (ctx->domain == AF_INET) ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6)) == 0))
+		if (list->set->ctx->domain == ctx->domain && list->set->ctx->type == ctx->type && list->set->ctx->protocol == ctx->protocol && (strncmp(list->set->ctx->remote_hostname, ctx->remote_hostname, 255) == 0) && list->set->ctx->remote_port == ctx->remote_port)
 		{
 			return list->set;
 		}
