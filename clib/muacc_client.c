@@ -6,8 +6,6 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 
-#include "uriparser/Uri.h"
-
 #include "dlog.h"
 
 #include "lib/intents.h"
@@ -534,6 +532,11 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 		if ((set = _muacc_find_socketset(sockets, *s)) != NULL)
 		{
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Found Socket Set\n");
+			if (_muacc_parse_url_to_ctx(&ctx, url) != 0)
+			{
+				DLOG(CLIB_IF_NOISY_DEBUG2, "No URL given this time - trying to take the one from the set\n");
+				_muacc_parse_url_to_ctx(&ctx, set->ctx->remote_hostname);
+			}
 		}
 		else
 		{
@@ -581,42 +584,13 @@ int _socketconnect_request(muacc_context_t *ctx, int *s, const char *url)
 		DLOG(CLIB_IF_NOISY_DEBUG1, "No context given - aborting.\n");
 		return -1;
 	}
-	else if (url == NULL)
+	else if (_muacc_parse_url_to_ctx(ctx, url) != 0)
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG1, "No url given - cannot connect.\n");
+		DLOG(CLIB_IF_NOISY_DEBUG1, "Could not parse URL - aborting.\n");
 		return -1;
 	}
 	else
 	{
-		ctx->ctx->remote_addrinfo_hint = malloc(sizeof(struct addrinfo));
-		memset(ctx->ctx->remote_addrinfo_hint, 0, sizeof(struct addrinfo));
-		ctx->ctx->remote_addrinfo_hint->ai_family = ctx->ctx->domain;
-		ctx->ctx->remote_addrinfo_hint->ai_socktype = ctx->ctx->type;
-		ctx->ctx->remote_addrinfo_hint->ai_protocol = ctx->ctx->protocol;
-
-		DLOG(CLIB_IF_NOISY_DEBUG2, "Creating a new socket to connect to %s\n", url);
-		UriParserStateA state;
-		UriUriA uri;
-
-		state.uri = &uri;
-		if ((uriParseUriA(&state, url) != URI_SUCCESS) || (uri.hostText.first == NULL || uri.portText.first == NULL))
-		{
-			/* Failed to parse URL */
-			DLOG(CLIB_IF_NOISY_DEBUG1, "Failed to parse URL: %s (Does it contain a protocol, hostname, and port?)\n", url);
-			uriFreeUriMembersA(&uri);
-			return -1;
-		}
-
-		int hostnamelen = uri.hostText.afterLast - uri.hostText.first;
-
-		ctx->ctx->remote_hostname = malloc(hostnamelen + 1);
-		ctx->ctx->remote_hostname[hostnamelen] = 0;
-		ctx->ctx->remote_hostname = strncpy(ctx->ctx->remote_hostname, uri.hostText.first, hostnamelen);
-		uri.portText.afterLast = 0;
-		ctx->ctx->remote_port = atoi(uri.portText.first);
-
-		uriFreeUriMembersA(&uri);
-
 		if (CLIB_IF_NOISY_DEBUG2)
 		{
 			printf("Before MAM:\n");

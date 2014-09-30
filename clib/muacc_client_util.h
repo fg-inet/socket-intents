@@ -142,4 +142,10 @@ struct socketset *_muacc_socketset_find_dup (struct socketset *set);
  */
 int _muacc_remove_socket_from_list (struct socketlist **list, int socket);
 
+/** Parse a URL and set context remote_addrinfo_hint, remote_hostname and remote_port
+ *
+ * @return 0 on success, -1 otherwise
+ */
+int _muacc_parse_url_to_ctx(muacc_context_t *ctx, const char *url);
+
 #endif /* __MUACC_CLIENT_UTIL_H__ */

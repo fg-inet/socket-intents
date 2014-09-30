@@ -9,6 +9,8 @@
 #include <netdb.h>
 #include <errno.h>
 
+#include "uriparser/Uri.h"
+
 #include "dlog.h"
 #include "lib/muacc_ctx.h"
 #include "lib/muacc_tlv.h"
@@ -597,4 +599,50 @@ int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
 
 	}
 	return 0;
+}
+
+int _muacc_parse_url_to_ctx(muacc_context_t *ctx, const char *url)
+{
+	if (ctx == NULL)
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "No context given - aborting.\n");
+		return -1;
+	}
+	else if (url == NULL)
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "No url given - cannot parse.\n");
+		return -1;
+	}
+	else
+	{
+		ctx->ctx->remote_addrinfo_hint = malloc(sizeof(struct addrinfo));
+		memset(ctx->ctx->remote_addrinfo_hint, 0, sizeof(struct addrinfo));
+		ctx->ctx->remote_addrinfo_hint->ai_family = ctx->ctx->domain;
+		ctx->ctx->remote_addrinfo_hint->ai_socktype = ctx->ctx->type;
+		ctx->ctx->remote_addrinfo_hint->ai_protocol = ctx->ctx->protocol;
+
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Parsing URL %s into context\n", url);
+		UriParserStateA state;
+		UriUriA uri;
+
+		state.uri = &uri;
+		if ((uriParseUriA(&state, url) != URI_SUCCESS) || (uri.hostText.first == NULL || uri.portText.first == NULL))
+		{
+			/* Failed to parse URL */
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Failed to parse URL: %s (Does it contain a protocol, hostname, and port?)\n", url);
+			uriFreeUriMembersA(&uri);
+			return -1;
+		}
+
+		int hostnamelen = uri.hostText.afterLast - uri.hostText.first;
+
+		ctx->ctx->remote_hostname = malloc(hostnamelen + 1);
+		ctx->ctx->remote_hostname[hostnamelen] = 0;
+		ctx->ctx->remote_hostname = strncpy(ctx->ctx->remote_hostname, uri.hostText.first, hostnamelen);
+		uri.portText.afterLast = 0;
+		ctx->ctx->remote_port = atoi(uri.portText.first);
+
+		uriFreeUriMembersA(&uri);
+		return 0;
+	}
 }
