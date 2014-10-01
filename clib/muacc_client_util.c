@@ -547,7 +547,7 @@ int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
 			}
 		}
 		prevlist = currentlist;
-		base = base->next;
+		currentlist = currentlist->next;
 	}
 
 	if (set == NULL || base == NULL)
