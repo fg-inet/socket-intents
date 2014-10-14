@@ -228,6 +228,12 @@ int main(int argc, char *argv[])
 				printf("Try #%d: OK\n", try+1);
 			}
 		}
+		if (our_socket != -1)
+		{
+			DLOG(TEST_POLICY_NOISY_DEBUG2, "Clearing and closing socket %d\n", our_socket);
+			socketconnect_close(our_socket);
+			DLOG(TEST_POLICY_NOISY_DEBUG2, "Socket closed.\n");
+		}
 		
 	} else {
 				
@@ -320,9 +326,11 @@ void *test_worker (void *argp) {
 
 	exit_test_worker:
 
-	if (our_socket != -1)
+	if (args->socket != -1)
 	{
-		socketconnect_close(our_socket);
+		DLOG(TEST_POLICY_NOISY_DEBUG2, "Finished - trying to close socket %d\n", args->socket);
+		socketconnect_close(args->socket);
+		DLOG(TEST_POLICY_NOISY_DEBUG2, "Closed socket \n");
 	}
 	_muacc_free_socketopts(args->options);
 	free(argp);
@@ -331,10 +339,12 @@ void *test_worker (void *argp) {
 }
 
 int test_run (int *our_socket, const char* url, socketopt_t *options, int family, int socktype, int protocol, int clearsocket) {
-	
+	DLOG(TEST_POLICY_NOISY_DEBUG0, "Starting test run\n");
 	int returnvalue = -1;
 	
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Socketconnect with %d\n", *our_socket);
 	returnvalue = socketconnect(our_socket, url, options, family, socktype, protocol);
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Socketconnect returned code %d, socket %d\n", returnvalue, *our_socket);
 
 	if (returnvalue == -1)
 	{
@@ -344,7 +354,12 @@ int test_run (int *our_socket, const char* url, socketopt_t *options, int family
 
 	char *buf = "testblah";
 	
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Writing teststring to socket %d\n", *our_socket);
 	returnvalue = write(*our_socket, buf, sizeof(buf));
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Writing returned value %d, trying to release socket %d now\n", returnvalue, *our_socket);
+	socketconnect_release(*our_socket);
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Released socket %d\n", *our_socket);
+
 	if (returnvalue == -1)
 	{
 		perror("Failed to write text on the socket:");
@@ -355,7 +370,9 @@ int test_run (int *our_socket, const char* url, socketopt_t *options, int family
 	{	
 		if (*our_socket != -1)
 		{
+			DLOG(TEST_POLICY_NOISY_DEBUG2, "Clearing and closing socket %d\n", *our_socket);
 			socketconnect_close(*our_socket);
+			DLOG(TEST_POLICY_NOISY_DEBUG2, "Socket closed.\n");
 		}
 		*our_socket = -1; // Clearing socket
 	}
