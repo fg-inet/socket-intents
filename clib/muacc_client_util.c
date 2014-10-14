@@ -39,7 +39,7 @@ int muacc_init_context(struct muacc_context *ctx)
 		return(-1);
 	_ctx->ctxid = _get_ctxid();
 
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1,"context successfully initialized\n");
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0,"Context successfully initialized\n");
 
 	ctx->usage = 1;
 	ctx->locks = 0;
@@ -198,7 +198,7 @@ int _muacc_contact_mam (muacc_mam_action_t reason, muacc_context_t *ctx)
 		goto _muacc_contact_mam_connect_err;
 	}
 
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "packing request\n");
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "packing request\n");
 
 	/* pack request */
 	if( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_contact_mam_pack_err;
@@ -215,11 +215,11 @@ int _muacc_contact_mam (muacc_mam_action_t reason, muacc_context_t *ctx)
 	}
 	else
 	{
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "request sent  - %ld of %ld bytes\n", (long int) ret, (long int) pos);
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "request sent  - %ld of %ld bytes\n", (long int) ret, (long int) pos);
 	}
 
 	/* read & unpack response */
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "processing response:\n");
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Processing response:\n");
 	pos = 0;
 	while( (ret = _muacc_read_tlv(ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0)
 	{
@@ -443,7 +443,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 	}
 
 	/* read & unpack response */
-    DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Getting response:\n");
+    DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Getting response:\n");
     pos = 0;
 	int ret2 = -1;
 
@@ -455,11 +455,11 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Got action tag, data= %d\n", *(muacc_mam_action_t *) data);
 			if (*(muacc_mam_action_t *) data == muacc_act_socketchoose_resp_existing)
 			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "MAM says: Use existing socket!\n");
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "MAM says: Use existing socket!\n");
 			}
 			else if (*(muacc_mam_action_t *) data == muacc_act_socketchoose_resp_new)
 			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "MAM says: Open a new socket!\n");
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "MAM says: Open a new socket!\n");
 				*socket = -1;
 				returnvalue = 1;
 			}
@@ -516,7 +516,8 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 			}
 		}
     }
-    DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "processing response done: pos=%li last_res=%li done\n", (long int) pos, (long int) ret);
+    DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Processing response done, returnvalue = %d, socket = %d\n", returnvalue, *socket);
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "pos=%li last_res=%li \n", (long int) pos, (long int) ret);
 
 	return returnvalue;
 }
@@ -548,7 +549,7 @@ int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
 	struct socketset *set = NULL;
 	struct socketset *prevset = NULL;
 
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Trying to delete set for socket %d\n", socket);
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Trying to delete set for socket %d\n", socket);
 
 	while (currentlist != NULL)
 	{

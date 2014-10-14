@@ -487,7 +487,7 @@ int muacc_close(muacc_context_t *ctx,
 
 int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domain, int type, int proto)
 {
-	DLOG(CLIB_IF_NOISY_DEBUG0, "Socketconnect request invoked\n");
+	DLOG(CLIB_IF_NOISY_DEBUG0, "Socketconnect request invoked, socket: %d\n", *s);
 	if (s == NULL)
 		return -1;
 
@@ -749,6 +749,7 @@ int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set)
 
 int socketconnect_close(int socket)
 {
+	DLOG(CLIB_IF_NOISY_DEBUG0, "Trying to close socket %d and remove it from list\n", socket);
 	if (_muacc_remove_socket_from_list(&sockets, socket) == -1)
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG1, "Could not remove socket %d from socketset list\n", socket);
