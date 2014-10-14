@@ -27,6 +27,7 @@ typedef struct muacc_context
 typedef struct socketset
 {
 	int		file;				/**< File descriptor */
+	uint8_t locks;              /**< lock to avoid concurrent usage - 0 = free, 1 = in use */
 	struct	_muacc_ctx *ctx;
 	struct	socketset *next;
 } socketset_t;
@@ -114,5 +115,11 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s);
  *  @return 0 if successful, -1 if fail
  */
 int socketconnect_close(int socket);
+
+/** Release a socket, marking it as no longer in use within its socket set, so it can be reused from now on
+ *
+ *  @return 0 if successful, -1 if fail
+ */
+int socketconnect_release(int socket);
 
 #endif

@@ -706,8 +706,18 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 		}
 		else
 		{
-			DLOG(CLIB_IF_NOISY_DEBUG2, "Socket was successfully connected\n");
-			_muacc_add_socket_to_list(&sockets, *s, ctx->ctx);
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Socket was successfully connected. Adding %d to list.\n", *s);
+			struct socketset *set = _muacc_add_socket_to_list(&sockets, *s, ctx->ctx);
+			if (set != NULL)
+			{
+				// Locking socket, so no other thread will use it until released
+				set->locks = 1;
+			}
+			else
+			{
+				DLOG(CLIB_IF_NOISY_DEBUG1, "Error adding %d to list.\n", *s);
+			}
+
 			if (CLIB_IF_NOISY_DEBUG2)
 			{
 				printf("Added socket to list:\n");
@@ -762,4 +772,33 @@ int socketconnect_close(int socket)
 	}
 
 	return 0;
+}
+
+int socketconnect_release(int socket)
+{
+	DLOG(CLIB_IF_NOISY_DEBUG0, "Releasing socket %d and marking it as free for reuse\n", socket);
+	struct socketset *set = _muacc_find_socketset(sockets, socket);
+	if (set == NULL)
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG1, "Socket %d not found in list - cannot release it\n", socket);
+		return -1;
+	}
+	else
+	{
+		while (set->file != socket && set != NULL)
+		{
+			set = set->next;
+		}
+		if (set == NULL)
+		{
+			DLOG(CLIB_IF_NOISY_DEBUG1, "Socket %d not found in list - cannot release it\n", socket);
+			return -1;
+		}
+		else
+		{
+			set->locks = 0;
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Set entry of socket %d found and lock released\n", socket);
+			return 0;
+		}
+	}
 }

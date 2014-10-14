@@ -263,7 +263,7 @@ int muacc_free_socket_option_list(struct socketopt *opts)
 	return -1;
 }
 
-int _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muacc_ctx *ctx)
+struct socketset* _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muacc_ctx *ctx)
 {
 	struct socketset *set = NULL;
 	struct socketlist *newlist = NULL;
@@ -275,6 +275,7 @@ int _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muac
 		newlist->set = malloc(sizeof(struct socketset));
 		newlist->set->next = NULL;
 		newlist->set->file = socket;
+		newlist->set->locks = 0;
 		newlist->set->ctx = _muacc_clone_ctx(ctx);
 
 		if (*list == NULL)
@@ -289,6 +290,7 @@ int _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muac
 			}
 			(*list)->next = newlist;
 		}
+		return newlist->set;
 	}
 	else
 	{
@@ -300,9 +302,11 @@ int _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muac
 		set->next = malloc(sizeof(struct socketset));
 		set->next->next = NULL;
 		set->next->file = socket;
+		set->next->locks = 0;
 		set->next->ctx = _muacc_clone_ctx(ctx);
+		return set->next;
 	}
-	return 0;
+	return NULL;
 }
 
 struct socketset *_muacc_find_set_for_socket(struct socketlist *list, struct _muacc_ctx *ctx)
@@ -347,6 +351,7 @@ void muacc_print_socketlist(struct socketlist *list)
 			strbuf_init(&sb);
 
 			printf("{ file = %d\n", set->file);
+			printf("locks = %d\n", set->locks);
 			printf("ctx = ");
 			_muacc_print_ctx(&sb, set->ctx);
 			printf("%s", strbuf_export(&sb));
@@ -375,6 +380,8 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 
 	muacc_mam_action_t reason = muacc_act_socketchoose_req;
 
+	const struct socketset *origset = set;
+
 	if ( _muacc_connect_ctx_to_mam(ctx) != 0 )
 	{
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "WARNING: failed to contact MAM\n");
@@ -396,18 +403,25 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 	}
 
 	/* Pack contexts from socketset */
+	set = (struct socketset *) origset;
 	while (set != NULL)
 	{
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Packing socket set file %d\n", set->file);
-		if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), socketset_file, &(set->file), sizeof(int)) )
 		{
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing socketset file descriptor %d\n", set->file);
-			return -1;
 		}
-		if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), set->ctx) )
+		// Suggest all sockets that are currently not locked to MAM
+		if (set->locks == 0)
 		{
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing socket set context of %d\n", set->file);
-			return -1;
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Packing socket set file %d\n", set->file);
+			if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), socketset_file, &(set->file), sizeof(int)) )
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing socketset file descriptor %d\n", set->file);
+				return -1;
+			}
+			if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), set->ctx) )
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing socket set context of %d\n", set->file);
+				return -1;
+			}
 		}
 		set = set->next;
 	}
@@ -462,9 +476,33 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 		}
 		else if (tag == socketset_file && data_len == sizeof(int))
 		{
-			memcpy(socket, (int *)data, data_len);
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Use socket %d from set.\n", *socket);
-			returnvalue = 0;
+			set = (struct socketset *) origset;
+			while (set != NULL && set->file != *(int *) data)
+			{
+				set = set->next;
+			}
+
+			if (set == NULL)
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d suggested, but not found in set\n", *(int *)data);
+				*socket = -1;
+				returnvalue = 1;
+			}
+			else if (set->locks == 0)
+			{
+				// Socket is not locked yet and can be used -- locking it now
+				set->locks = 1;
+				memcpy(socket, (int *)data, data_len);
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Use socket %d from set - locking it\n", *socket);
+				returnvalue = 0;
+			}
+			else
+			{
+				// Socket is already locked, so we cannot use it
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d suggested, but is already locked and cannot be used\n", *(int *) data);
+				*socket = -1;
+				returnvalue = 1;
+			}
 		}
         else if( tag == eof )
             break;

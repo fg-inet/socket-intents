@@ -99,7 +99,7 @@ int muacc_free_socket_option_list(socketopt_t *opts);
  *
  * @return 0 on success, a negative number otherwise
  */
-int _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muacc_ctx *ctx);
+struct socketset* _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muacc_ctx *ctx);
 
 /** Find the socket set that contains the given socket, if any
  *
