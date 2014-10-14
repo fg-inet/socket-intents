@@ -735,19 +735,8 @@ int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set)
 
 	if (ret == 0)
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG2, "Chose existing socket\n");
-		struct socketset *set_of_socket = _muacc_socketset_find_file(set, *s);
-		if (set_of_socket != NULL)
-		{
-			/* Update socket context stored in socket set and returning */
-			memcpy(set_of_socket->ctx, ctx->ctx, sizeof(struct _muacc_ctx));
-			return 0;
-		}
-			else
-		{
-			DLOG(CLIB_IF_NOISY_DEBUG1, "Error finding socket in set - creating a new one after all\n");
-			return _muacc_socketconnect_create(ctx, s);
-		}
+		DLOG(CLIB_IF_NOISY_DEBUG2, "Chose existing socket %d\n", *s);
+		return 0;
 	}
 	else if (ret == 1)
 	{
