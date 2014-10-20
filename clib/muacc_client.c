@@ -24,7 +24,12 @@
 #define CLIB_IF_NOISY_DEBUG2 0
 #endif
 
+#ifndef CLIB_IF_LOCKS
+#define CLIB_IF_LOCKS 0
+#endif
+
 struct socketlist *sockets = NULL;
+pthread_rwlock_t socketlist_lock = PTHREAD_RWLOCK_INITIALIZER;
 
 int muacc_socket(muacc_context_t *ctx,
         int domain, int type, int protocol)
@@ -526,20 +531,24 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 	else
 	{
 		/* Socket exists - Search for corresponding socket set */
-		struct socketset *set;
+		struct socketlist *slist;
 		int ret;
 
-		if ((set = _muacc_find_socketset(sockets, *s)) != NULL)
+		DLOG(CLIB_IF_LOCKS, "Getting global lock\n");
+		pthread_rwlock_wrlock(&socketlist_lock);
+		if ((slist = _muacc_find_socketlist(sockets, *s)) != NULL)
 		{
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Found Socket Set\n");
 			if (_muacc_parse_url_to_ctx(&ctx, url) != 0)
 			{
 				DLOG(CLIB_IF_NOISY_DEBUG2, "No URL given this time - trying to take the one from the set\n");
-				_muacc_parse_url_to_ctx(&ctx, set->ctx->remote_hostname);
+				_muacc_parse_url_to_ctx(&ctx, slist->set->ctx->remote_hostname);
 			}
 		}
 		else
 		{
+			DLOG(CLIB_IF_LOCKS, "Set not found - Unlocking global lock\n");
+			pthread_rwlock_unlock(&socketlist_lock);
 			DLOG(CLIB_IF_NOISY_DEBUG1, "Socket not in set - creating new one.\n");
 			if ((ret = _socketconnect_request(&ctx, s, url)) == -1)
 			{
@@ -556,20 +565,26 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 
 		}
 
-		if ((ret = _socketchoose_request (&ctx, s, set)) == -1)
+		if ((ret = _socketchoose_request (&ctx, s, slist)) == -1)
 		{
+			DLOG(CLIB_IF_LOCKS, "Socketchoose error - Unlocking global lock\n");
+			pthread_rwlock_unlock(&socketlist_lock);
 			DLOG(CLIB_IF_NOISY_DEBUG1, "Socketchoose error!\n");
 			muacc_release_context(&ctx);
 			return -1;
 		}
 		else if (ret == 1)
 		{
+			DLOG(CLIB_IF_LOCKS, "Opened new socket - Unlocking global lock\n");
+			pthread_rwlock_unlock(&socketlist_lock);
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Successfully opened new socket.\n");
 			muacc_release_context(&ctx);
 			return 1;
 		}
 		else
 		{
+			DLOG(CLIB_IF_LOCKS, "Chose existing socket - Unlocking global lock\n");
+			pthread_rwlock_unlock(&socketlist_lock);
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Successfully chose existing socket.\n");
 			muacc_release_context(&ctx);
 			return 0;
@@ -707,31 +722,30 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 		else
 		{
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Socket was successfully connected. Adding %d to list.\n", *s);
-			struct socketset *set = _muacc_add_socket_to_list(&sockets, *s, ctx->ctx);
-			if (set != NULL)
+
+			struct socketlist *slist = _muacc_add_socket_to_list(&sockets, *s, ctx->ctx);
+
+			if (slist != NULL)
 			{
-				// Locking socket, so no other thread will use it until released
-				set->locks = 1;
+				if (CLIB_IF_NOISY_DEBUG2)
+				{
+					DLOG(CLIB_IF_NOISY_DEBUG2, "Socket %d was successfully added:\n", *s);
+					muacc_print_socketlist(sockets);
+				}
 			}
 			else
 			{
-				DLOG(CLIB_IF_NOISY_DEBUG1, "Error adding %d to list.\n", *s);
-			}
-
-			if (CLIB_IF_NOISY_DEBUG2)
-			{
-				printf("Added socket to list:\n");
-				muacc_print_socketlist(sockets);
+				DLOG(CLIB_IF_NOISY_DEBUG1, "Socket %d could not be added!\n", *s);
 			}
 			return 1;
 		}
 	}
 }
 
-int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set)
+int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketlist *slist)
 {
 	int ret = -1;
-	ret = _muacc_send_socketchoose (ctx, s, set);
+	ret = _muacc_send_socketchoose (ctx, s, slist);
 
 	if (ret == 0)
 	{
@@ -750,10 +764,14 @@ int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set)
 int socketconnect_close(int socket)
 {
 	DLOG(CLIB_IF_NOISY_DEBUG0, "Trying to close socket %d and remove it from list\n", socket);
+	DLOG(CLIB_IF_LOCKS, "Getting global lock\n");
+	pthread_rwlock_wrlock(&socketlist_lock);
 	if (_muacc_remove_socket_from_list(&sockets, socket) == -1)
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG1, "Could not remove socket %d from socketset list\n", socket);
 	}
+	DLOG(CLIB_IF_LOCKS, "Tried to clean up set - Unlocking global lock\n");
+	pthread_rwlock_unlock(&socketlist_lock);
 
 	if (close(socket) == -1)
 	{
@@ -767,14 +785,19 @@ int socketconnect_close(int socket)
 int socketconnect_release(int socket)
 {
 	DLOG(CLIB_IF_NOISY_DEBUG0, "Releasing socket %d and marking it as free for reuse\n", socket);
-	struct socketset *set = _muacc_find_socketset(sockets, socket);
-	if (set == NULL)
+	DLOG(CLIB_IF_LOCKS, "Getting global lock\n");
+	pthread_rwlock_wrlock(&socketlist_lock);
+	struct socketlist *list_to_release = _muacc_find_socketlist(sockets, socket);
+	if (list_to_release == NULL || list_to_release->set == NULL)
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG1, "Socket %d not found in list - cannot release it\n", socket);
+		DLOG(CLIB_IF_LOCKS, "Socket not found - Unlocking global lock\n");
+		pthread_rwlock_unlock(&socketlist_lock);
 		return -1;
 	}
 	else
 	{
+		struct socketset *set = list_to_release->set;
 		while (set->file != socket && set != NULL)
 		{
 			set = set->next;
@@ -782,12 +805,16 @@ int socketconnect_release(int socket)
 		if (set == NULL)
 		{
 			DLOG(CLIB_IF_NOISY_DEBUG1, "Socket %d not found in list - cannot release it\n", socket);
+			DLOG(CLIB_IF_LOCKS, "Socket not found in set - Unlocking global lock\n");
+			pthread_rwlock_unlock(&socketlist_lock);
 			return -1;
 		}
 		else
 		{
 			set->locks = 0;
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Set entry of socket %d found and lock released\n", socket);
+			DLOG(CLIB_IF_LOCKS, "Released - Unlocking global lock\n");
+			pthread_rwlock_unlock(&socketlist_lock);
 			return 0;
 		}
 	}

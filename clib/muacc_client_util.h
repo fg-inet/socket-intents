@@ -83,12 +83,6 @@ int _muacc_connect_ctx_to_mam(muacc_context_t *ctx) ;
  */
 int muacc_set_intent(socketopt_t **opts, int optname, const void *optval, socklen_t optlen, int flags);
 
-typedef struct socketlist
-{
-	struct socketset 	*set;
-	struct socketlist 	*next;
-} socketlist_t;
-
 /** Free a list of socket options
  *
  * @return 0 on success, a negative number otherwise
@@ -99,19 +93,20 @@ int muacc_free_socket_option_list(socketopt_t *opts);
  *
  * @return 0 on success, a negative number otherwise
  */
-struct socketset* _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muacc_ctx *ctx);
+struct socketlist* _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muacc_ctx *ctx);
 
-/** Find the socket set that contains the given socket, if any
+/** Find the socket list that contains the socket set with the given socket, if any
+ *  Goes through the socket list and locks all items, releasing them if they do not contain the set
  *
- * @return Pointer to the start of the socket set, if found, or NULL
+ * @return Pointer to the socket list that contains the set, if found, or NULL
  */
-struct socketset *_muacc_find_socketset(struct socketlist *list, int socket);
+struct socketlist *_muacc_find_socketlist(struct socketlist *list, int socket);
 
 /** Find a socket set that matches the socket
  *
  * @return Pointer to the socket set if found, or NULL
  */
-struct socketset *_muacc_find_set_for_socket(struct socketlist *list, struct _muacc_ctx *ctx);
+struct socketlist *_muacc_find_list_for_socket(struct socketlist *list, struct _muacc_ctx *ctx);
 
 /** Print contents of a socket list
  *
@@ -122,7 +117,7 @@ void muacc_print_socketlist(struct socketlist *list);
  *
  * @return 0 for choosing existing socket, 1 for opening new socket, -1 otherwise
  */
-int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketset *set);
+int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketlist *slist);
 
 /** Find socketset that is a duplicate of the given one (i.e. has different file descriptor but same context)
  * 

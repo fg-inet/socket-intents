@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <pthread.h>
 
 #include "muacc_util.h"
 
@@ -31,6 +32,12 @@ typedef struct socketset
 	struct	_muacc_ctx *ctx;
 	struct	socketset *next;
 } socketset_t;
+
+typedef struct socketlist
+{
+	struct socketset 	*set;
+	struct socketlist 	*next;
+} socketlist_t;
 
 /** wrapper for socket, initializes an uninitialized context
  *
@@ -102,13 +109,19 @@ int _socketconnect_request(muacc_context_t *ctx, int *s, const char *url);
  *
  *  @return 0 if existing socket was chosen, 1 if new socket was created, -1 if fail
  */
-int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set);
+int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketlist *slist);
 
 /** Process a socketconnect response, create a new socket, bind and connect it
  *
  *  @return 1 if successful, -1 if fail
  */
 int _muacc_socketconnect_create(muacc_context_t *ctx, int *s);
+
+/** Send a socketchoose request or open a new socket
+ *
+ *  @return 0 if successful, -1 if fail
+ */
+int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketlist *slist);
 
 /** Close a socket that was supplied by socketconnect, drop it from the socket set
  *

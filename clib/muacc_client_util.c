@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <netdb.h>
 #include <errno.h>
+#include <pthread.h>
 
 #include "uriparser/Uri.h"
 
@@ -263,19 +264,30 @@ int muacc_free_socket_option_list(struct socketopt *opts)
 	return -1;
 }
 
-struct socketset* _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muacc_ctx *ctx)
+struct socketlist* _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muacc_ctx *ctx)
 {
-	struct socketset *set = NULL;
+	struct socketlist *slist = NULL;
 	struct socketlist *newlist = NULL;
-	if ((set = _muacc_find_set_for_socket(*list, ctx)) == NULL)
+
+	if ((slist = _muacc_find_list_for_socket(*list, ctx)) == NULL)
 	{
 		/* No matching socket set - create it */
 		newlist = malloc(sizeof(struct socketlist));
+		if (newlist == NULL)
+		{
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Could not allocate memory for socket %d!\n", socket);
+			return NULL;
+		}
 		newlist->next = NULL;
 		newlist->set = malloc(sizeof(struct socketset));
+		if (newlist->set == NULL)
+		{
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Could not allocate memory for set of socket %d!\n", socket);
+			return NULL;
+		}
 		newlist->set->next = NULL;
 		newlist->set->file = socket;
-		newlist->set->locks = 0;
+		newlist->set->locks = 1;
 		newlist->set->ctx = _muacc_clone_ctx(ctx);
 
 		if (*list == NULL)
@@ -290,32 +302,39 @@ struct socketset* _muacc_add_socket_to_list(struct socketlist **list, int socket
 			}
 			(*list)->next = newlist;
 		}
-		return newlist->set;
+		return newlist;
 	}
 	else
 	{
+		struct socketset *set = slist->set;
+
 		/* Add socket to existing socket set */
 		while (set->next != NULL)
 		{
 			set = set->next;
 		}
 		set->next = malloc(sizeof(struct socketset));
+		if (set->next == NULL)
+		{
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Could not allocate memory for set of socket %d!\n", socket);
+			return NULL;
+		}
 		set->next->next = NULL;
 		set->next->file = socket;
-		set->next->locks = 0;
+		set->next->locks = 1;
 		set->next->ctx = _muacc_clone_ctx(ctx);
-		return set->next;
+		return slist;
 	}
 	return NULL;
 }
 
-struct socketset *_muacc_find_set_for_socket(struct socketlist *list, struct _muacc_ctx *ctx)
+struct socketlist *_muacc_find_list_for_socket(struct socketlist *list, struct _muacc_ctx *ctx)
 {
 	while (list != NULL && list->set != NULL)
 	{
 		if (list->set->ctx->domain == ctx->domain && list->set->ctx->type == ctx->type && list->set->ctx->protocol == ctx->protocol && (strncmp(list->set->ctx->remote_hostname, ctx->remote_hostname, 255) == 0) && list->set->ctx->remote_port == ctx->remote_port)
 		{
-			return list->set;
+			return list;
 		}
 
 		list = list->next;
@@ -324,17 +343,21 @@ struct socketset *_muacc_find_set_for_socket(struct socketlist *list, struct _mu
 	return NULL;
 }
 
-struct socketset *_muacc_find_socketset(struct socketlist *list, int socket)
+struct socketlist *_muacc_find_socketlist(struct socketlist *list, int socket)
 {
-	struct socketset *anchor = NULL;
+	struct socketlist *prevlist = NULL;
 	while (list != NULL )
 	{
-		anchor = list->set;
+
 		struct socketset *set = _muacc_socketset_find_file (list->set, socket);
+
 		if (set != NULL)
-			return anchor;
+			return list;
+
+		prevlist = list;
 		list = list->next;
 	}
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socketlist for %d not found\n", socket);
 	return NULL;
 }
 
@@ -366,7 +389,7 @@ void muacc_print_socketlist(struct socketlist *list)
 	printf("}\n\n");
 }
 
-int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketset *set)
+int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketlist *slist)
 {
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Sending socketchoose\n");
 	int returnvalue = -1;
@@ -380,7 +403,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 
 	muacc_mam_action_t reason = muacc_act_socketchoose_req;
 
-	const struct socketset *origset = set;
+	struct socketset *set = slist->set;
 
 	if ( _muacc_connect_ctx_to_mam(ctx) != 0 )
 	{
@@ -403,11 +426,8 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 	}
 
 	/* Pack contexts from socketset */
-	set = (struct socketset *) origset;
 	while (set != NULL)
 	{
-		{
-		}
 		// Suggest all sockets that are currently not locked to MAM
 		if (set->locks == 0)
 		{
@@ -476,7 +496,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 		}
 		else if (tag == socketset_file && data_len == sizeof(int))
 		{
-			set = (struct socketset *) origset;
+			set = slist->set;
 			while (set != NULL && set->file != *(int *) data)
 			{
 				set = set->next;
@@ -544,52 +564,63 @@ int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
 	struct socketlist *currentlist = *list;
 	struct socketset *currentset = NULL;
 
-	struct socketlist *base = NULL;
+	struct socketlist *list_to_delete = NULL;
 	struct socketlist *prevlist = NULL;
-	struct socketset *set = NULL;
+	struct socketset *set_to_delete = NULL;
 	struct socketset *prevset = NULL;
 
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Trying to delete set for socket %d\n", socket);
 
 	while (currentlist != NULL)
 	{
+
 		// Go through list of socket sets
 		currentset = currentlist->set;
 
-		if (currentset->next == NULL)
+		if (currentset->file == socket)
 		{
-			// This set contains only one socket
-			if (currentset->file == socket)
+			// First set matches!
 			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Found set to delete for %d\n", socket);
-				set = currentset; // Found the set to delete!
-				base = currentlist; // Store list entry of set
-				prevset = NULL;
-				break;
 			}
+
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: First set matches!\n", socket);
+			set_to_delete = currentset; // Found the set to delete!
+			list_to_delete = currentlist; // Store list entry of set
+			prevset = NULL;
+			break;
 		}
-		else
+
+		while (currentset->next != NULL)
 		{
-			// This set contains more than one socket
-			while (currentset->next != NULL)
+
+			// Set has more than one socket, iterate through it
+			if (currentset->next->file == socket)
 			{
-				if (currentset->next->file == socket)
+				// Socket matches!
 				{
-					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Found set to delete for %d\n", socket);
-					set = currentset->next; // Found the set to delete!
-					base = currentlist; // Store list entry of set
-					prevset = currentset;
-					break;
 				}
 
-				currentset = currentset->next;
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Found set to delete\n", socket);
+				set_to_delete = currentset->next; // Found the set to delete!
+				list_to_delete = currentlist; // Store list entry of set
+				prevset = currentset;
 			}
+
+			currentset = currentset->next;
 		}
+
+		if (set_to_delete != NULL)
+		{
+			// Found set to delete!
+			break;
+		}
+
 		prevlist = currentlist;
+
 		currentlist = currentlist->next;
 	}
 
-	if (set == NULL || base == NULL)
+	if (set_to_delete == NULL || list_to_delete == NULL)
 	{
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d not found in set!\n", socket);
 		return -1;
@@ -597,39 +628,44 @@ int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
 	else
 	{
 		// Free context if no other file descriptor needs it
-		if (_muacc_socketset_find_dup(set) == NULL)
+		if (_muacc_socketset_find_dup(set_to_delete) == NULL)
 		{
 			// No duplicate (i.e., no other file descriptor shares this socket/context)
-			_muacc_free_ctx(set->ctx);
+			_muacc_free_ctx(set_to_delete->ctx);
 		}
 
 		// Re-adjust pointers
 		if (prevset != NULL)
 		{
-			prevset->next = set->next;
+			prevset->next = set_to_delete->next;
 		}
 
 		// Remove socket set entry
-		free(set);
+		free(set_to_delete);
 
 		if (prevset == NULL)
 		{
-			// This was the only socket in the set - clear the list entry
+			// This was the only socket in the set - clear this list entry, release prev
 			if (prevlist != NULL)
 			{
 				// Set the pointer of the previous list entry
-				prevlist->next = base->next;
+				prevlist->next = list_to_delete->next;
 			}
 			else
 			{
 				// We freed the first list entry - set the list head
-				*list = base->next;
+				*list = list_to_delete->next;
 			}
-			free(base);
-		}
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Socketset successfully cleared\n");
 
+			free(list_to_delete);
+		}
+		else
+		{
+			// Release this list entry and prev
+		}
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Set for socket %d successfully cleared\n", socket);
 	}
+
 	return 0;
 }
 
