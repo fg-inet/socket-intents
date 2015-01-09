@@ -67,7 +67,7 @@ struct test_worker_args {
 };
 
 void *test_worker (void *args);
-int test_run (int *our_socket, const char* url, socketopt_t *options, int family, int socktype, int protocol, int clearsocket);
+int test_run (int *our_socket, const char* url, socketopt_t *options, int family, int socktype, int protocol, int clearsocket, int tid);
 
 void print_usage(char *argv[], void *args[])
 {
@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
 		
 		for (int try = 0; try < arg_times->ival[0]; try++)
 		{
-			ret = test_run (&our_socket, *arg_url->sval, options, family, socktype, *arg_protocol->ival, (arg_clearsocket->count > 0));
+			ret = test_run (&our_socket, *arg_url->sval, options, family, socktype, *arg_protocol->ival, (arg_clearsocket->count > 0), 0);
 
 			if (ret != 0) {
 				printf("Try #%d: FAILED - exiting\n", try+1);
@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
 				
 		int ret = -1;
 		
-		ret = test_run (&our_socket, *arg_url->sval, options, family, socktype, *arg_protocol->ival, (arg_clearsocket->count > 0));
+		ret = test_run (&our_socket, *arg_url->sval, options, family, socktype, *arg_protocol->ival, (arg_clearsocket->count > 0), 0);
 		
 		if (ret != 0) {
 			printf("Initial Try FAILED - exiting\n");
@@ -311,7 +311,7 @@ void *test_worker (void *argp) {
 	for (try = 0; try < args->times; try++)
 	{
 
-			ret = test_run ( &(args->socket), args->url, args->options, args->family, args->socktype, args->protocol, args->clearsocket);
+			ret = test_run ( &(args->socket), args->url, args->options, args->family, args->socktype, args->protocol, args->clearsocket, args->thread_id);
 			if (ret != 0) {
 				printf("Thread %d Try #%d: FAILED - exiting\n", args->thread_id, try+1);
 				goto exit_test_worker;
@@ -328,23 +328,24 @@ void *test_worker (void *argp) {
 
 	if (args->socket != -1)
 	{
-		DLOG(TEST_POLICY_NOISY_DEBUG2, "Finished - trying to close socket %d\n", args->socket);
+		DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Finished - trying to close socket %d\n", args->thread_id, args->socket);
 		socketconnect_close(args->socket);
-		DLOG(TEST_POLICY_NOISY_DEBUG2, "Closed socket \n");
+		DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Closed socket %d \n", args->thread_id, args->socket);
 	}
 	_muacc_free_socketopts(args->options);
 	free(argp);
 	
+	DLOG(TEST_POLICY_NOISY_DEBUG0, "Thread %d: Exiting\n", args->thread_id);
   pthread_exit((void*) ret);
 }
 
-int test_run (int *our_socket, const char* url, socketopt_t *options, int family, int socktype, int protocol, int clearsocket) {
-	DLOG(TEST_POLICY_NOISY_DEBUG0, "Starting test run\n");
+int test_run (int *our_socket, const char* url, socketopt_t *options, int family, int socktype, int protocol, int clearsocket, int tid) {
+	DLOG(TEST_POLICY_NOISY_DEBUG0, "Thread %d: Starting test run\n", tid);
 	int returnvalue = -1;
 	
-	DLOG(TEST_POLICY_NOISY_DEBUG2, "Socketconnect with %d\n", *our_socket);
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Socketconnect with %d\n", tid, *our_socket);
 	returnvalue = socketconnect(our_socket, url, options, family, socktype, protocol);
-	DLOG(TEST_POLICY_NOISY_DEBUG2, "Socketconnect returned code %d, socket %d\n", returnvalue, *our_socket);
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Socketconnect returned code %d, socket %d\n", tid, returnvalue, *our_socket);
 
 	if (returnvalue == -1)
 	{
@@ -354,11 +355,11 @@ int test_run (int *our_socket, const char* url, socketopt_t *options, int family
 
 	char *buf = "testblah";
 	
-	DLOG(TEST_POLICY_NOISY_DEBUG2, "Writing teststring to socket %d\n", *our_socket);
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Writing teststring to socket %d\n", tid, *our_socket);
 	returnvalue = write(*our_socket, buf, sizeof(buf));
-	DLOG(TEST_POLICY_NOISY_DEBUG2, "Writing returned value %d, trying to release socket %d now\n", returnvalue, *our_socket);
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Writing returned value %d, trying to release socket %d now\n", tid, returnvalue, *our_socket);
 	socketconnect_release(*our_socket);
-	DLOG(TEST_POLICY_NOISY_DEBUG2, "Released socket %d\n", *our_socket);
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Released socket %d\n", tid, *our_socket);
 
 	if (returnvalue == -1)
 	{
@@ -370,9 +371,9 @@ int test_run (int *our_socket, const char* url, socketopt_t *options, int family
 	{	
 		if (*our_socket != -1)
 		{
-			DLOG(TEST_POLICY_NOISY_DEBUG2, "Clearing and closing socket %d\n", *our_socket);
+			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Clearing and closing socket %d\n", tid, *our_socket);
 			socketconnect_close(*our_socket);
-			DLOG(TEST_POLICY_NOISY_DEBUG2, "Socket closed.\n");
+			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Socket closed.\n", tid);
 		}
 		*our_socket = -1; // Clearing socket
 	}
