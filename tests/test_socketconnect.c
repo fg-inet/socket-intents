@@ -329,8 +329,14 @@ void *test_worker (void *argp) {
 	if (args->socket != -1)
 	{
 		DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Finished - trying to close socket %d\n", args->thread_id, args->socket);
-		socketconnect_close(args->socket);
-		DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Closed socket %d \n", args->thread_id, args->socket);
+		if (socketconnect_close(args->socket) == 0)
+		{
+			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Closed socket %d \n", args->thread_id, args->socket);
+		}
+		else
+		{
+			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Failed to close socket %d \n", args->thread_id, args->socket);
+		}
 	}
 	_muacc_free_socketopts(args->options);
 	free(argp);
@@ -357,7 +363,7 @@ int test_run (int *our_socket, const char* url, socketopt_t *options, int family
 	
 	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Writing teststring to socket %d\n", tid, *our_socket);
 	returnvalue = write(*our_socket, buf, sizeof(buf));
-	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Writing returned value %d, trying to release socket %d now\n", tid, returnvalue, *our_socket);
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Writing on socket %d returned value %d, trying to release now\n", tid, *our_socket, returnvalue);
 	socketconnect_release(*our_socket);
 	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Released socket %d\n", tid, *our_socket);
 
