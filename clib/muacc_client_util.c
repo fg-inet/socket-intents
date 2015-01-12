@@ -199,16 +199,16 @@ int _muacc_contact_mam (muacc_mam_action_t reason, muacc_context_t *ctx)
 		goto _muacc_contact_mam_connect_err;
 	}
 
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "packing request\n");
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Serializing MAM context\n");
 
 	/* pack request */
 	if( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_contact_mam_pack_err;
 	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), ctx->ctx) ) goto  _muacc_contact_mam_pack_err;
 	if( 0 > _muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) ) goto  _muacc_contact_mam_pack_err;
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2,"packing request done\n");
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2,"Serializing MAM context done - Sending it to MAM\n");
 
 
-	/* send requst */
+	/* send request */
 	if( 0 > (ret = send(ctx->mamsock, buf, pos, 0)) )
 	{
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "WARNING: error sending request: %s\n", strerror(errno));
@@ -216,21 +216,19 @@ int _muacc_contact_mam (muacc_mam_action_t reason, muacc_context_t *ctx)
 	}
 	else
 	{
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "request sent  - %ld of %ld bytes\n", (long int) ret, (long int) pos);
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Request sent  - %ld of %ld bytes\n", (long int) ret, (long int) pos);
 	}
 
 	/* read & unpack response */
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Processing response:\n");
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Processing response \n");
 	pos = 0;
 	while( (ret = _muacc_read_tlv(ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0)
 	{
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "\tpos=%ld tag=%x, len=%ld\n", (long int) pos, tag, (long int) data_len);
 		if( tag == eof )
 			break;
 		else if ( 0 > _muacc_unpack_ctx(tag, data, data_len, ctx->ctx) )
 			goto  _muacc_contact_mam_parse_err;
 	}
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "processing response done: pos=%li last_res=%li done\n", (long int) pos, (long int) ret);
 	return(0);
 
 _muacc_contact_mam_connect_err:
@@ -238,7 +236,7 @@ _muacc_contact_mam_connect_err:
 
 _muacc_contact_mam_pack_err:
 
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "WARNING: failed to pack request\n");
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "WARNING: failed to serialize MAM context\n");
 	return(-1);
 
 _muacc_contact_mam_parse_err:
@@ -411,17 +409,17 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 		return -1;
 	}
 
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "packing request\n");
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Serializing MAM context\n");
 	if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), action, &reason, sizeof(muacc_mam_action_t)) )
 	{
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing label\n");
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing label\n");
 		return -1;
 	}
 
 	/* Pack context from request */
 	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), ctx->ctx) )
 	{
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing request context of %d\n", set->file);
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error serializing MAM context \n");
 		return -1;
 	}
 
@@ -431,15 +429,15 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 		// Suggest all sockets that are currently not locked to MAM
 		if (set->locks == 0)
 		{
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Packing socket set file %d\n", set->file);
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Pushing socket set file %d\n", set->file);
 			if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), socketset_file, &(set->file), sizeof(int)) )
 			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing socketset file descriptor %d\n", set->file);
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing socketset file descriptor %d\n", set->file);
 				return -1;
 			}
 			if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), set->ctx) )
 			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing socket set context of %d\n", set->file);
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing socket set context of %d\n", set->file);
 				return -1;
 			}
 		}
@@ -447,10 +445,10 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 	}
 	if( 0 > _muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) )
 	{
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error packing eof\n");
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing eof\n");
 		return -1;
 	}
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "packing request done\n");
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Pushing request done\n");
 
 	if ( 0 > (ret = send(ctx->mamsock, buf, pos, 0)) )
 	{
@@ -469,10 +467,8 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 
     while( (ret = _muacc_read_tlv(ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0)
     {
-        DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "\tpos=%ld tag=%x, len=%ld\n", (long int) pos, tag, (long int) data_len);
 		if (tag == action)
 		{
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Got action tag, data= %d\n", *(muacc_mam_action_t *) data);
 			if (*(muacc_mam_action_t *) data == muacc_act_socketchoose_resp_existing)
 			{
 				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "MAM says: Use existing socket!\n");
@@ -504,7 +500,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 
 			if (set == NULL)
 			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d suggested, but not found in set\n", *(int *)data);
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d suggested, but not found in set. Open a new one\n", *(int *)data);
 				*socket = -1;
 				returnvalue = 1;
 			}
@@ -519,7 +515,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 			else
 			{
 				// Socket is already locked, so we cannot use it
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d suggested, but is already locked and cannot be used\n", *(int *) data);
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d suggested, but is already locked and cannot be used. Open a new one after all\n", *(int *) data);
 				*socket = -1;
 				returnvalue = 1;
 			}
@@ -537,7 +533,6 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 		}
     }
     DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Processing response done, returnvalue = %d, socket = %d\n", returnvalue, *socket);
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "pos=%li last_res=%li \n", (long int) pos, (long int) ret);
 
 	return returnvalue;
 }
