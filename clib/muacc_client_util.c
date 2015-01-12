@@ -343,7 +343,6 @@ struct socketlist *_muacc_find_list_for_socket(struct socketlist *list, struct _
 
 struct socketlist *_muacc_find_socketlist(struct socketlist *list, int socket)
 {
-	struct socketlist *prevlist = NULL;
 	while (list != NULL )
 	{
 
@@ -352,7 +351,6 @@ struct socketlist *_muacc_find_socketlist(struct socketlist *list, int socket)
 		if (set != NULL)
 			return list;
 
-		prevlist = list;
 		list = list->next;
 	}
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socketlist for %d not found\n", socket);
