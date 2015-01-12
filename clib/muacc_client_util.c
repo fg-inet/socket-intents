@@ -580,8 +580,6 @@ int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
 		if (currentset->file == socket)
 		{
 			// First set matches!
-			{
-			}
 
 			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: First set matches!\n", socket);
 			set_to_delete = currentset; // Found the set to delete!
@@ -596,9 +594,7 @@ int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
 			// Set has more than one socket, iterate through it
 			if (currentset->next->file == socket)
 			{
-				// Socket matches!
-				{
-				}
+				// Socketset matches!
 
 				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Found set to delete\n", socket);
 				set_to_delete = currentset->next; // Found the set to delete!
@@ -626,7 +622,14 @@ int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
 		return -1;
 	}
 	else
-	{
+	{	
+		// Check if socket is still in use
+		if (set_to_delete->locks > 0)
+		{
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d is still in use -- aborting.\n", socket);
+			return -1;
+		}
+
 		// Free context if no other file descriptor needs it
 		if (_muacc_socketset_find_dup(set_to_delete) == NULL)
 		{
@@ -638,31 +641,37 @@ int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
 		if (prevset != NULL)
 		{
 			prevset->next = set_to_delete->next;
-		}
-
-		// Remove socket set entry
-		free(set_to_delete);
-
-		if (prevset == NULL)
-		{
-			// This was the only socket in the set - clear this list entry, release prev
-			if (prevlist != NULL)
-			{
-				// Set the pointer of the previous list entry
-				prevlist->next = list_to_delete->next;
-			}
-			else
-			{
-				// We freed the first list entry - set the list head
-				*list = list_to_delete->next;
-			}
-
-			free(list_to_delete);
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Readjusted set pointers\n", socket);
 		}
 		else
 		{
-			// Release this list entry and prev
+			if (set_to_delete->next != NULL)
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: This is the first socket in the set - readjusting pointer\n", socket);
+				list_to_delete->set = set_to_delete->next;
+			}
+			else
+			{
+			// This was the only socket in the set - clear this list entry, release prev
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: This is the ONLY socket in the set - freeing list\n", socket);
+				if (prevlist != NULL)
+				{
+					// Set the pointer of the previous list entry
+					prevlist->next = list_to_delete->next;
+					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Readjusted list pointers\n", socket);
+				}
+				else
+				{
+					// We freed the first list entry - set the list head
+					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Freed the first list entry, resetting head\n", socket);
+					*list = list_to_delete->next;
+				}
+
+				free(list_to_delete);
+			}
+			free(set_to_delete);
 		}
+
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Set for socket %d successfully cleared\n", socket);
 	}
 

@@ -768,18 +768,27 @@ int socketconnect_close(int socket)
 	pthread_rwlock_wrlock(&socketlist_lock);
 	if (_muacc_remove_socket_from_list(&sockets, socket) == -1)
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG1, "Could not remove socket %d from socketset list\n", socket);
-	}
-	DLOG(CLIB_IF_LOCKS, "Tried to clean up set - Unlocking global lock\n");
-	pthread_rwlock_unlock(&socketlist_lock);
+		DLOG(CLIB_IF_LOCKS, "Finished trying to clean up set - Unlocking global lock\n");
+		pthread_rwlock_unlock(&socketlist_lock);
 
-	if (close(socket) == -1)
-	{
-		DLOG(CLIB_IF_NOISY_DEBUG1, "Close failed: %s\n", strerror(errno));
+		DLOG(CLIB_IF_NOISY_DEBUG1, "Could not remove socket %d from socketset list\n", socket);
+
 		return -1;
 	}
+	else
+	{
+		DLOG(CLIB_IF_LOCKS, "Finished trying to clean up set - Unlocking global lock\n");
+		pthread_rwlock_unlock(&socketlist_lock);
 
-	return 0;
+		if (close(socket) == -1)
+		{
+			DLOG(CLIB_IF_NOISY_DEBUG1, "Close failed: %s\n", strerror(errno));
+			return -1;
+		}
+		DLOG(CLIB_IF_NOISY_DEBUG0, "Successfully closed and removed socket %d\n", socket);
+
+		return 0;
+	}
 }
 
 int socketconnect_release(int socket)
