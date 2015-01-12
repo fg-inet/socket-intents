@@ -492,7 +492,7 @@ int muacc_close(muacc_context_t *ctx,
 
 int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domain, int type, int proto)
 {
-	DLOG(CLIB_IF_NOISY_DEBUG0, "Socketconnect request invoked, socket: %d\n", *s);
+	DLOG(CLIB_IF_NOISY_DEBUG0, "Socketconnect invoked, socket: %d\n", *s);
 	if (s == NULL)
 		return -1;
 
