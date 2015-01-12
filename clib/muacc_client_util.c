@@ -507,8 +507,8 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 				// Socket is not locked yet and can be used -- locking it now
 				set->locks = 1;
 				memcpy(socket, (int *)data, data_len);
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Use socket %d from set - locking it\n", *socket);
-				returnvalue = 0;
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Use socket %d from set - locking it and returning\n", *socket);
+				return 0;
 			}
 			else
 			{
