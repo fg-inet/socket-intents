@@ -675,18 +675,18 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 
 		if (0 == bind(*s, ctx->ctx->bind_sa_suggested, ctx->ctx->bind_sa_suggested_len))
 		{
-			DLOG(CLIB_IF_NOISY_DEBUG2, "Bound socket to suggested local address\n");
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Bound socket %d to suggested local address\n", *s);
 		}
 		else
 		{
-			DLOG(CLIB_IF_NOISY_DEBUG1, "Error binding to local address: %s\n", strerror(errno));
+			DLOG(CLIB_IF_NOISY_DEBUG1, "Error binding socket %d to local address: %s\n", *s, strerror(errno));
 			return -1;
 		}
 	}
 
 	if (ctx->ctx->remote_sa == NULL)
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG1, "Got no remote address to connect to - fail\n");
+		DLOG(CLIB_IF_NOISY_DEBUG1, "Socket %d got no remote address to connect to - fail\n", *s);
 		return -1;
 	}
 	else
@@ -696,7 +696,7 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 		else if (ctx->ctx->domain == AF_INET6)
 			((struct sockaddr_in6 *) ctx->ctx->remote_sa)->sin6_port = htons(ctx->ctx->remote_port);
 
-		DLOG(CLIB_IF_NOISY_DEBUG2, "Attempting to connect the socket\n");
+		DLOG(CLIB_IF_NOISY_DEBUG2, "Attempting to connect socket %d\n", *s);
 		if (CLIB_IF_NOISY_DEBUG2)
 		{
 			printf("Remote address:\n");
@@ -706,7 +706,7 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 
 		if (0 != connect(*s, ctx->ctx->remote_sa, ctx->ctx->remote_sa_len))
 		{
-			DLOG(CLIB_IF_NOISY_DEBUG1, "Connection failed: %s\n", strerror(errno));
+			DLOG(CLIB_IF_NOISY_DEBUG1, "Socket %d Connection failed: %s\n", *s, strerror(errno));
 			return -1;
 		}
 		else
