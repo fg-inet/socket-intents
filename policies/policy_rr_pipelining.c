@@ -224,6 +224,11 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 		printf("\tSuggest using socket %d\n\n", suggestedsocket);
 		lastsocket = suggestedsocket;
 
+		/* Provide the information to open a new similar socket, in case the suggested socket cannot be used */
+		muacc_ctxid_t context_id = rctx->ctx->ctxid;
+		rctx->ctx = _muacc_clone_ctx(rctx->set->ctx);
+		rctx->ctx->ctxid = context_id;
+
 		_muacc_send_ctx_event(rctx, muacc_act_socketchoose_resp_existing);
 	}
 	else
