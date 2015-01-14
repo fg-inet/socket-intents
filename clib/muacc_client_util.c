@@ -447,6 +447,8 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 		return -1;
 	}
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Pushing request done\n");
+	DLOG(CLIB_IF_LOCKS, "LOCK: Pushed socket set - Unlocking global lock\n");
+	pthread_rwlock_unlock(&socketlist_lock);
 
 	if ( 0 > (ret = send(ctx->mamsock, buf, pos, 0)) )
 	{
@@ -462,6 +464,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
     DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Getting response:\n");
     pos = 0;
 	int ret2 = -1;
+	int set_in_use = 0;
 
     while( (ret = _muacc_read_tlv(ctx->mamsock, buf, &pos, sizeof(buf), &tag, &data, &data_len)) > 0)
     {
@@ -470,6 +473,11 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 			if (*(muacc_mam_action_t *) data == muacc_act_socketchoose_resp_existing)
 			{
 				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "MAM says: Use existing socket!\n");
+
+				pthread_rwlock_wrlock(&socketlist_lock);
+				DLOG(CLIB_IF_LOCKS, "LOCK: Checking socketset - Got global lock\n");
+				set_in_use = 1;
+
 			}
 			else if (*(muacc_mam_action_t *) data == muacc_act_socketchoose_resp_new)
 			{
@@ -490,30 +498,42 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 		}
 		else if (tag == socketset_file && data_len == sizeof(int))
 		{
-			set = slist->set;
-			while (set != NULL && set->file != *(int *) data)
+			if (set_in_use)
 			{
-				set = set->next;
-			}
+				set = slist->set;
+				while (set != NULL && set->file != *(int *) data)
+				{
+					set = set->next;
+				}
 
-			if (set == NULL)
-			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d suggested, but not found in set. Open a new one\n", *(int *)data);
-				*socket = -1;
-				returnvalue = 1;
-			}
-			else if (set->locks == 0)
-			{
-				// Socket is not locked yet and can be used -- locking it now
-				set->locks = 1;
-				memcpy(socket, (int *)data, data_len);
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Use socket %d from set - locking it and returning\n", *socket);
-				return 0;
+				if (set == NULL)
+				{
+					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d suggested, but not found in set. Open a new one\n", *(int *)data);
+					*socket = -1;
+					returnvalue = 1;
+				}
+				else if (set->locks == 0)
+				{
+					// Socket is not locked yet and can be used -- locking it now
+					set->locks = 1;
+					memcpy(socket, (int *)data, data_len);
+					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Use socket %d from set - locking it and returning\n", *socket);
+
+					DLOG(CLIB_IF_LOCKS, "LOCK: Found socket to use - Unlocking global lock\n");
+					pthread_rwlock_unlock(&socketlist_lock);
+					return 0;
+				}
+				else
+				{
+					// Socket is already locked, so we cannot use it
+					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d suggested, but is already locked and cannot be used. Open a new one\n", *(int *) data);
+					*socket = -1;
+					returnvalue = 1;
+				}
 			}
 			else
 			{
-				// Socket is already locked, so we cannot use it
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d suggested, but is already locked and cannot be used. Open a new one after all\n", *(int *) data);
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d suggested, but list not locked -- fail\n", *(int *)data);
 				*socket = -1;
 				returnvalue = 1;
 			}
@@ -526,12 +546,24 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 			if ( 0 > ret2 )
 			{
 				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error unpacking context\n");
+
+				if (set_in_use)
+				{
+					DLOG(CLIB_IF_LOCKS, "LOCK: End of socketchoose - Unlocking global lock\n");
+					pthread_rwlock_unlock(&socketlist_lock);
+				}
+
 				return -1;
 			}
 		}
     }
     DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Processing response done, returnvalue = %d, socket = %d\n", returnvalue, *socket);
 
+	if (set_in_use)
+	{
+		DLOG(CLIB_IF_LOCKS, "LOCK: End of socketchoose - Unlocking global lock\n");
+		pthread_rwlock_unlock(&socketlist_lock);
+	}
 	return returnvalue;
 }
 

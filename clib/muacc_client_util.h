@@ -13,6 +13,13 @@
 
 #include "muacc_client.h"
 
+/* socketlist lock */
+#ifndef CLIB_IF_LOCKS
+#define CLIB_IF_LOCKS 0
+#endif
+
+extern pthread_rwlock_t socketlist_lock;
+
 /** initialize background structures for muacc_context
  *
  * @return 0 on success, -1 otherwise
