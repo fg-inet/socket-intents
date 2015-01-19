@@ -16,3 +16,6 @@ ADD_LIBRARY(policy_intents MODULE policy_intents.c policy_util.c)
 SET_TARGET_PROPERTIES(policy_intents PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_intents mam ${GLIB2_LIBRARIES})
 
+INSTALL(TARGETS policy_sample policy_rr_naive policy_filesize policy_intents
+	DESTINATION "${CMAKE_INSTALL_PREFIX}/${POLICY_PATH}"
+)
