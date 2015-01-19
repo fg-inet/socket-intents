@@ -282,7 +282,7 @@ int main(int argc, char *argv[])
 		printf("================================================\n");
 
 
-		for(t = 0; t<arg_threads->ival[0]; t++)
+		for(t = 1; t<=arg_threads->ival[0]; t++)
 		{
 			void *status;
 			pthread_join(thread[t], &status); 
