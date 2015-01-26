@@ -2,8 +2,9 @@
  *  \brief Test utility for high-level socketconnect API and its policies
  *
  *	This test utility requests a new socket via the socketconnect call, which results in a
- *	socketconnect_request being sent. It succeeds if there is an answer and a socket can be
- *	set up accordingly.
+ *	new socketset being created. It subsequently makes some more writes on the socket while calling
+ *	socketconnect again, getting the same socket back, or a different one from the set.
+ *	The test succeeds if it is always able to send its data to the socket it has been given.
  */
 
 #ifndef _GNU_SOURCE
@@ -226,6 +227,18 @@ int main(int argc, char *argv[])
 				break;
 			} else {
 				printf("Try #%d: OK\n", try+1);
+				if (try+1 < arg_times->ival[0])
+				{
+					// Release socket if this is not the last run
+					if (0 != socketconnect_release(our_socket))
+					{
+						DLOG(TEST_POLICY_NOISY_DEBUG1, "Releasing socket %d failed.\n", our_socket);
+					}
+					else
+					{
+						DLOG(TEST_POLICY_NOISY_DEBUG2, "Released socket %d.\n", our_socket);
+					}
+				}
 			}
 		}
 		if (our_socket != -1)
@@ -245,6 +258,14 @@ int main(int argc, char *argv[])
 			printf("Initial Try FAILED - exiting\n");
 			goto main_abort;
 		} else {
+			if (0 != socketconnect_release(our_socket))
+			{
+				DLOG(TEST_POLICY_NOISY_DEBUG1, "Releasing socket %d failed.\n", our_socket);
+			}
+			else
+			{
+				DLOG(TEST_POLICY_NOISY_DEBUG2, "Released socket %d.\n", our_socket);
+			}
 			printf("Initial Try OK\n");
 		}
 
@@ -304,7 +325,6 @@ int main(int argc, char *argv[])
 void *test_worker (void *argp) {
 
 	struct test_worker_args *args = (struct test_worker_args *) argp;
-	int our_socket = args->socket;
 	int try = 0;
 	int ret = -1;
 
@@ -313,9 +333,22 @@ void *test_worker (void *argp) {
 
 			ret = test_run ( &(args->socket), args->url, args->options, args->family, args->socktype, args->protocol, args->clearsocket, args->thread_id);
 			if (ret != 0) {
+				DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Test run with socket %d failed, exiting\n", args->thread_id, args->socket);
 				printf("Thread %d Try #%d: FAILED - exiting\n", args->thread_id, try+1);
 				goto exit_test_worker;
 			} else {
+				if (try+1 < args->times)
+				{
+					// Release socket if this is not the last run
+					if (0 != socketconnect_release(args->socket))
+					{
+						DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Releasing socket %d failed.\n", args->thread_id, args->socket);
+					}
+					else
+					{
+						DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Released socket %d.\n", args->thread_id, args->socket);
+					}
+				}
 				printf("Thread %d Try #%d: OK\n", args->thread_id, try+1);
 			}
 
@@ -335,7 +368,7 @@ void *test_worker (void *argp) {
 		}
 		else
 		{
-			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Failed to close socket %d \n", args->thread_id, args->socket);
+			DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Failed to close socket %d \n", args->thread_id, args->socket);
 		}
 	}
 	_muacc_free_socketopts(args->options);
@@ -346,12 +379,11 @@ void *test_worker (void *argp) {
 }
 
 int test_run (int *our_socket, const char* url, socketopt_t *options, int family, int socktype, int protocol, int clearsocket, int tid) {
-	DLOG(TEST_POLICY_NOISY_DEBUG0, "Thread %d: Starting test run\n", tid);
 	int returnvalue = -1;
 	
-	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Socketconnect with %d\n", tid, *our_socket);
+	DLOG(TEST_POLICY_NOISY_DEBUG0, "Thread %d: Starting test run: Socketconnect with %d\n", tid, *our_socket);
 	returnvalue = socketconnect(our_socket, url, options, family, socktype, protocol);
-	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Socketconnect returned code %d, socket %d\n", tid, returnvalue, *our_socket);
+	DLOG(TEST_POLICY_NOISY_DEBUG0, "Thread %d: Socketconnect returned code %d, socket %d\n", tid, returnvalue, *our_socket);
 
 	if (returnvalue == -1)
 	{
@@ -363,25 +395,13 @@ int test_run (int *our_socket, const char* url, socketopt_t *options, int family
 	
 	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Writing teststring to socket %d\n", tid, *our_socket);
 	returnvalue = write(*our_socket, buf, sizeof(buf));
-	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Writing on socket %d returned value %d, trying to release now\n", tid, *our_socket, returnvalue);
-	socketconnect_release(*our_socket);
-	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Released socket %d\n", tid, *our_socket);
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Writing on socket %d returned value %d\n", tid, *our_socket, returnvalue);
 
-	if (returnvalue == -1)
+	if (returnvalue < 0)
 	{
+		DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Failed to write to socket %d \n", tid, *our_socket);
 		perror("Failed to write text on the socket:");
 		return -1;
-	}
-
-	if (clearsocket > 0) 
-	{	
-		if (*our_socket != -1)
-		{
-			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Clearing and closing socket %d\n", tid, *our_socket);
-			socketconnect_close(*our_socket);
-			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Socket closed.\n", tid);
-		}
-		*our_socket = -1; // Clearing socket
 	}
 
 	return 0;

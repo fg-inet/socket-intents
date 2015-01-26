@@ -648,13 +648,6 @@ int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
 	}
 	else
 	{	
-		// Check if socket is still in use
-		if (set_to_delete->locks > 0)
-		{
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d is still in use -- aborting.\n", socket);
-			return -1;
-		}
-
 		// Free context if no other file descriptor needs it
 		if (_muacc_socketset_find_dup(set_to_delete) == NULL)
 		{
