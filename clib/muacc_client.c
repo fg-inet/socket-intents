@@ -755,7 +755,7 @@ int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketlist *slist
 	return -1;
 }
 
-int socketconnect_close(int socket)
+int socketclose(int socket)
 {
 	DLOG(CLIB_IF_NOISY_DEBUG0, "Trying to close socket %d and remove it from list\n", socket);
 	pthread_rwlock_wrlock(&socketlist_lock);
@@ -785,7 +785,7 @@ int socketconnect_close(int socket)
 	}
 }
 
-int socketconnect_release(int socket)
+int socketrelease(int socket)
 {
 	DLOG(CLIB_IF_NOISY_DEBUG0, "Releasing socket %d and marking it as free for reuse\n", socket);
 	pthread_rwlock_wrlock(&socketlist_lock);

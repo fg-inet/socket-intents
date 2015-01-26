@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
 				if (try+1 < arg_times->ival[0])
 				{
 					// Release socket if this is not the last run
-					if (0 != socketconnect_release(our_socket))
+					if (0 != socketrelease(our_socket))
 					{
 						DLOG(TEST_POLICY_NOISY_DEBUG1, "Releasing socket %d failed.\n", our_socket);
 					}
@@ -244,7 +244,7 @@ int main(int argc, char *argv[])
 		if (our_socket != -1)
 		{
 			DLOG(TEST_POLICY_NOISY_DEBUG2, "Clearing and closing socket %d\n", our_socket);
-			socketconnect_close(our_socket);
+			socketclose(our_socket);
 			DLOG(TEST_POLICY_NOISY_DEBUG2, "Socket closed.\n");
 		}
 		
@@ -258,7 +258,7 @@ int main(int argc, char *argv[])
 			printf("Initial Try FAILED - exiting\n");
 			goto main_abort;
 		} else {
-			if (0 != socketconnect_release(our_socket))
+			if (0 != socketrelease(our_socket))
 			{
 				DLOG(TEST_POLICY_NOISY_DEBUG1, "Releasing socket %d failed.\n", our_socket);
 			}
@@ -340,7 +340,7 @@ void *test_worker (void *argp) {
 				if (try+1 < args->times)
 				{
 					// Release socket if this is not the last run
-					if (0 != socketconnect_release(args->socket))
+					if (0 != socketrelease(args->socket))
 					{
 						DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Releasing socket %d failed.\n", args->thread_id, args->socket);
 					}
@@ -362,7 +362,7 @@ void *test_worker (void *argp) {
 	if (args->socket != -1)
 	{
 		DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Finished - trying to close socket %d\n", args->thread_id, args->socket);
-		if (socketconnect_close(args->socket) == 0)
+		if (socketclose(args->socket) == 0)
 		{
 			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Closed socket %d \n", args->thread_id, args->socket);
 		}

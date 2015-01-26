@@ -127,12 +127,12 @@ int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketlist *slist
  *
  *  @return 0 if successful, -1 if fail
  */
-int socketconnect_close(int socket);
+int socketclose(int socket);
 
 /** Release a socket, marking it as no longer in use within its socket set, so it can be reused from now on
  *
  *  @return 0 if successful, -1 if fail
  */
-int socketconnect_release(int socket);
+int socketrelease(int socket);
 
 #endif
