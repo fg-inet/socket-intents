@@ -307,7 +307,7 @@ int on_new_subflow_request(mam_context_t *mctx, struct mptcp_flow_info *flow)
 			inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&(flow->loc_addr))->sin6_addr), straddr_loc, sizeof(straddr_loc));
 			inet_ntop(AF_INET6, &(((struct sockaddr_in6 *)&(flow->rem_addr))->sin6_addr), straddr_rem, sizeof(straddr_rem));
 
-			printf("Adding new v6 flow to candiats: loc: %s, rem: %s\n", straddr_loc, straddr_rem);
+			printf("Adding new v6 flow to candidats: loc: %s, rem: %s\n", straddr_loc, straddr_rem);
 		}
 
 		if (client_list)
