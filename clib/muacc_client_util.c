@@ -10,8 +10,6 @@
 #include <errno.h>
 #include <pthread.h>
 
-#include "uriparser/Uri.h"
-
 #include "dlog.h"
 #include "lib/muacc_ctx.h"
 #include "lib/muacc_tlv.h"
@@ -330,7 +328,7 @@ struct socketlist *_muacc_find_list_for_socket(struct socketlist *list, struct _
 {
 	while (list != NULL && list->set != NULL)
 	{
-		if (list->set->ctx->domain == ctx->domain && list->set->ctx->type == ctx->type && list->set->ctx->protocol == ctx->protocol && (strncmp(list->set->ctx->remote_hostname, ctx->remote_hostname, 255) == 0) && list->set->ctx->remote_port == ctx->remote_port)
+		if (list->set->ctx->domain == ctx->domain && list->set->ctx->type == ctx->type && list->set->ctx->protocol == ctx->protocol && (strncmp(list->set->ctx->remote_hostname, ctx->remote_hostname, 255) == 0) && (strncmp(list->set->ctx->remote_service, ctx->remote_service, 255) == 0))
 		{
 			return list;
 		}
@@ -557,7 +555,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 			}
 		}
     }
-    DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Processing response done, returnvalue = %d, socket = %d\n", returnvalue, *socket);
+    DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Socketchoose done, returnvalue = %d, socket = %d\n", returnvalue, *socket);
 
 	if (set_in_use)
 	{
@@ -696,48 +694,30 @@ int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
 	return 0;
 }
 
-int _muacc_parse_url_to_ctx(muacc_context_t *ctx, const char *url)
+int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostlen, const char *serv, size_t servlen)
 {
-	if (ctx == NULL)
-	{
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "No context given - aborting.\n");
-		return -1;
+	if (host == NULL || serv == NULL)
+    {
+        DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Host or service not given - aborting.\n");
+        return -1;
+    }
+    else
+    {
+        ctx->ctx->remote_addrinfo_hint = malloc(sizeof(struct addrinfo));
+        memset(ctx->ctx->remote_addrinfo_hint, 0, sizeof(struct addrinfo));
+        ctx->ctx->remote_addrinfo_hint->ai_family = ctx->ctx->domain;
+        ctx->ctx->remote_addrinfo_hint->ai_socktype = ctx->ctx->type;
+        ctx->ctx->remote_addrinfo_hint->ai_protocol = ctx->ctx->protocol;
+
+        ctx->ctx->remote_hostname = malloc(hostlen + 1);
+        ctx->ctx->remote_hostname[hostlen] = 0;
+        ctx->ctx->remote_hostname = strncpy(ctx->ctx->remote_hostname, host, hostlen);
+
+        ctx->ctx->remote_service = malloc(servlen + 1);
+        ctx->ctx->remote_service[servlen] = 0;
+        ctx->ctx->remote_service = strncpy(ctx->ctx->remote_service, serv, servlen);
+
+        DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Successfully wrote hostname %s and service %s to context\n", ctx->ctx->remote_hostname, ctx->ctx->remote_service);
 	}
-	else if (url == NULL)
-	{
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "No url given - cannot parse.\n");
-		return -1;
-	}
-	else
-	{
-		ctx->ctx->remote_addrinfo_hint = malloc(sizeof(struct addrinfo));
-		memset(ctx->ctx->remote_addrinfo_hint, 0, sizeof(struct addrinfo));
-		ctx->ctx->remote_addrinfo_hint->ai_family = ctx->ctx->domain;
-		ctx->ctx->remote_addrinfo_hint->ai_socktype = ctx->ctx->type;
-		ctx->ctx->remote_addrinfo_hint->ai_protocol = ctx->ctx->protocol;
-
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Parsing URL %s into context\n", url);
-		UriParserStateA state;
-		UriUriA uri;
-
-		state.uri = &uri;
-		if ((uriParseUriA(&state, url) != URI_SUCCESS) || (uri.hostText.first == NULL || uri.portText.first == NULL))
-		{
-			/* Failed to parse URL */
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Failed to parse URL: %s (Does it contain a protocol, hostname, and port?)\n", url);
-			uriFreeUriMembersA(&uri);
-			return -1;
-		}
-
-		int hostnamelen = uri.hostText.afterLast - uri.hostText.first;
-
-		ctx->ctx->remote_hostname = malloc(hostnamelen + 1);
-		ctx->ctx->remote_hostname[hostnamelen] = 0;
-		ctx->ctx->remote_hostname = strncpy(ctx->ctx->remote_hostname, uri.hostText.first, hostnamelen);
-		uri.portText.afterLast = 0;
-		ctx->ctx->remote_port = atoi(uri.portText.first);
-
-		uriFreeUriMembersA(&uri);
-		return 0;
-	}
+	return 0;
 }

@@ -486,7 +486,7 @@ int muacc_close(muacc_context_t *ctx,
 	return close(socket);
 }
 
-int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domain, int type, int proto)
+int socketconnect(int *s, const char *host, size_t hostlen, const char *serv, size_t servlen, struct socketopt *sockopts, int domain, int type, int proto)
 {
 	DLOG(CLIB_IF_NOISY_DEBUG0, "Socketconnect invoked, socket: %d\n", *s);
 	if (s == NULL)
@@ -511,7 +511,7 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 		/* Socket does not exist yet - create it */
 		int ret;
 
-		if ((ret = _socketconnect_request(&ctx, s, url)) == -1)
+		if ((ret = _socketconnect_request(&ctx, s, host, hostlen, serv, servlen)) == -1)
 		{
 			DLOG(CLIB_IF_NOISY_DEBUG1, "Error creating a new socket!\n");
 			muacc_release_context(&ctx);
@@ -535,10 +535,11 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 		if ((slist = _muacc_find_socketlist(sockets, *s)) != NULL)
 		{
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Found Socket Set\n");
-			if (_muacc_parse_url_to_ctx(&ctx, url) != 0)
+			if (_muacc_host_serv_to_ctx(&ctx, host, hostlen, serv, servlen) != 0)
 			{
-				DLOG(CLIB_IF_NOISY_DEBUG2, "No URL given this time - trying to take the one from the set\n");
-				_muacc_parse_url_to_ctx(&ctx, slist->set->ctx->remote_hostname);
+				DLOG(CLIB_IF_NOISY_DEBUG2, "No hostname and service given this time - taking the one from the set: %s\n", slist->set->ctx->remote_hostname);
+				ctx.ctx->remote_hostname = _muacc_clone_string(slist->set->ctx->remote_hostname);
+				ctx.ctx->remote_service = _muacc_clone_string(slist->set->ctx->remote_service);
 			}
 		}
 		else
@@ -546,7 +547,7 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 			DLOG(CLIB_IF_LOCKS, "LOCK: Set not found - Unlocking global lock\n");
 			pthread_rwlock_unlock(&socketlist_lock);
 			DLOG(CLIB_IF_NOISY_DEBUG1, "Socket not in set - creating new one.\n");
-			if ((ret = _socketconnect_request(&ctx, s, url)) == -1)
+			if ((ret = _socketconnect_request(&ctx, s, host, hostlen, serv, servlen)) == -1)
 			{
 				DLOG(CLIB_IF_NOISY_DEBUG1, "Error creating a new socket!\n");
 				muacc_release_context(&ctx);
@@ -582,16 +583,16 @@ int socketconnect(int *s, const char *url, struct socketopt *sockopts, int domai
 	}
 }
 
-int _socketconnect_request(muacc_context_t *ctx, int *s, const char *url)
+int _socketconnect_request(muacc_context_t *ctx, int *s, const char *host, size_t hostlen, const char *serv, size_t servlen)
 {
 	if (ctx == NULL)
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG1, "No context given - aborting.\n");
 		return -1;
 	}
-	else if (_muacc_parse_url_to_ctx(ctx, url) != 0)
+	else if (_muacc_host_serv_to_ctx(ctx, host, hostlen, serv, servlen) != 0)
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG1, "Could not parse URL - aborting.\n");
+		DLOG(CLIB_IF_NOISY_DEBUG1, "Host or service not given - aborting.\n");
 		return -1;
 	}
 	else
@@ -691,11 +692,6 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 	}
 	else
 	{
-		if (ctx->ctx->domain == AF_INET)
-			((struct sockaddr_in *) ctx->ctx->remote_sa)->sin_port = htons(ctx->ctx->remote_port);
-		else if (ctx->ctx->domain == AF_INET6)
-			((struct sockaddr_in6 *) ctx->ctx->remote_sa)->sin6_port = htons(ctx->ctx->remote_port);
-
 		DLOG(CLIB_IF_NOISY_DEBUG2, "Attempting to connect socket %d\n", *s);
 		if (CLIB_IF_NOISY_DEBUG2)
 		{
@@ -748,7 +744,9 @@ int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketlist *slist
 	}
 	else if (ret == 1)
 	{
-		DLOG(CLIB_IF_NOISY_DEBUG2, "Open new socket\n");
+		DLOG(CLIB_IF_NOISY_DEBUG2, "Open new socket:\n");
+		if (CLIB_IF_NOISY_DEBUG2)
+			muacc_print_context(ctx);
 
 		return _muacc_socketconnect_create(ctx, s);
 	}
@@ -815,7 +813,7 @@ int socketrelease(int socket)
 		else
 		{
 			set->locks = 0;
-			DLOG(CLIB_IF_NOISY_DEBUG2, "Set entry of socket %d found and lock released\n", socket);
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Set entry of socket %d found and marked as not in use\n", socket);
 			DLOG(CLIB_IF_LOCKS, "LOCK: Released - Unlocking global lock\n");
 			pthread_rwlock_unlock(&socketlist_lock);
 			return 0;

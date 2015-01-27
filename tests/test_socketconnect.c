@@ -25,6 +25,7 @@
 #include <pthread.h>
 
 #include "argtable2.h"
+#include "uriparser/Uri.h"
 
 #include "clib/muacc.h"
 #include "clib/muacc_util.h"
@@ -51,13 +52,19 @@
 
 int verbose = 1;
 
+#define HOSTNAME_LEN_LIMIT 2000
+#define SERVICE_LEN_LIMIT 100
+
 void print_usage(char *argv[], void *args[]);
 
 void cleanup(void *argtable, struct socketopt *options);
 
 struct test_worker_args {
 	int socket;
-	const char *url;
+	const char *host;
+	size_t hostlen;
+	const char *serv;
+	size_t servlen;
   int family;
   int socktype;
 	int protocol;
@@ -68,7 +75,60 @@ struct test_worker_args {
 };
 
 void *test_worker (void *args);
-int test_run (int *our_socket, const char* url, socketopt_t *options, int family, int socktype, int protocol, int clearsocket, int tid);
+int test_run (int *our_socket, const char* host, size_t hostlen, const char* serv, size_t servlen, socketopt_t *options, int family, int socktype, int protocol, int clearsocket, int tid);
+
+int parse_url_to_host_and_serv(const char *url, char **hostname, size_t *hostnamelen, char **serv, size_t *servlen);
+
+int parse_url_to_host_and_serv(const char *url, char **hostname, size_t *hostnamelen, char **serv, size_t *servlen)
+{
+	if (url == NULL)
+	{
+		DLOG(TEST_POLICY_NOISY_DEBUG1, "Cannot parse NULL URL!\n");
+		return -1;
+	}
+
+	if (hostnamelen == NULL || servlen == NULL)
+	{
+		DLOG(TEST_POLICY_NOISY_DEBUG1, "Cannot proceed with hostnamelen or servlen NULL!\n");
+		return -1;
+	}
+
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Parsing URL %s\n", url);
+	UriParserStateA state;
+	UriUriA uri;
+
+	state.uri = &uri;
+	if ((uriParseUriA(&state, url) != URI_SUCCESS) || (uri.hostText.first == NULL || uri.portText.first == NULL))
+	{
+		/* Failed to parse URL */
+		DLOG(TEST_POLICY_NOISY_DEBUG1, "Failed to parse URL: %s (Does it contain a protocol, hostname, and port?)\n", url);
+		uriFreeUriMembersA(&uri);
+		return -1;
+	}
+
+	*hostnamelen = uri.hostText.afterLast - uri.hostText.first;
+	*servlen = uri.portText.afterLast - uri.portText.first;
+
+	*hostname = malloc(*hostnamelen + 1);
+	*serv = malloc(*servlen + 1);
+
+	if (*hostnamelen == 0 || *servlen == 0 || *hostname == NULL || *serv == NULL)
+	{
+		DLOG(TEST_POLICY_NOISY_DEBUG1, "Error when parsing %s or allocating memory for results\n", url);
+		uriFreeUriMembersA(&uri);
+		return -1;
+	}
+
+	*hostname = strncpy(*hostname, uri.hostText.first, *hostnamelen);
+	(*hostname)[*hostnamelen] = 0;
+
+	*serv = strncpy(*serv, uri.portText.first, *servlen);
+	(*serv)[*servlen] = 0;
+
+	DLOG(TEST_POLICY_NOISY_DEBUG2, "Successfully parsed URL: Hostname = %s, Service = %s\n", *hostname, *serv);
+	uriFreeUriMembersA(&uri);
+	return 0;
+}
 
 void print_usage(char *argv[], void *args[])
 {
@@ -96,8 +156,10 @@ int main(int argc, char *argv[])
     arg_protocol = arg_int0(NULL, "protocol", "<n>", "Explicitly set \"protocol\" for socket creation");
     arg_filesize = arg_int0("F", "filesize", "<n>", "Set INTENT Filesize to this value");
 
-    struct arg_str *arg_url, *arg_transport, *arg_category;
+    struct arg_str *arg_url, *arg_hostname, *arg_service, *arg_transport, *arg_category;
     arg_url = arg_str0("u", "url", "<url>", "Remote URL to connect to");
+    arg_hostname = arg_str0("h", "hostname", "<hostname>", "Remote hostname to connect to");
+    arg_service = arg_str0("s", "service", "<servname>|<port>", "Remote service or port to connect to");
     arg_transport = arg_str0(NULL, "transport", "TCP|UDP", "Set transport protocol to use (default: TCP)");
     arg_category = arg_str0("C", "category", "QUERY|BULKTRANSFER|CONTROLTRAFFIC|STREAM", "Set INTENT Category to this value");
 
@@ -114,7 +176,7 @@ int main(int argc, char *argv[])
 
     struct arg_end *end = arg_end(10);
 
-    void *argtable[] = {arg_verbose, arg_quiet, arg_times, arg_threads, arg_clearsocket, arg_url, arg_protocol, arg_transport, arg_filesize, arg_category, end};
+    void *argtable[] = {arg_verbose, arg_quiet, arg_times, arg_threads, arg_clearsocket, arg_url, arg_hostname, arg_service, arg_protocol, arg_transport, arg_filesize, arg_category, end};
 
     /* Check arguments table for errors */
     if (arg_nullcheck(argtable) != 0)
@@ -129,9 +191,15 @@ int main(int argc, char *argv[])
     arg_threads->ival[0] = 4;
     arg_protocol->ival[0] = 0;
 		
-
+	*arg_hostname->sval = NULL;
+	*arg_service->sval = NULL;
     *arg_transport->sval = "TCP";
     *arg_url->sval = "http://www.maunz.org:443";
+
+	char *hostname = NULL;
+	size_t hostnamelen = 0;
+	char *serv = NULL;
+	size_t servlen = 0;
 
     arg_filesize->ival[0] = -1;
     *arg_category->sval = NULL;
@@ -205,6 +273,35 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (*arg_hostname->sval != NULL && *arg_service->sval != NULL)
+	{
+		DLOG(TEST_POLICY_NOISY_DEBUG2, "Got hostname = %s and service = %s -- copying.\n", *arg_hostname->sval, *arg_service->sval);
+		hostname = (char *)*arg_hostname->sval;
+		hostnamelen = strnlen(*arg_hostname->sval, HOSTNAME_LEN_LIMIT);
+		serv = (char *)*arg_service->sval;
+		servlen = strnlen(*arg_service->sval, SERVICE_LEN_LIMIT);
+	}
+	else
+	{
+		DLOG(TEST_POLICY_NOISY_DEBUG2, "Got no hostname and service -- parsing.\n");
+		if (0 != parse_url_to_host_and_serv(*arg_url->sval, &hostname, &hostnamelen, &serv, &servlen))
+		{
+			DLOG(TEST_POLICY_NOISY_DEBUG1, "Parsing failed!\n");
+			return -1;
+		}
+	}
+
+	if (hostname == NULL || serv == NULL)
+	{
+		printf("Failed to find a valid host name or service -- aborting.\n");
+		return -1;
+	}
+	else
+	{
+		DLOG(TEST_POLICY_NOISY_DEBUG2, "Hostname = %s, Service = %s.\n", hostname, serv);
+	}
+
+
 	printf("Socket options:\n");
 	_muacc_print_socket_option_list(options);
 
@@ -220,7 +317,7 @@ int main(int argc, char *argv[])
 		
 		for (int try = 0; try < arg_times->ival[0]; try++)
 		{
-			ret = test_run (&our_socket, *arg_url->sval, options, family, socktype, *arg_protocol->ival, (arg_clearsocket->count > 0), 0);
+			ret = test_run (&our_socket, hostname, hostnamelen, serv, servlen, options, family, socktype, *arg_protocol->ival, (arg_clearsocket->count > 0), 0);
 
 			if (ret != 0) {
 				printf("Try #%d: FAILED - exiting\n", try+1);
@@ -238,6 +335,16 @@ int main(int argc, char *argv[])
 					{
 						DLOG(TEST_POLICY_NOISY_DEBUG2, "Released socket %d.\n", our_socket);
 					}
+					if (our_socket != -1)
+					{
+						// Varying the parameters a bit
+						hostname = NULL;
+						hostnamelen = 0;
+						serv = NULL;
+						servlen = NULL;
+						family = 0;
+						socktype = 0;
+					}
 				}
 			}
 		}
@@ -251,8 +358,8 @@ int main(int argc, char *argv[])
 	} else {
 				
 		int ret = -1;
-		
-		ret = test_run (&our_socket, *arg_url->sval, options, family, socktype, *arg_protocol->ival, (arg_clearsocket->count > 0), 0);
+
+		ret = test_run (&our_socket, hostname, hostnamelen, serv, servlen, options, family, socktype, *arg_protocol->ival, (arg_clearsocket->count > 0), 0);
 		
 		if (ret != 0) {
 			printf("Initial Try FAILED - exiting\n");
@@ -275,7 +382,10 @@ int main(int argc, char *argv[])
 
 		struct test_worker_args targs;
 		targs.socket = our_socket;
-		targs.url = *arg_url->sval;
+		targs.host = hostname;
+		targs.hostlen = hostnamelen;
+		targs.serv = serv;
+		targs.servlen = servlen;
 		targs.family = family;
 		targs.socktype = socktype;
 		targs.protocol = *arg_protocol->ival;
@@ -330,27 +440,34 @@ void *test_worker (void *argp) {
 
 	for (try = 0; try < args->times; try++)
 	{
-
-			ret = test_run ( &(args->socket), args->url, args->options, args->family, args->socktype, args->protocol, args->clearsocket, args->thread_id);
-			if (ret != 0) {
-				DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Test run with socket %d failed, exiting\n", args->thread_id, args->socket);
-				printf("Thread %d Try #%d: FAILED - exiting\n", args->thread_id, try+1);
-				goto exit_test_worker;
-			} else {
-				if (try+1 < args->times)
+		if (try != 0 && args->socket != -1)
+		{
+			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Testing with socket %d and NULL parameters\n", args->thread_id, args->socket);
+			ret = test_run ( &(args->socket), NULL, 0, NULL, 0, args->options, 0, 0, 0, args->clearsocket, args->thread_id);
+		}
+		else
+		{
+			ret = test_run ( &(args->socket), args->host, args->hostlen, args->serv, args->servlen, args->options, args->family, args->socktype, args->protocol, args->clearsocket, args->thread_id);
+		}
+		if (ret != 0) {
+			DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Test run with socket %d failed, exiting\n", args->thread_id, args->socket);
+			printf("Thread %d Try #%d: FAILED - exiting\n", args->thread_id, try+1);
+			goto exit_test_worker;
+		} else {
+			if (try+1 < args->times)
+			{
+				// Release socket if this is not the last run
+				if (0 != socketrelease(args->socket))
 				{
-					// Release socket if this is not the last run
-					if (0 != socketrelease(args->socket))
-					{
-						DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Releasing socket %d failed.\n", args->thread_id, args->socket);
-					}
-					else
-					{
-						DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Released socket %d.\n", args->thread_id, args->socket);
-					}
+					DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Releasing socket %d failed.\n", args->thread_id, args->socket);
 				}
-				printf("Thread %d Try #%d: OK\n", args->thread_id, try+1);
+				else
+				{
+					DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Released socket %d.\n", args->thread_id, args->socket);
+				}
 			}
+			printf("Thread %d Try #%d: OK\n", args->thread_id, try+1);
+		}
 
 	}
 
@@ -378,11 +495,11 @@ void *test_worker (void *argp) {
   pthread_exit((void*) ret);
 }
 
-int test_run (int *our_socket, const char* url, socketopt_t *options, int family, int socktype, int protocol, int clearsocket, int tid) {
+int test_run (int *our_socket, const char* host, size_t hostlen, const char *serv, size_t servlen, socketopt_t *options, int family, int socktype, int protocol, int clearsocket, int tid) {
 	int returnvalue = -1;
 	
 	DLOG(TEST_POLICY_NOISY_DEBUG0, "Thread %d: Starting test run: Socketconnect with %d\n", tid, *our_socket);
-	returnvalue = socketconnect(our_socket, url, options, family, socktype, protocol);
+	returnvalue = socketconnect(our_socket, host, hostlen, serv, servlen, options, family, socktype, protocol);
 	DLOG(TEST_POLICY_NOISY_DEBUG0, "Thread %d: Socketconnect returned code %d, socket %d\n", tid, returnvalue, *our_socket);
 
 	if (returnvalue == -1)

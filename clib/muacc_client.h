@@ -92,7 +92,10 @@ int muacc_close(muacc_context_t *ctx,
  */
 int socketconnect(
 	int *socket,		/**< [in,out]	Pointer to representant of a socket set. "-1" if none exists */
-	const char *url,	/**< [in]		URL to connect to. May be NULL if socket exists */
+	const char *host,	/**< [in]		Host name to connect to */
+	size_t hostlen,
+	const char *serv,	/**< [in]		Service or port (in ASCII) to connect to */
+	size_t servlen,
 	struct socketopt *sockopts,	/**< [in,out]	List of socket options to be set. May be NULL if socket exists */
 	int domain,			/**< [in]		Address family for socket() call (e.g. AF_INET, AF_INET6) */
 	int type,			/**< [in]		Type for socket() call (e.g. SOCK_STREAM or SOCK_DGRAM */
@@ -103,7 +106,7 @@ int socketconnect(
  *
  *  @return 1 if successful, -1 if fail
  */
-int _socketconnect_request(muacc_context_t *ctx, int *s, const char *url);
+int _socketconnect_request(muacc_context_t *ctx, int *s, const char *host, size_t hostlen, const char *serv, size_t servlen);
 
 /** Send a socketchoose request to MAM
  *

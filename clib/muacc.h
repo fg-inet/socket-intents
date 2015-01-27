@@ -62,7 +62,7 @@ struct _muacc_ctx {
 	struct sockaddr 	*bind_sa_suggested;     /**< local address suggested by MAM */
 	socklen_t 			 bind_sa_suggested_len; /**< length of bind_sa_res*/
 	char 				*remote_hostname;      	/**< hostname to resolve */
-	int					remote_port;			/**< remote port to connect to */
+	char				*remote_service;		/**< remote service to connect to */
 	struct addrinfo		*remote_addrinfo_hint;	/**< hints for resolving */
 	struct addrinfo		*remote_addrinfo_res;	/**< candidate remote addresses (sorted by MAM preference) */
 	struct sockaddr 	*remote_sa;     		/**< remote address choosen in the end */
@@ -85,8 +85,7 @@ typedef enum
 	bind_sa_req = 0x13, 	/**< local address requested */
 	bind_sa_res,        	/**< local address choosen by mam */
 	remote_hostname = 0x21,	/**< remote host name */
-	remote_port,			/**< remote port */
-	remote_srvname,	   		/**< remote service name */
+	remote_service,	   		/**< remote service name */
 	remote_addrinfo_hint,	/**< candidate remote addresses (sorted by mam preference) */
 	remote_addrinfo_res,	/**< candidate remote addresses (sorted by mam preference) */
 	remote_sa,     			/**< remote address choosen */

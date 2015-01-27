@@ -153,13 +153,13 @@ int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
     struct evdns_getaddrinfo_request *req;
 	
-	printf("\tResolve request: %s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname));
+	printf("\tResolve request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 
 	/* Try to resolve this request using asynchronous lookup */
     req = evdns_getaddrinfo(
     		rctx->mctx->evdns_default_base, 
 			rctx->ctx->remote_hostname,
-			NULL /* no service name given */,
+			rctx->ctx->remote_service,
             rctx->ctx->remote_addrinfo_hint,
 			&resolve_request_result,
 			rctx);
@@ -195,6 +195,7 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	}
 
 	// send response back
+
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
     printf("%s\n\n", strbuf_export(&sb));
     strbuf_release(&sb);
@@ -285,13 +286,13 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 {
     struct evdns_getaddrinfo_request *req;
 	
-	printf("\tSocketconnect request: %s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname));
+	printf("\tSocketconnect request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 
 	/* Try to resolve this request using asynchronous lookup */
     req = evdns_getaddrinfo(
     		rctx->mctx->evdns_default_base, 
 			rctx->ctx->remote_hostname,
-			NULL /* no service name given */,
+			rctx->ctx->remote_service,
             rctx->ctx->remote_addrinfo_hint,
 			&resolve_request_result_connect,
 			rctx);
@@ -313,7 +314,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 {
     struct evdns_getaddrinfo_request *req;
 	
-	printf("\tSocketchoose request\n");
+	printf("\tSocketchoose request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 
 	if (rctx->set != NULL)
 	{
@@ -334,7 +335,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 		req = evdns_getaddrinfo(
     		rctx->mctx->evdns_default_base, 
 			rctx->ctx->remote_hostname,
-			NULL /* no service name given */,
+			rctx->ctx->remote_service,
             rctx->ctx->remote_addrinfo_hint,
 			&resolve_request_result_connect,
 			rctx);
