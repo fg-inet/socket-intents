@@ -14,9 +14,8 @@
 #include "mam_configp.h"
 #include "mam.h"
 
-#ifdef HAVE_LIBNL
 #include "mam_netlink.h"
-#endif
+
 
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))
 #define MAX_BUF 0
@@ -572,11 +571,9 @@ main(int c, char **v)
 	
 	/* apply config and read policy */
 	configure_mamma();
-    
-#ifdef HAVE_LIBNL
+
     /* configure netlink socket to communicate with MPTCP pathmanager kernel module */
     configure_netlink();
-#endif
 
     configure_fifo();
 
@@ -611,9 +608,7 @@ main(int c, char **v)
 	mam_release_context(global_mctx);
 	lt_dlexit();
 	
-#ifdef HAVE_LIBNL
 	shutdown_netlink();
-#endif
 
 	cleanup_fifo();
 	

@@ -15,7 +15,6 @@ if ( ${LIBNL_LIBRARY} MATCHES "LIBNL_LIBRARY-NOTFOUND" OR  ${LIBNL_GENERIC_LIBRA
 	SET (NETLINK_CODE_FILES "")
 else ()
 	SET (NETLINK_CODE_FILES "mam_netlink.c" "mptcp_netlink_parser.c")
-	SET (HAVE_LIBNL 1)
 endif ()
 
 set(LIBNL_LIBRARIES 
