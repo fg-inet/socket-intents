@@ -66,14 +66,14 @@ int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
 	printf("\tResolve request: Not supported\n\n");
 	_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
-	return 0;
+	return -1;
 }
 
 int on_connect_request(request_context_t *rctx, struct event_base *base)
 {
 	printf("\tConnect request: Not supported\n\n");
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
-	return 0;
+	return -1;
 }
 
 /** Asynchronous callback function for socketconnect request after resolve
@@ -155,13 +155,13 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 {
     struct evdns_getaddrinfo_request *req;
 	
-	printf("\n\tSocketconnect request: %s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname));
+	printf("\tSocketconnect request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 
 	/* Try to resolve this request using asynchronous lookup */
     req = evdns_getaddrinfo(
     		rctx->mctx->evdns_default_base, 
 			rctx->ctx->remote_hostname,
-			NULL /* no service name given */,
+			rctx->ctx->remote_service,
             rctx->ctx->remote_addrinfo_hint,
 			&resolve_request_result_connect,
 			rctx);
@@ -233,13 +233,13 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 	}
 	else
 	{
-		printf("\tSocketchoose with empty or almost empty set - trying to create new socket, resolving %s\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname));
+		printf("\tSocketchoose with empty or almost empty set - trying to create new socket, resolving %s:%s\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 
 		/* Try to resolve this request using asynchronous lookup */
 		req = evdns_getaddrinfo(
     		rctx->mctx->evdns_default_base, 
 			rctx->ctx->remote_hostname,
-			NULL /* no service name given */,
+			rctx->ctx->remote_service,
             rctx->ctx->remote_addrinfo_hint,
 			&resolve_request_result_connect,
 			rctx);
