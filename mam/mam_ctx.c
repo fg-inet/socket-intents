@@ -126,14 +126,14 @@ void mam_release_request_context(request_context_t *ctx)
 	/* clean up old _muacc_ctx */
 	_muacc_free_ctx(ctx->ctx);
 
-	/* clean up socket set */
-	while (ctx->set != NULL)
+	/* clean up socket list */
+	while (ctx->sockets != NULL)
 	{
-		struct socketset *sockset = ctx->set;
-		ctx->set = sockset->next;
+		struct socketlist *socklist = ctx->sockets;
+		ctx->sockets = socklist->next;
 
-		_muacc_free_ctx(sockset->ctx);
-		free(sockset);
+		_muacc_free_ctx(socklist->ctx);
+		free(socklist);
 	}
 
 	free(ctx);

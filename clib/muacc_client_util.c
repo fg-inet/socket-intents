@@ -260,130 +260,183 @@ int muacc_free_socket_option_list(struct socketopt *opts)
 	return -1;
 }
 
-struct socketlist* _muacc_add_socket_to_list(struct socketlist **list, int socket, struct _muacc_ctx *ctx)
+struct socketset* _muacc_add_socket_to_set(struct socketset **list_of_sets, int socket, struct _muacc_ctx *ctx)
 {
-	struct socketlist *slist = NULL;
-	struct socketlist *newlist = NULL;
+	struct socketset *set = NULL;
+	struct socketset *newset = NULL;
 
-	if ((slist = _muacc_find_list_for_socket(*list, ctx)) == NULL)
+	if ((set = _muacc_find_set_for_socket(*list_of_sets, ctx)) == NULL)
 	{
 		/* No matching socket set - create it */
-		newlist = malloc(sizeof(struct socketlist));
-		if (newlist == NULL)
+		newset = malloc(sizeof(struct socketset));
+		if (newset == NULL)
 		{
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Could not allocate memory for socket %d!\n", socket);
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Could not allocate memory for socketset for socket %d!\n", socket);
 			return NULL;
 		}
-		newlist->next = NULL;
-		newlist->set = malloc(sizeof(struct socketset));
-		if (newlist->set == NULL)
-		{
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Could not allocate memory for set of socket %d!\n", socket);
-			return NULL;
-		}
-		newlist->set->next = NULL;
-		newlist->set->file = socket;
-		newlist->set->locks = 1;
-		newlist->set->ctx = _muacc_clone_ctx(ctx);
+		newset->next = NULL;
 
-		if (*list == NULL)
+		if (0 != pthread_rwlock_init(&(newset->lock), NULL) || 0 != pthread_rwlock_init(&(newset->destroylock), NULL))
 		{
-			*list = newlist;
+			// Setting up the locks failed
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Could not initiate the locks for socketset for socket %d!\n", socket);
+			return NULL;
+		}
+
+		newset->host = _muacc_clone_string(ctx->remote_hostname);
+		newset->hostlen = (newset->host == NULL ? 0 : strlen(newset->host));
+		newset->serv = _muacc_clone_string(ctx->remote_service);
+		newset->servlen = (newset->serv == NULL ? 0 : strlen(newset->serv));
+		newset->type = ctx->type;
+
+		newset->sockets = malloc(sizeof(struct socketlist));
+		if (newset->sockets == NULL)
+		{
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Could not allocate memory for socketlist of socket %d!\n", socket);
+			return NULL;
+		}
+		newset->sockets->next = NULL;
+		newset->sockets->file = socket;
+		newset->sockets->flags = 0;
+		newset->sockets->flags |= MUACC_SOCKET_IN_USE;
+		newset->use_count = 1;
+		newset->sockets->ctx = _muacc_clone_ctx(ctx);
+
+		if (*list_of_sets == NULL)
+		{
+			*list_of_sets = newset;
 		}
 		else
 		{
-			while ((*list)->next !=NULL)
+			while ((*list_of_sets)->next !=NULL)
 			{
-				*list = (*list)->next;
+				*list_of_sets = (*list_of_sets)->next;
 			}
-			(*list)->next = newlist;
+			(*list_of_sets)->next = newset;
 		}
-		return newlist;
+		return newset;
 	}
 	else
 	{
-		struct socketset *set = slist->set;
+		pthread_rwlock_wrlock(&(set->lock));
+		DLOG(CLIB_IF_LOCKS, "LOCK: Adding new socket to set - Locking %p\n", (void *) set);
+
+		struct socketlist *slist = set->sockets;
 
 		/* Add socket to existing socket set */
-		while (set->next != NULL)
+		while (slist->next != NULL)
 		{
-			set = set->next;
+			if (slist->file == socket)
+			{
+				// This socket already exists in the set!
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d already exists in the set -- aborting!\n", socket);
+				DLOG(CLIB_IF_LOCKS, "LOCK: Finished trying to add - Releasing set %p\n", (void *) set);
+				pthread_rwlock_unlock(&(set->lock));
+				return set;
+			}
+			slist = slist->next;
 		}
-		set->next = malloc(sizeof(struct socketset));
-		if (set->next == NULL)
+		slist->next = malloc(sizeof(struct socketset));
+		if (slist->next == NULL)
 		{
 			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Could not allocate memory for set of socket %d!\n", socket);
 			return NULL;
 		}
-		set->next->next = NULL;
-		set->next->file = socket;
-		set->next->locks = 1;
-		set->next->ctx = _muacc_clone_ctx(ctx);
-		return slist;
+		slist->next->next = NULL;
+		slist->next->file = socket;
+		slist->next->flags = 0;
+		slist->next->flags |= MUACC_SOCKET_IN_USE;
+		set->use_count += 1;
+		slist->next->ctx = _muacc_clone_ctx(ctx);
+
+		DLOG(CLIB_IF_LOCKS, "LOCK: Finished trying to add - Releasing set %p\n", (void *) set);
+		pthread_rwlock_unlock(&(set->lock));
+		return set;
 	}
 	return NULL;
 }
 
-struct socketlist *_muacc_find_list_for_socket(struct socketlist *list, struct _muacc_ctx *ctx)
+struct socketset *_muacc_find_set_for_socket(struct socketset *list_of_sets, struct _muacc_ctx *ctx)
 {
-	while (list != NULL && list->set != NULL)
+	while (list_of_sets != NULL)
 	{
-		if (list->set->ctx->domain == ctx->domain && list->set->ctx->type == ctx->type && list->set->ctx->protocol == ctx->protocol && (strncmp(list->set->ctx->remote_hostname, ctx->remote_hostname, 255) == 0) && (strncmp(list->set->ctx->remote_service, ctx->remote_service, 255) == 0))
+		if (list_of_sets->type == ctx->type && (strncmp(list_of_sets->host, ctx->remote_hostname, list_of_sets->hostlen) == 0) && (strncmp(list_of_sets->serv, ctx->remote_service, list_of_sets->servlen) == 0))
 		{
-			return list;
+			// Found a socket set that matches the given context!
+			// Note that we compare the "service" string, and only group sockets with the same "service"
+			// So sockets with "443" and "https" will end up in different sets, despite having the same port
+			return list_of_sets;
 		}
 
-		list = list->next;
+		list_of_sets = list_of_sets->next;
 	}
 
 	return NULL;
 }
 
-struct socketlist *_muacc_find_socketlist(struct socketlist *list, int socket)
+struct socketset *_muacc_find_socketset(struct socketset *list_of_sets, int socket)
 {
-	while (list != NULL )
+	while (list_of_sets != NULL )
 	{
+		struct socketlist *list = _muacc_socketlist_find_file (list_of_sets->sockets, socket);
 
-		struct socketset *set = _muacc_socketset_find_file (list->set, socket);
+		if (list != NULL)
+			// Found a socket set that contains a socket with the given file descriptor!
+			return list_of_sets;
 
-		if (set != NULL)
-			return list;
-
-		list = list->next;
+		list_of_sets = list_of_sets->next;
 	}
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socketlist for %d not found\n", socket);
 	return NULL;
 }
 
-void muacc_print_socketlist(struct socketlist *list)
+void muacc_print_socketsetlist(struct socketset *list_of_sets)
 {
-	printf("\n\t\tSocketlist:\n{ ");
-	while (list != NULL)
+	pthread_rwlock_rdlock(&socketsetlist_lock);
+	DLOG(CLIB_IF_LOCKS, "LOCK: Printing socketsetlist - Getting global lock\n");
+	printf("\n\t\tList of Socketsets:\n{ ");
+	while (list_of_sets != NULL)
 	{
-		printf("{ ");
-		struct socketset *set = list->set;
-		while (set != NULL)
-		{
-			strbuf_t sb;
-			strbuf_init(&sb);
-
-			printf("{ file = %d\n", set->file);
-			printf("locks = %d\n", set->locks);
-			printf("ctx = ");
-			_muacc_print_ctx(&sb, set->ctx);
-			printf("%s", strbuf_export(&sb));
-			strbuf_release(&sb);
-
-			set = set->next;
-			printf("}, ");
-		}
+		muacc_print_socketset(list_of_sets);
 		printf("} <next socket set...>\n");
-		list = list->next;
+
+		list_of_sets = list_of_sets->next;
 	}
 	printf("}\n\n");
+	pthread_rwlock_unlock(&socketsetlist_lock);
+	DLOG(CLIB_IF_LOCKS, "LOCK: Printed socketsetlist - Released global lock\n");
 }
 
-int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketlist *slist)
+void muacc_print_socketset(struct socketset *set)
+{
+	DLOG(CLIB_IF_LOCKS, "LOCK: Printing socket set - Locking %p\n", (void *) set);
+	pthread_rwlock_rdlock(&(set->lock));
+	printf("{ ");
+	printf("host = %s\n", (set->host == NULL ? "(null)" : set->host));
+	printf("serv = %s\n", (set->serv == NULL ? "(null)" : set->serv));
+	printf("type = %d\n", set->type);
+	printf("use_count = %d\n", set->use_count);
+	struct socketlist *list = set->sockets;
+	while (list != NULL)
+	{
+		strbuf_t sb;
+		strbuf_init(&sb);
+
+		printf("{ file = %d\n", list->file);
+		printf("flags = %d\n", list->flags);
+		printf("ctx = ");
+		_muacc_print_ctx(&sb, list->ctx);
+		printf("%s", strbuf_export(&sb));
+		strbuf_release(&sb);
+
+		list = list->next;
+		printf("} ");
+	}
+	pthread_rwlock_unlock(&(set->lock));
+	DLOG(CLIB_IF_LOCKS, "LOCK: Finished printing - Unlocked %p\n", (void *) set);
+}
+
+int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketset *set)
 {
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Sending socketchoose\n");
 	int returnvalue = -1;
@@ -397,7 +450,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 
 	muacc_mam_action_t reason = muacc_act_socketchoose_req;
 
-	struct socketset *set = slist->set;
+	struct socketlist *list = set->sockets;
 
 	if ( _muacc_connect_ctx_to_mam(ctx) != 0 )
 	{
@@ -415,29 +468,29 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 	/* Pack context from request */
 	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), ctx->ctx) )
 	{
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error serializing MAM context \n");
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error serializing socket context \n");
 		return -1;
 	}
 
-	/* Pack contexts from socketset */
-	while (set != NULL)
+	/* Pack sockets from socketset */
+	while (list != NULL)
 	{
-		// Suggest all sockets that are currently not locked to MAM
-		if (set->locks == 0)
+		// Suggest all sockets that are currently not in use to MAM
+		if ((list->flags & MUACC_SOCKET_IN_USE) == 0)
 		{
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Pushing socket set file %d\n", set->file);
-			if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), socketset_file, &(set->file), sizeof(int)) )
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Pushing socket %d\n", list->file);
+			if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), socketset_file, &(list->file), sizeof(int)) )
 			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing socketset file descriptor %d\n", set->file);
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing socket with file descriptor %d\n", list->file);
 				return -1;
 			}
-			if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), set->ctx) )
+			if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), list->ctx) )
 			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing socket set context of %d\n", set->file);
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing socket context of %d\n", list->file);
 				return -1;
 			}
 		}
-		set = set->next;
+		list = list->next;
 	}
 	if( 0 > _muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) )
 	{
@@ -445,8 +498,8 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 		return -1;
 	}
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Pushing request done\n");
-	DLOG(CLIB_IF_LOCKS, "LOCK: Pushed socket set - Unlocking global lock\n");
-	pthread_rwlock_unlock(&socketlist_lock);
+	DLOG(CLIB_IF_LOCKS, "LOCK: Pushed socket set - Unlocking %p\n", (void *)set);
+	pthread_rwlock_unlock(&(set->lock));
 
 	if ( 0 > (ret = send(ctx->mamsock, buf, pos, 0)) )
 	{
@@ -472,10 +525,10 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 			{
 				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "MAM says: Use existing socket!\n");
 
-				pthread_rwlock_wrlock(&socketlist_lock);
-				DLOG(CLIB_IF_LOCKS, "LOCK: Checking socketset - Got global lock\n");
-				set_in_use = 1;
+				pthread_rwlock_wrlock(&(set->lock));
+				DLOG(CLIB_IF_LOCKS, "LOCK: Checking socketset %p - Locking it\n", (void *)set);
 
+				set_in_use = 1;
 			}
 			else if (*(muacc_mam_action_t *) data == muacc_act_socketchoose_resp_new)
 			{
@@ -498,27 +551,28 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 		{
 			if (set_in_use)
 			{
-				set = slist->set;
-				while (set != NULL && set->file != *(int *) data)
+				list = set->sockets;
+				while (list != NULL && list->file != *(int *) data)
 				{
-					set = set->next;
+					list = list->next;
 				}
 
-				if (set == NULL)
+				if (list == NULL)
 				{
 					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d suggested, but not found in set.\n", *(int *)data);
 					*socket = -1;
 					returnvalue = 1;
 				}
-				else if (set->locks == 0)
+				else if ((list->flags & MUACC_SOCKET_IN_USE) == 0)
 				{
-					// Socket is not in use yet
-					set->locks = 1;
+					// Socket is not in use yet - set flag as IN USE
+					list->flags |= MUACC_SOCKET_IN_USE;
+					set->use_count += 1;
 					memcpy(socket, (int *)data, data_len);
 					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Use socket %d from set - mark it as \"in use\" and returning\n", *socket);
 
-					DLOG(CLIB_IF_LOCKS, "LOCK: Found socket to use - Unlocking global lock\n");
-					pthread_rwlock_unlock(&socketlist_lock);
+					DLOG(CLIB_IF_LOCKS, "LOCK: Found socket to use - Unlocking socketset lock\n");
+					pthread_rwlock_unlock(&(set->lock));
 					return 0;
 				}
 				else
@@ -547,8 +601,8 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 
 				if (set_in_use)
 				{
-					DLOG(CLIB_IF_LOCKS, "LOCK: End of socketchoose - Unlocking global lock\n");
-					pthread_rwlock_unlock(&socketlist_lock);
+					DLOG(CLIB_IF_LOCKS, "LOCK: End of socketchoose - Unlocking set %p\n", (void *)set);
+					pthread_rwlock_unlock(&(set->lock));
 				}
 
 				return -1;
@@ -559,19 +613,19 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketli
 
 	if (set_in_use)
 	{
-		DLOG(CLIB_IF_LOCKS, "LOCK: End of socketchoose - Unlocking global lock\n");
-		pthread_rwlock_unlock(&socketlist_lock);
+		DLOG(CLIB_IF_LOCKS, "LOCK: End of socketchoose - Unlocking set %p\n", (void *)set);
+		pthread_rwlock_unlock(&(set->lock));
 	}
 	return returnvalue;
 }
 
-struct socketset *_muacc_socketset_find_dup (struct socketset *set)
+struct socketlist *_muacc_socketset_find_dup (struct socketlist *slist)
 {
-	struct socketset *duplicate = set->next;
+	struct socketlist *duplicate = slist->next;
 
 	while (duplicate != NULL)
 	{
-		if (duplicate->ctx == set->ctx)
+		if (duplicate->ctx == slist->ctx)
 		{
 			// Found duplicate! (i.e. different file descriptor, but same socket context)
 			break;
@@ -582,61 +636,99 @@ struct socketset *_muacc_socketset_find_dup (struct socketset *set)
 	return duplicate;
 }
 
-int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
+struct socketset *_muacc_find_prev_socketset(struct socketset **list_of_sets, struct socketset *set)
 {
-	struct socketlist *currentlist = *list;
-	struct socketset *currentset = NULL;
+	if (*list_of_sets == NULL || set == NULL)
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Previous set of NULL is NULL\n");
+		return NULL;
+	}
+
+	if (*list_of_sets == set)
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "This is the first set in the list\n");
+		return NULL;
+	}
+
+	struct socketset *prevset = *list_of_sets;
+
+	while (prevset->next != NULL)
+	{
+		if (prevset->next == set)
+		{
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Prevset found!\n");
+			return prevset;
+		}
+		prevset = prevset->next;
+	}
+
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Set not found in list - returning NULL\n");
+	return NULL;
+}
+
+int _muacc_remove_socket_from_list (struct socketset **list_of_sets, int socket)
+{
+	struct socketlist *currentlist = NULL;
+	struct socketset *currentset = *list_of_sets;
 
 	struct socketlist *list_to_delete = NULL;
 	struct socketlist *prevlist = NULL;
 	struct socketset *set_to_delete = NULL;
 	struct socketset *prevset = NULL;
 
-	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Trying to delete set for socket %d\n", socket);
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Trying to delete socket %d from set\n", socket);
 
-	while (currentlist != NULL)
+	while (currentset != NULL)
 	{
 
-		// Go through list of socket sets
-		currentset = currentlist->set;
+		// Go through list of sockets
+		currentlist = currentset->sockets;
 
-		if (currentset->file == socket)
+		if (currentlist->file == socket)
 		{
-			// First set matches!
+			// First socket matches!
 
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: First set matches!\n", socket);
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: First socket matches!\n", socket);
+			pthread_rwlock_wrlock(&(currentset->destroylock));
+			DLOG(CLIB_IF_LOCKS, "LOCK: Planning to delete set - locked destroylock %p\n", (void *) currentset);
+			pthread_rwlock_wrlock(&(currentset->lock));
+			DLOG(CLIB_IF_LOCKS, "LOCK: Planning to delete set - locked %p\n", (void *) currentset);
 			set_to_delete = currentset; // Found the set to delete!
 			list_to_delete = currentlist; // Store list entry of set
-			prevset = NULL;
+			prevlist = NULL;
 			break;
 		}
 
-		while (currentset->next != NULL)
+		while (currentlist->next != NULL)
 		{
 
 			// Set has more than one socket, iterate through it
-			if (currentset->next->file == socket)
+			if (currentlist->next->file == socket)
 			{
-				// Socketset matches!
+				// Socket matches!
 
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Found set to delete\n", socket);
-				set_to_delete = currentset->next; // Found the set to delete!
-				list_to_delete = currentlist; // Store list entry of set
-				prevset = currentset;
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Found socket to delete\n", socket);
+				pthread_rwlock_wrlock(&(currentset->destroylock));
+				DLOG(CLIB_IF_LOCKS, "LOCK: Planning to delete set - locked destroylock %p\n", (void *) currentset);
+				pthread_rwlock_wrlock(&(currentset->lock));
+				DLOG(CLIB_IF_LOCKS, "LOCK: Planning to delete set - locked %p\n", (void *) currentset);
+				list_to_delete = currentlist->next; // Found the socket to delete!
+				set_to_delete = currentset; // Store set
+				prevlist = currentlist;
 			}
 
-			currentset = currentset->next;
+			currentlist = currentlist->next;
 		}
 
-		if (set_to_delete != NULL)
+		if (list_to_delete != NULL)
 		{
-			// Found set to delete!
+			// Found socket to delete!
 			break;
 		}
 
-		prevlist = currentlist;
+		prevset = currentset;
 
-		currentlist = currentlist->next;
+		currentset = currentset->next;
 	}
 
 	if (set_to_delete == NULL || list_to_delete == NULL)
@@ -646,46 +738,51 @@ int _muacc_remove_socket_from_list (struct socketlist **list, int socket)
 	}
 	else
 	{	
-		// Free context if no other file descriptor needs it
-		if (_muacc_socketset_find_dup(set_to_delete) == NULL)
+		int ret;
+		if ((ret = _muacc_free_socket(set_to_delete, list_to_delete, prevlist)) == 0)
 		{
-			// No duplicate (i.e., no other file descriptor shares this socket/context)
-			_muacc_free_ctx(set_to_delete->ctx);
+			// Socket was freed, set still has sockets - cleaning up
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "DEL %d: Looking if there are other sockets to free\n", socket);
+			ret = _muacc_cleanup_sockets(&set_to_delete);
 		}
-
-		// Re-adjust pointers
-		if (prevset != NULL)
+		if (ret == 0)
 		{
-			prevset->next = set_to_delete->next;
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Readjusted set pointers\n", socket);
+			// Returnvalue is still 0, so there are still sockets in the set
+			pthread_rwlock_unlock(&(set_to_delete->lock));
+			DLOG(CLIB_IF_LOCKS, "LOCK: Removed a socket from set - Releasing its lock %p\n", (void *)set_to_delete);
+			pthread_rwlock_unlock(&(set_to_delete->destroylock));
+			DLOG(CLIB_IF_LOCKS, "LOCK: Removed a socket from set - Releasing its destroylock %p\n", (void *)set_to_delete);
 		}
-		else
+		else if (ret == 1)
 		{
-			if (set_to_delete->next != NULL)
+			// Last socket was freed, so set can be freed
+			if (prevset != NULL)
 			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: This is the first socket in the set - readjusting pointer\n", socket);
-				list_to_delete->set = set_to_delete->next;
+				// This is not the first socket set in the list
+				prevset->next = set_to_delete->next;
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Freeing a socket set, readjusted socketset list pointers\n", socket);
 			}
 			else
 			{
-			// This was the only socket in the set - clear this list entry, release prev
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: This is the ONLY socket in the set - freeing list\n", socket);
-				if (prevlist != NULL)
-				{
-					// Set the pointer of the previous list entry
-					prevlist->next = list_to_delete->next;
-					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Readjusted list pointers\n", socket);
-				}
-				else
-				{
-					// We freed the first list entry - set the list head
-					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Freed the first list entry, resetting head\n", socket);
-					*list = list_to_delete->next;
-				}
-
-				free(list_to_delete);
+				// This IS the first socket set in the list
+				*list_of_sets = set_to_delete->next;
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Freeing the first socketset list entry, reset head\n", socket);
 			}
+
+			pthread_rwlock_destroy(&(set_to_delete->lock));
+			DLOG(CLIB_IF_LOCKS, "LOCK: Removed socket set - destroyed its lock %p\n", (void *)set_to_delete);
+			pthread_rwlock_destroy(&(set_to_delete->destroylock));
+			DLOG(CLIB_IF_LOCKS, "LOCK: Removed a socket from set - Releasing its destroylock %p\n", (void *)set_to_delete);
+
 			free(set_to_delete);
+		}
+		else
+		{
+			// Error
+			pthread_rwlock_unlock(&(set_to_delete->lock));
+			DLOG(CLIB_IF_LOCKS, "LOCK: Error trying to remove socket - Releasing set lock %p\n", (void *)set_to_delete);
+			pthread_rwlock_unlock(&(set_to_delete->destroylock));
+			DLOG(CLIB_IF_LOCKS, "LOCK: Error trying to remove socket - Releasing set destroylock %p\n", (void *)set_to_delete);
 		}
 
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Set for socket %d successfully cleared\n", socket);
@@ -703,6 +800,7 @@ int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostl
     }
     else
     {
+        DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Writing hostname %s and service %s to context\n", host, serv);
         ctx->ctx->remote_addrinfo_hint = malloc(sizeof(struct addrinfo));
         memset(ctx->ctx->remote_addrinfo_hint, 0, sizeof(struct addrinfo));
         ctx->ctx->remote_addrinfo_hint->ai_family = ctx->ctx->domain;
@@ -720,4 +818,90 @@ int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostl
         DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Successfully wrote hostname %s and service %s to context\n", ctx->ctx->remote_hostname, ctx->ctx->remote_service);
 	}
 	return 0;
+}
+
+int _muacc_free_socket(struct socketset *set_to_delete, struct socketlist *list_to_delete, struct socketlist *prevlist)
+{
+	int returnvalue = -1;
+	int socketfd = list_to_delete->file;
+
+	// Free context if no other file descriptor needs it
+	if (_muacc_socketset_find_dup(list_to_delete) == NULL)
+	{
+		// No duplicate (i.e., no other file descriptor shares this socket/context)
+		_muacc_free_ctx(list_to_delete->ctx);
+	}
+
+	// Re-adjust pointers
+	if (prevlist != NULL)
+	{
+		// This is not the first socket of the set
+		prevlist->next = list_to_delete->next;
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Readjusted set pointers\n", list_to_delete->file);
+		returnvalue = 0;
+	}
+	else
+	{
+		// This IS the first socket of the set
+		if (list_to_delete->next != NULL)
+		{
+			// There are more sockets in the set
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: This is the first socket in the set - readjusting pointer\n", list_to_delete->file);
+			set_to_delete->sockets = list_to_delete->next;
+			returnvalue = 0;
+		}
+		else
+		{
+			// This was the only socket in the set - clear this set
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: This is the ONLY socket in the set - need to free set\n", list_to_delete->file);
+			returnvalue = 1;
+		}
+		free(list_to_delete);
+	}
+
+	// Close the socket
+	if (close(socketfd) == -1)
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "DEL %d: Close failed\n", socketfd);
+		returnvalue = -1;
+	}
+	else
+	{
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Closed socket.\n", socketfd);
+	}
+
+
+	return returnvalue;
+}
+
+int _muacc_cleanup_sockets(struct socketset **set)
+{
+	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Freeing unused sockets from set\n");
+	struct socketlist *sockets = (*set)->sockets;
+	struct socketlist *socket_to_delete = NULL;
+	struct socketlist *prevsocket = NULL;
+	int returnvalue = -1;
+
+	while (sockets != NULL)
+	{
+		if (!(sockets->flags & MUACC_SOCKET_IN_USE))
+		{
+			// Socket is not in use
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Socket %d not in use -- freeing\n", sockets->file);
+			socket_to_delete = sockets;
+			sockets = sockets->next;
+
+			if ((returnvalue = _muacc_free_socket(*set, socket_to_delete, prevsocket)) == 1)
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "This was the last socket in the set.\n");
+			}
+		}
+		else
+		{
+			prevsocket = sockets;
+			sockets = sockets->next;
+		}
+	}
+
+	return returnvalue;
 }

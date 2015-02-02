@@ -82,6 +82,6 @@ int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const
  *
  * @return The corresponding socketset
  */
-struct socketset *_muacc_socketset_find_file (struct socketset *set, int socket);
+struct socketlist *_muacc_socketlist_find_file (struct socketlist *slist, int socket);
 
 #endif /* __MUACC_UTIL_H__ */

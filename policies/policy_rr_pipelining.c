@@ -183,30 +183,30 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 
 	printf("\n\tSocketchoose request\n");
 
-	if (rctx->set != NULL && rctx->set->next != NULL)
+	if (rctx->sockets != NULL && rctx->sockets->next != NULL)
 	{
 		// If we have a socket set of two or more sockets
-		int suggestedsocket = rctx->set->file;
-		struct socketset *lastset = NULL;
+		int suggestedsocket = rctx->sockets->file;
+		struct socketlist *lastsocketlist = NULL;
 
-		if ((lastset = _muacc_socketset_find_file(rctx->set, lastsocket)) != NULL)
+		if ((lastsocketlist = _muacc_socketlist_find_file(rctx->sockets, lastsocket)) != NULL)
 		{
 			printf("\t(Last socket was %d ", lastsocket);
-			if (lastset->next != NULL)
+			if (lastsocketlist->next != NULL)
 			{
-				/* Make rctx set pointer point to the chosen socket set (lastset->next) */
+				/* Make rctx set pointer point to the chosen socket (lastsocketlist->next) */
 
-				struct socketset *set_not_chosen = rctx->set;
-				suggestedsocket = lastset->next->file;
-				rctx->set = lastset->next;
+				struct socketlist *socket_not_chosen = rctx->sockets;
+				suggestedsocket = lastsocketlist->next->file;
+				rctx->sockets = lastsocketlist->next;
 				printf("- choosing next one)\n");
 
 				/* free all socketset members from rctx->set up until lastset to prevent memory leaks */
-				lastset->next = NULL;
-				while (set_not_chosen != NULL)
+				lastsocketlist->next = NULL;
+				while (socket_not_chosen != NULL)
 				{
-					struct socketset *todelete = set_not_chosen;
-					set_not_chosen = set_not_chosen->next;
+					struct socketlist *todelete = socket_not_chosen;
+					socket_not_chosen = socket_not_chosen->next;
 
 					_muacc_free_ctx(todelete->ctx);
 					free(todelete);
@@ -226,7 +226,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 
 		/* Provide the information to open a new similar socket, in case the suggested socket cannot be used */
 		muacc_ctxid_t context_id = rctx->ctx->ctxid;
-		rctx->ctx = _muacc_clone_ctx(rctx->set->ctx);
+		rctx->ctx = _muacc_clone_ctx(rctx->sockets->ctx);
 		rctx->ctx->ctxid = context_id;
 
 		_muacc_send_ctx_event(rctx, muacc_act_socketchoose_resp_existing);

@@ -127,7 +127,7 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
     		case _muacc_proc_tlv_event_eof:
 				/* re-initialize muacc context to back up further communication */
 				 *rctx = malloc(sizeof(struct request_context));
-				(*rctx)->set = NULL;
+				(*rctx)->sockets = NULL;
 				(*rctx)->mctx = global_mctx;
 				(*rctx)->ctx = _muacc_create_ctx();
     			/* done processing - do MAM's magic */
@@ -186,7 +186,7 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
 		*ctx = malloc(sizeof(struct request_context));
 		(*ctx)->ctx = _muacc_create_ctx();
 		(*ctx)->mctx = mctx;
-		(*ctx)->set = NULL;
+		(*ctx)->sockets = NULL;
 		(*ctx)->policy_calls_performed = 0;
 
     	/* set up bufferevent magic */

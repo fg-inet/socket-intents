@@ -255,9 +255,9 @@ int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
 	/* pack request */
 	if( 0 > _muacc_push_tlv(v[0].iov_base, &pos, v[0].iov_len, action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_send_ctx_event_pack_err;
 
-	if (reason == muacc_act_socketchoose_resp_existing && ctx->set != NULL)
+	if (reason == muacc_act_socketchoose_resp_existing && ctx->sockets != NULL)
 	{
-		if( 0 > _muacc_push_tlv(v[0].iov_base, &pos, v[0].iov_len, socketset_file, &(ctx->set->file), sizeof(int)) ) goto  _muacc_send_ctx_event_pack_err;
+		if( 0 > _muacc_push_tlv(v[0].iov_base, &pos, v[0].iov_len, socketset_file, &(ctx->sockets->file), sizeof(int)) ) goto  _muacc_send_ctx_event_pack_err;
 	}
 
 	if( 0 > _muacc_pack_ctx(v[0].iov_base, &pos, v[0].iov_len, ctx->ctx) ) goto  _muacc_send_ctx_event_pack_err;
@@ -347,25 +347,25 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
 		DLOG(MAM_UTIL_NOISY_DEBUG2, "socketset file descriptor %d \n" , *((muacc_mam_action_t *) data));
 
 		/* Searching for a place to insert the new socketset member */
-		if (ctx->set == NULL)
+		if (ctx->sockets == NULL)
 		{
 			DLOG(MAM_UTIL_NOISY_DEBUG2, "Receiving new socket set\n");
-			ctx->set = malloc(sizeof(struct socketset));
-			ctx->set->next = NULL;
-			ctx->set->file = *(int *) data;
-			ctx->set->ctx = _muacc_create_ctx();
+			ctx->sockets = malloc(sizeof(struct socketlist));
+			ctx->sockets->next = NULL;
+			ctx->sockets->file = *(int *) data;
+			ctx->sockets->ctx = _muacc_create_ctx();
 		}
 		else
 		{
 			DLOG(MAM_UTIL_NOISY_DEBUG2, "Adding to existing set\n");
-			struct socketset *new = ctx->set;
+			struct socketlist *new = ctx->sockets;
 			while (new->next != NULL)
 			{
 				new = new->next;
 			}
 
 			/* Creating socket set member */
-			new->next = malloc(sizeof(struct socketset));
+			new->next = malloc(sizeof(struct socketlist));
 			new->next->next = NULL;
 			new->next->file = *(int *) data;
 			new->next->ctx = _muacc_create_ctx();
@@ -375,16 +375,16 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
 	{
 		struct _muacc_ctx *parsectx = ctx->ctx;
 
-		if (ctx->set != NULL)
+		if (ctx->sockets != NULL)
 		{
 			/* parse incoming context into the socket set */
-			struct socketset *sockset = ctx->set;
-			while (sockset->next != NULL)
+			struct socketlist *socklist = ctx->sockets;
+			while (socklist->next != NULL)
 			{
-				sockset = sockset->next;
+				socklist = socklist->next;
 			}
-			DLOG(MAM_UTIL_NOISY_DEBUG2, "receiving context for socketset member %d\n", sockset->file);
-			parsectx = sockset->ctx;
+			DLOG(MAM_UTIL_NOISY_DEBUG2, "receiving context for socketset member %d\n", socklist->file);
+			parsectx = socklist->ctx;
 		}
 
 		/* unpack context */

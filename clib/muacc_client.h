@@ -25,19 +25,36 @@ typedef struct muacc_context
     struct _muacc_ctx *ctx;     /**< internal struct with relevant socket context data */
 } muacc_context_t;
 
+/** List of socketsets that we have
+ *  each with its own destination host/port, connection type, status, read/write lock
+ *  and list of sockets that belong to the set
+ */
 typedef struct socketset
 {
-	int		file;				/**< File descriptor */
-	uint8_t locks;              /**< lock to avoid concurrent usage - 0 = free, 1 = in use */
-	struct	_muacc_ctx *ctx;
+	pthread_rwlock_t lock;		/**< Read/Write lock for this set */
+	pthread_rwlock_t destroylock;/**< Lock for deleting this set */
+	uint8_t	use_count;			/**< Number of sockets in this set that are in use */
+	char   *host;				/**< Host name for this socket set */
+	size_t  hostlen;
+	char   *serv;				/**< Destination port or service for this socket set */
+	size_t  servlen;
+	int 	type;				/**< Connection type, e.g. SOCK_STREAM or SOCK_DGRAM */
+	struct  socketlist *sockets;/**< List of sockets within this socket set */
 	struct	socketset *next;
 } socketset_t;
 
+/** List of sockets that are part of a socket set
+ *  each with its own file descriptor, context, and status
+ */
 typedef struct socketlist
 {
-	struct socketset 	*set;
+	int		file;				/**< File descriptor of this socket */
+	int		flags;              /**< Flags indicating the status of this socket, e.g. MUACC_SOCKET_IN_USE */
+	struct	_muacc_ctx *ctx;	/**< Context of this socket */
 	struct socketlist 	*next;
 } socketlist_t;
+
+#define MUACC_SOCKET_IN_USE 0x01
 
 /** wrapper for socket, initializes an uninitialized context
  *
@@ -112,7 +129,7 @@ int _socketconnect_request(muacc_context_t *ctx, int *s, const char *host, size_
  *
  *  @return 0 if existing socket was chosen, 1 if new socket was created, -1 if fail
  */
-int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketlist *slist);
+int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set);
 
 /** Process a socketconnect response, create a new socket, bind and connect it
  *
@@ -124,7 +141,7 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s);
  *
  *  @return 0 if successful, -1 if fail
  */
-int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketlist *slist);
+int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set);
 
 /** Close a socket that was supplied by socketconnect, drop it from the socket set
  *

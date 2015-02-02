@@ -406,13 +406,13 @@ int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const
 	return retval;
 }
 
-struct socketset *_muacc_socketset_find_file (struct socketset *set, int socket)
+struct socketlist *_muacc_socketlist_find_file (struct socketlist *slist, int socket)
 {
-       while (set != NULL)
+       while (slist != NULL)
        {
-               if (set->file == socket)
-                       return set;
-               set = set->next;
+               if (slist->file == socket)
+                       return slist;
+               slist = slist->next;
        }
        return NULL;
 }

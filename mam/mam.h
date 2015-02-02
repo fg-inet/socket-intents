@@ -32,7 +32,7 @@ typedef struct request_context {
 	muacc_mam_action_t	action;		/**< socket call that this request is associated to */
 	unsigned int		policy_calls_performed; /**< Policy functions that we have already called */
 	struct _muacc_ctx	*ctx;		/**< internal struct with relevant socket context data */
-	struct socketset	*set;		/**< set of existing sockets to choose from */
+	struct socketlist	*sockets;	/**< list of existing sockets for socketchoose */
 	struct mam_context	*mctx;		/**< pointer to current mam context */
 } request_context_t;
 
