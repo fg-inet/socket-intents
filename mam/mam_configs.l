@@ -4,8 +4,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "mam_configp.h"
+#include "lib/dlog.h"
 
 %}
+
+%option noinput
+%option nounput
 
 IPV4ADDRESS      (([[:digit:]]{1,3}"."){3}([[:digit:]]{1,3}))
 hex4             ([[:xdigit:]]{1,4})
@@ -43,7 +47,7 @@ resolvconf              return RESOLVCONFTOK;
 									yylval.in_sa.sin_port = 0;
 									return IN4ADDR; 
 								} else {
-									yyerror("%s is no valid ip address\n", yytext);
+									DLOG(1, "ERROR: %s is not a valid IPv4 address\n", yytext);
 								} };
 								
 {IPV6ADDRESS}			{ if(inet_pton(AF_INET6, yytext, &(yylval.in6_sa.sin6_addr)) == 1 )
@@ -55,11 +59,12 @@ resolvconf              return RESOLVCONFTOK;
 									yylval.in6_sa.sin6_port = 0;
 									return IN6ADDR; 
 								} else {
-									yyerror("%s is no valid ipv6 address\n", yytext);
+									DLOG(1, "ERROR: %s is not a valid IPv6 address\n", yytext);
 								} };
 
-[0-9][0-9]*				yylval.number=atoi(yytext); return NUMBER;
-[a-zA-Z][a-zA-Z0-9]*    yylval.string=strdup(yytext); return LNAME;
+[0-9][0-9]*				{yylval.ival=atoi(yytext); return INTNUMBER;}
+(([0-9]+(\.[0-9]*)?)|([0-9]*\.[0-9]+)) {yylval.dval = atof(yytext); return DOUBLENUMBER;}
+[a-zA-Z_][a-zA-Z0-9_]*    yylval.string=strdup(yytext); return LNAME;
 
 \n                      /* ignore EOL */;
 [ \t]+                  /* ignore whitespace */;
