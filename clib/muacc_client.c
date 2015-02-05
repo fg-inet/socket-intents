@@ -775,6 +775,7 @@ int socketclose(int socket)
 
 int socketrelease(int socket)
 {
+	int cleanuplater = 0;
 	DLOG(CLIB_IF_NOISY_DEBUG0, "Releasing socket %d and marking it as free for reuse\n", socket);
 	pthread_rwlock_wrlock(&socketsetlist_lock);
 	DLOG(CLIB_IF_LOCKS, "LOCK: Releasing socket - Got global lock\n");
@@ -788,7 +789,16 @@ int socketrelease(int socket)
 	}
 	else
 	{
-		pthread_rwlock_wrlock(&(set_to_release->destroylock));
+		if (pthread_rwlock_trywrlock(&(set_to_release->destroylock)) == 0)
+		{
+			// Got destroylock on set - decide to clean up later
+			cleanuplater = 1;
+			DLOG(CLIB_IF_NOISY_DEBUG2, "After releasing %d, maybe clean up socket set\n", socket);
+		}
+		else
+		{
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Set of released socket %d is still in use, do not clean up\n", socket);
+		}
 		DLOG(CLIB_IF_LOCKS, "LOCK: Getting destroylock of set %p\n", (void *)set_to_release);
 		pthread_rwlock_wrlock(&(set_to_release->lock));
 		DLOG(CLIB_IF_LOCKS, "LOCK: Releasing socket - Locking set %p\n", (void *)set_to_release);
@@ -810,11 +820,10 @@ int socketrelease(int socket)
 		}
 		else
 		{
-			DLOG(CLIB_IF_NOISY_DEBUG2, "Socket %d Flags before: %d\n", socket, slist->flags);
 			slist->flags = slist->flags & ~MUACC_SOCKET_IN_USE;
 			set_to_release->use_count -= 1;
-			DLOG(CLIB_IF_NOISY_DEBUG2, "Socket %d Flags after: %d, use count = %d\n", socket, slist->flags, set_to_release->use_count);
-			if (set_to_release->use_count == 0)
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Socket set of %d: use count = %d\n", socket, set_to_release->use_count);
+			if (cleanuplater && set_to_release->use_count == 0)
 			{
 				DLOG(CLIB_IF_NOISY_DEBUG2, "Socket %d was the last socket - cleaning up\n", socket);
 				if (1 == _muacc_cleanup_sockets(&set_to_release))
@@ -849,8 +858,8 @@ int socketrelease(int socket)
 			{
 				pthread_rwlock_unlock(&(set_to_release->lock));
 				DLOG(CLIB_IF_LOCKS, "LOCK: Marked socket as free - Releasing set %p\n", (void *) set_to_release);
-				pthread_rwlock_unlock(&(set_to_release->destroylock));
-				DLOG(CLIB_IF_LOCKS, "LOCK: Did not find socket - Releasing set %p\n", (void *) set_to_release);
+				if (cleanuplater) // we obtained the destroylock -- release it again
+					pthread_rwlock_unlock(&(set_to_release->destroylock));
 			}
 
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Set entry of socket %d found and marked as free\n", socket);

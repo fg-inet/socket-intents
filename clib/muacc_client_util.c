@@ -347,6 +347,7 @@ struct socketset* _muacc_add_socket_to_set(struct socketset **list_of_sets, int 
 		slist->next->flags = 0;
 		slist->next->flags |= MUACC_SOCKET_IN_USE;
 		set->use_count += 1;
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Added %d - Use count of socket set is now %d\n", socket, set->use_count);
 		slist->next->ctx = _muacc_clone_ctx(ctx);
 
 		DLOG(CLIB_IF_LOCKS, "LOCK: Finished trying to add - Releasing set %p\n", (void *) set);
@@ -568,6 +569,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 					// Socket is not in use yet - set flag as IN USE
 					list->flags |= MUACC_SOCKET_IN_USE;
 					set->use_count += 1;
+					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Use socket %d - use count of set is now %d\n", *socket, set->use_count);
 					memcpy(socket, (int *)data, data_len);
 					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Use socket %d from set - mark it as \"in use\" and returning\n", *socket);
 
@@ -738,11 +740,14 @@ int _muacc_remove_socket_from_list (struct socketset **list_of_sets, int socket)
 	}
 	else
 	{	
+		// Decrease set use count
+		set_to_delete->use_count -= 1;
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Decreased use count to %d\n", socket, set_to_delete->use_count);
 		int ret;
-		if ((ret = _muacc_free_socket(set_to_delete, list_to_delete, prevlist)) == 0)
+		if ((ret = _muacc_free_socket(set_to_delete, list_to_delete, prevlist)) == 0 && set_to_delete->use_count == 0)
 		{
-			// Socket was freed, set still has sockets - cleaning up
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "DEL %d: Looking if there are other sockets to free\n", socket);
+			// Socket was freed, other sockets are not in use - cleaning up
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Looking if there are other sockets to free\n", socket);
 			ret = _muacc_cleanup_sockets(&set_to_delete);
 		}
 		if (ret == 0)
