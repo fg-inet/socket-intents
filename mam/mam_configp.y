@@ -30,6 +30,7 @@
 	int yywrap();
 		
 	char *idup(int i);
+	char *ddup(double i);
 %}
 
 %token SEMICOLON OBRACE CBRACE EQUAL SLASH
@@ -43,8 +44,10 @@
 	struct sockaddr_in in_sa;
 	struct sockaddr_in6 in6_sa;
 }
+%union {int ival; double dval;}
 
-%token <number> NUMBER
+%token <ival> INTNUMBER
+%token <dval> DOUBLENUMBER
 %token <string> LNAME QNAME
 %token <in_sa>  IN4ADDR
 %token <in6_sa> IN6ADDR
@@ -89,11 +92,18 @@ policy_set:
 	SETTOK name EQUAL name
 	{g_hash_table_replace(yymctx->policy_set_dict, $2, $4);}
 	|
-	SETTOK name NUMBER
+	SETTOK name INTNUMBER
 	{g_hash_table_replace(yymctx->policy_set_dict, $2, idup($3));}
 	|
-	SETTOK name EQUAL NUMBER
+	SETTOK name DOUBLENUMBER
+	{g_hash_table_replace(yymctx->policy_set_dict, $2, ddup($3));}
+	|
+	SETTOK name EQUAL INTNUMBER
 	{g_hash_table_replace(yymctx->policy_set_dict, $2, idup($4));}
+	|
+	SETTOK name EQUAL DOUBLENUMBER
+	{g_hash_table_replace(yymctx->policy_set_dict, $2, ddup($4));}
+
 	;
 
 iface_block:
@@ -108,7 +118,7 @@ iface_statements:
 	;
 	
 prefix_block:
-	PREFIXTOK IN4ADDR SLASH NUMBER OBRACE prefix_statements CBRACE
+	PREFIXTOK IN4ADDR SLASH INTNUMBER OBRACE prefix_statements CBRACE
 	{
 		// find matching prefixes
 		struct sockaddr_in *sa = &($2);
@@ -139,7 +149,7 @@ prefix_block:
 		l_set_dict = g_hash_table_new_full(&g_str_hash, &g_str_equal, &free, &free);
 	}
 	|
-	PREFIXTOK IN6ADDR SLASH NUMBER OBRACE prefix_statements CBRACE
+	PREFIXTOK IN6ADDR SLASH INTNUMBER OBRACE prefix_statements CBRACE
 	{
 		// find matching prefixes
 		struct sockaddr_in6 *sa = &($2);
@@ -189,13 +199,19 @@ prefix_statement:
 	SETTOK name EQUAL name
 	{g_hash_table_replace(l_set_dict, $2, $4);}
 	|
-	SETTOK name NUMBER
+	SETTOK name INTNUMBER
 	{g_hash_table_replace(l_set_dict, $2, idup($3));}
 	|
-	SETTOK name EQUAL NUMBER
+	SETTOK name DOUBLENUMBER
+	{g_hash_table_replace(l_set_dict, $2, ddup($3));}
+	|
+	SETTOK name EQUAL INTNUMBER
 	{g_hash_table_replace(l_set_dict, $2, idup($4));}
 	|
-	ENABLETOK NUMBER
+	SETTOK name EQUAL DOUBLENUMBER
+	{g_hash_table_replace(l_set_dict, $2, ddup($4));}
+	|
+	ENABLETOK INTNUMBER
 	{	pfx_flags_set |= PFX_ENABLED; 
 		if($2) 
 			pfx_flags_values |= PFX_ENABLED; 
@@ -214,7 +230,7 @@ prefix_statement:
 
 void yyerror(const char *str)
 {
-        DLOG(0 ,"error: %s\n",str);
+        DLOG(1 ,"ERROR: %s\n", str);
 }
 
 int yywrap()
@@ -253,5 +269,12 @@ char *idup (int i)
 {
     char *p;
     asprintf(&p, "%d", i);
+	return p;
+}
+
+char *ddup (double i)
+{
+    char *p;
+    asprintf(&p, "%f", i);
 	return p;
 }
