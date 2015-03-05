@@ -5,7 +5,7 @@
 #ifndef __TEST_UTIL_H__
 #define __TEST_UTIL_H__
 
-#include "lib/muacc.h"
+#include "clib/muacc.h"
 #include "lib/intents.h"
 
 #ifndef memset_pattern4

@@ -6,11 +6,11 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 
-#include "dlog.h"
+#include "clib/dlog.h"
 
 #include "muacc_ctx.h"
 #include "muacc_tlv.h"
-#include "muacc_util.h"
+#include "clib/muacc_util.h"
 
 #ifndef MUACC_CTX_NOISY_DEBUG0
 #define MUACC_CTX_NOISY_DEBUG0 1
@@ -61,6 +61,7 @@ void _muacc_print_ctx(strbuf_t *sb, const struct _muacc_ctx *_ctx)
 		_muacc_print_sockaddr(sb, _ctx->bind_sa_suggested, _ctx->bind_sa_suggested_len);
 		strbuf_printf(sb, ",\n");
 		strbuf_printf(sb, "\tremote_hostname = %s,\n", _ctx->remote_hostname);
+		strbuf_printf(sb, "\tremote_service = %s,\n", _ctx->remote_service);
 		strbuf_printf(sb, "\tremote_addrinfo_hint = ");
 		_muacc_print_addrinfo(sb, _ctx->remote_addrinfo_hint);
 		strbuf_printf(sb, ",\n");
@@ -150,6 +151,10 @@ ssize_t _muacc_pack_ctx(char *buf, ssize_t *pos, ssize_t len, const struct _muac
 	if( ctx->remote_hostname != NULL && /* strlen(NULL) might have undesired side effects… */
 		0 > _muacc_push_tlv(buf, pos, len, remote_hostname,	ctx->remote_hostname, strlen(ctx->remote_hostname)+1) ) goto _muacc_pack_ctx_err;
   
+	DLOG(MUACC_CTX_NOISY_DEBUG2,"remote_service pos=%ld\n", *pos);
+	if( ctx->remote_service != NULL && /* strlen(NULL) might have undesired side effects… */
+		0 > _muacc_push_tlv(buf, pos, len, remote_service,	ctx->remote_service, strlen(ctx->remote_service)+1) ) goto _muacc_pack_ctx_err;
+
 	DLOG(MUACC_CTX_NOISY_DEBUG2,"remote_addrinfo_hint pos=%zd\n", *pos);
 	if( 0 > _muacc_push_addrinfo_tlv(buf, pos, len, remote_addrinfo_hint, ctx->remote_addrinfo_hint) ) goto _muacc_pack_ctx_err;
 
@@ -267,6 +272,17 @@ int _muacc_unpack_ctx(muacc_tlv_t tag, const void *data, ssize_t data_len, struc
 				strncpy(str, data, data_len);
 				str[data_len-1] = 0x00;
 				_ctx->remote_hostname = str;
+			}
+			else
+				return -1;
+			break;
+		case remote_service:
+			DLOG(MUACC_CTX_NOISY_DEBUG2, "unpacking remote_service\n");
+			if((str = malloc(data_len)) != NULL)
+			{
+				strncpy(str, data, data_len);
+				str[data_len-1] = 0x00;
+				_ctx->remote_service = str;
 			}
 			else
 				return -1;

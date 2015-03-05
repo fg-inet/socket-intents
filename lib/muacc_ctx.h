@@ -9,8 +9,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#include "muacc.h"
-
+#include "clib/muacc.h"
 
 /** Type for uuid
  *

@@ -10,13 +10,12 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 
-#include "lib/muacc.h"
+#include "clib/muacc.h"
 #include "lib/muacc_ctx.h"
 #include "lib/muacc_tlv.h"
-#include "lib/muacc_util.h"
 
 #include "lib/intents.h"
-#include "lib/dlog.h"
+#include "clib/dlog.h"
 
 #include "clib/muacc_client_util.h"
 

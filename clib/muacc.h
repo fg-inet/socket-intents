@@ -21,16 +21,28 @@ typedef enum
 	muacc_act_connect_resp,
 	muacc_act_getaddrinfo_resolve_req,	    /**< is from a getaddrinfo, pre resolving */
 	muacc_act_getaddrinfo_resolve_resp,
+	muacc_act_socketconnect_req,			/**< is from a socketconnect, requests a new socket */
+	muacc_act_socketconnect_resp,			/**< socketconnect response, create new socket */
+	muacc_act_socketconnect_fallback,		/**< socketconnect falls back to getaddrinfo + connect */
+	muacc_act_socketchoose_req,				/**< choose between existing set of sockets or open new one */
+	muacc_act_socketchoose_resp_existing,	/**< socketchoose response, choose existing socket */
+	muacc_act_socketchoose_resp_new,		/**< socketchoose response, create new socket */
+	muacc_error_unknown_request,			/**< indicates an error */
 } muacc_mam_action_t;
 
-/** Linked list of socket options */
+/** Linked list of socket options to be set */
 typedef struct socketopt {
 	int 				level;				/**< Level at which the socket option is valid */
 	int 				optname;			/**< Identifier of the option */
 	void 				*optval;			/**< Pointer to the value */
 	socklen_t 			optlen;				/**< Length of the value */
+	int					returnvalue;		/**< Return value of setsockopt() if applicable */
+	int					flags;				/**< Flags */
 	struct socketopt 	*next;				/**< Pointer to the next socket option */
 } socketopt_t;
+
+#define SOCKOPT_IS_SET 0x0001 	/**< Sockopt has been set on the socket */
+#define SOCKOPT_OPTIONAL 0x0002	/**< If setting the option fails, still continue */
 
 /** Context identifier that is unique per MAM socket in a client */
 //typedef uuid_t muacc_ctxid_t;
@@ -54,6 +66,7 @@ struct _muacc_ctx {
 	struct sockaddr 	*bind_sa_suggested;     /**< local address suggested by MAM */
 	socklen_t 			 bind_sa_suggested_len; /**< length of bind_sa_res*/
 	char 				*remote_hostname;      	/**< hostname to resolve */
+	char				*remote_service;		/**< remote service to connect to */
 	struct addrinfo		*remote_addrinfo_hint;	/**< hints for resolving */
 	struct addrinfo		*remote_addrinfo_res;	/**< candidate remote addresses (sorted by MAM preference) */
 	struct sockaddr 	*remote_sa;     		/**< remote address choosen in the end */
@@ -66,6 +79,7 @@ typedef enum
 {
 	eof = 0x00,		    	/**< end of TLV data – always 0 bytes */
 	action,					/**< action triggering request */
+	socketset_file,			/**< file descriptor of an existing socket from a socketset */
 	calls_performed,		/**< flags of which socket calls have already been performed */
 	ctxid = 0x08,			/**< identifier for the context if sharing mamsock */
     ctxino,                 /**< inode of the socket (used as identifier for MPTCP sessions) */
@@ -76,7 +90,7 @@ typedef enum
 	bind_sa_req = 0x13, 	/**< local address requested */
 	bind_sa_res,        	/**< local address choosen by mam */
 	remote_hostname = 0x21,	/**< remote host name */
-	remote_srvname,	   		/**< remote service name */
+	remote_service,	   		/**< remote service name */
 	remote_addrinfo_hint,	/**< candidate remote addresses (sorted by mam preference) */
 	remote_addrinfo_res,	/**< candidate remote addresses (sorted by mam preference) */
 	remote_sa,     			/**< remote address choosen */

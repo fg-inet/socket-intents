@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "lib/dlog.h"
-#include "lib/strbuf.h"
-#include "lib/muacc_util.h"
+#include "clib/dlog.h"
+#include "clib/strbuf.h"
+#include "clib/muacc_util.h"
 #include "lib/muacc_ctx.h"
 
 #include "mam.h"
@@ -125,6 +125,17 @@ void mam_release_request_context(request_context_t *ctx)
 {
 	/* clean up old _muacc_ctx */
 	_muacc_free_ctx(ctx->ctx);
+
+	/* clean up socket list */
+	while (ctx->sockets != NULL)
+	{
+		struct socketlist *socklist = ctx->sockets;
+		ctx->sockets = socklist->next;
+
+		_muacc_free_ctx(socklist->ctx);
+		free(socklist);
+	}
+
 	free(ctx);
 }
 

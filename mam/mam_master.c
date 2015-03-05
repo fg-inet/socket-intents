@@ -7,7 +7,7 @@
 #include <sys/un.h>
 #include <sys/stat.h>
 
-#include "lib/muacc.h"
+#include "clib/muacc.h"
 #include "lib/muacc_ctx.h"
 #include "lib/muacc_tlv.h"
 
@@ -45,47 +45,65 @@ static void process_mam_request(struct request_context *ctx)
 	if (ctx->action == muacc_act_getaddrinfo_resolve_req)
 	{
 		/* Respond to a getaddrinfo resolve request */
-		DLOG(MAM_MASTER_NOISY_DEBUG2, "received getaddrinfo resolve request\n");
-		if (_mam_fetch_policy_function(ctx->mctx->policy, "on_resolve_request", (void **) &callback_function) == 0)
-		{
-			/* Call policy module function */
-			DLOG(MAM_MASTER_NOISY_DEBUG2, "calling on_resolve_request callback\n");
-			ret = callback_function(ctx, ctx->mctx->ev_base);
-			if (ret != 0)
-			{
-				DLOG(MAM_MASTER_NOISY_DEBUG1, "on_resolve_request callback returned %d\n", ret);
-			}
-		}
-		else
-		{
-			DLOG(MAM_MASTER_NOISY_DEBUG2, "no callback on_resolve_request available. Sending back ctx\n");
-			_muacc_send_ctx_event(ctx, muacc_act_getaddrinfo_resolve_resp);
-		}
+		DLOG(MAM_MASTER_NOISY_DEBUG0, "Received new getaddrinfo resolve request\n");
+
+		_mam_callback_or_fail(ctx, "on_resolve_request", MAM_POLICY_RESOLVE_CALLED, muacc_act_getaddrinfo_resolve_resp);
 	}
 	else if (ctx->action == muacc_act_connect_req)
 	{
 		/* Respond to a connect request */
-		DLOG(MAM_MASTER_NOISY_DEBUG2, "received connect request\n");
-		if (_mam_fetch_policy_function(ctx->mctx->policy, "on_connect_request", (void **) &callback_function) == 0)
+		DLOG(MAM_MASTER_NOISY_DEBUG0, "Received new connect request\n");
+		_mam_callback_or_fail(ctx, "on_connect_request", MAM_POLICY_CONNECT_CALLED, muacc_act_connect_resp);
+	}
+	else if (ctx->action == muacc_act_socketconnect_req)
+	{
+		/* Respond to a socketconnect request */
+		DLOG(MAM_MASTER_NOISY_DEBUG0, "Received new socketconnect request\n");
+		if (_mam_fetch_policy_function(ctx->mctx->policy, "on_socketconnect_request", (void **) &callback_function) == 0)
 		{
 			/* Call policy module function */
-			DLOG(MAM_MASTER_NOISY_DEBUG2, "calling on_connect_request callback\n");
+			DLOG(MAM_MASTER_NOISY_DEBUG2, "calling on_socketconnect_request callback\n");
+			ctx->policy_calls_performed |= MAM_POLICY_SOCKETCONNECT_CALLED;
 			ret = callback_function(ctx, ctx->mctx->ev_base);
 			if (ret != 0)
 			{
-				DLOG(MAM_MASTER_NOISY_DEBUG1, "on_connect_request callback returned %d\n", ret);
+				DLOG(MAM_MASTER_NOISY_DEBUG1, "on_socketconnect_request callback returned %d\n", ret);
+				_muacc_send_ctx_event(ctx, muacc_act_socketconnect_resp);
 			}
 		}
 		else
 		{
-			DLOG(MAM_MASTER_NOISY_DEBUG2, "no callback on_connect_request available. Sending back ctx\n");
-			_muacc_send_ctx_event(ctx, muacc_act_connect_resp);
+			DLOG(MAM_MASTER_NOISY_DEBUG2, "No callback on_socketconnect_request available.\n");
+			int (*callback_function2)(request_context_t *ctx, struct event_base *base) = NULL;
+			if (_mam_fetch_policy_function(ctx->mctx->policy, "on_resolve_request", (void **) &callback_function) == 0 && _mam_fetch_policy_function(ctx->mctx->policy, "on_connect_request", (void **) &callback_function2) == 0)
+			{
+				DLOG(MAM_MASTER_NOISY_DEBUG2, "Fallback to resolve_request and connect_request. \n");
+				ctx->action = muacc_act_socketconnect_fallback;
+				ctx->policy_calls_performed |= MAM_POLICY_RESOLVE_CALLED;
+				ret = callback_function(ctx, ctx->mctx->ev_base);
+				if (ret != 0)
+				{
+					DLOG(MAM_MASTER_NOISY_DEBUG1, "on_resolve_request callback returned %d\n", ret);
+					_muacc_send_ctx_event(ctx, muacc_act_getaddrinfo_resolve_resp);
+				}
+			}
+			else
+			{
+				DLOG(MAM_MASTER_NOISY_DEBUG2, "no resolve_request and connect_request available either. Sending back context\n");
+				_muacc_send_ctx_event(ctx, muacc_act_socketconnect_resp);
+			}
 		}
+	}
+	else if (ctx->action == muacc_act_socketchoose_req)
+	{
+		DLOG(MAM_MASTER_NOISY_DEBUG0, "Received new socketchoose request\n");
+		_mam_callback_or_fail(ctx, "on_socketchoose_request", MAM_POLICY_SOCKETCHOOSE_CALLED, muacc_act_socketchoose_resp_new);
 	}
 	else
 	{
 		/* Unknown request */
-		DLOG(MAM_MASTER_NOISY_DEBUG1, "received unknown request (action id: %d\n", ctx->action);
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "received unknown request (action id: %d)\n", ctx->action);
+		_muacc_send_ctx_event(ctx, muacc_error_unknown_request);
 	}
 }
 
@@ -119,6 +137,7 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 				uuid_copy(old, crctx->ctx->ctxid);
 				 
 				 *rctx = malloc(sizeof(struct request_context));
+				(*rctx)->sockets = NULL;
 				(*rctx)->mctx = global_mctx;
 				(*rctx)->ctx = _muacc_create_ctx();
 				printf("in read cb\n");
@@ -242,6 +261,9 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
 		client_list->sockets = NULL;
 		global_mctx->clients = g_slist_append(global_mctx->clients, client_list);
 						
+		(*ctx)->sockets = NULL;
+		(*ctx)->policy_calls_performed = 0;
+
     	/* set up bufferevent magic */
         evutil_make_socket_nonblocking(fd);
         bev = bufferevent_socket_new(mctx->ev_base, fd, BEV_OPT_CLOSE_ON_FREE);

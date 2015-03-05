@@ -3,11 +3,11 @@
 #include <ltdl.h>
 #include <assert.h>
 
-#include "lib/muacc_util.h"
+#include "clib/muacc_util.h"
 #include "lib/muacc_tlv.h"
 #include "lib/muacc_ctx.h"
-#include "lib/dlog.h"
-#include "lib/strbuf.h"
+#include "clib/dlog.h"
+#include "clib/strbuf.h"
 
 #include "mam_util.h"
 #include "mam_pmeasure.h"
@@ -206,7 +206,7 @@ int _mam_fetch_policy_function(lt_dlhandle policy, const char *name, void **func
 
 	const char *ltdl_error = NULL;
 
-	DLOG(MAM_UTIL_NOISY_DEBUG2, "Trying to find original function %s\n", name);
+	DLOG(MAM_UTIL_NOISY_DEBUG2, "Trying to find function %s\n", name);
 	lt_dlerror();
 	*function = lt_dlsym(policy, name);
 
@@ -220,10 +220,65 @@ int _mam_fetch_policy_function(lt_dlhandle policy, const char *name, void **func
 	return 0;
 }
 
+int _mam_callback_or_fail(request_context_t *ctx, const char *function, unsigned int flag_if_success, muacc_mam_action_t action_if_fail)
+{
+	if (ctx == NULL || function == NULL)
+		return -1;
+
+	int (*callback_function)(request_context_t *ctx, struct event_base *base) = NULL;
+	if (_mam_fetch_policy_function(ctx->mctx->policy, function, (void **) &callback_function) == 0)
+	{
+		int ret;
+		DLOG(MAM_UTIL_NOISY_DEBUG2,"Calling %s\n", function);
+		ctx->policy_calls_performed |= flag_if_success;
+		ret = callback_function(ctx, ctx->mctx->ev_base);
+		if (ret != 0)
+		{
+			DLOG(MAM_UTIL_NOISY_DEBUG1,"Callback %s returned %d\n", function, ret);
+			_muacc_send_ctx_event(ctx, action_if_fail);
+		}
+		return 0;
+	}
+	else
+	{
+		DLOG(MAM_UTIL_NOISY_DEBUG2, "No callback %s available. Trying to send back ctx\n", function);
+		_muacc_send_ctx_event(ctx, action_if_fail);
+		return -1;
+	}
+}
+
 int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
 {
+	/* Check if we can already send a response */
+	if (ctx->action == muacc_act_socketconnect_fallback)
+	{
+		DLOG(MAM_UTIL_NOISY_DEBUG2,"Socketconnect fallback - checking whether both resolve and connect have been called\n");
 
+		if ((ctx->policy_calls_performed & MAM_POLICY_RESOLVE_CALLED) == 0)
+		{
+			DLOG(MAM_UTIL_NOISY_DEBUG0,"Calling on_resolve_request for Socketconnect fallback\n");
+			return _mam_callback_or_fail(ctx, "on_resolve_request", MAM_POLICY_RESOLVE_CALLED, reason);
+		}
+		else if ((ctx->policy_calls_performed & MAM_POLICY_CONNECT_CALLED) == 0)
+		{
+			if (ctx->ctx->remote_sa == NULL)
+			{
+				// Choose first getaddrinfo result as remote address before invoking connect callback
+				ctx->ctx->domain = ctx->ctx->remote_addrinfo_res->ai_family;
+				ctx->ctx->type = ctx->ctx->remote_addrinfo_res->ai_socktype;
+				ctx->ctx->protocol = ctx->ctx->remote_addrinfo_res->ai_protocol;
+				ctx->ctx->remote_sa_len = ctx->ctx->remote_addrinfo_res->ai_addrlen;
+				ctx->ctx->remote_sa = _muacc_clone_sockaddr(ctx->ctx->remote_addrinfo_res->ai_addr, ctx->ctx->remote_addrinfo_res->ai_addrlen);
+			}
+			DLOG(MAM_UTIL_NOISY_DEBUG0,"Calling on_connect_request to complete Socketconnect fallback\n");
+			return _mam_callback_or_fail(ctx, "on_connect_request", MAM_POLICY_CONNECT_CALLED, reason);
+		}
+	}
+
+	DLOG(MAM_UTIL_NOISY_DEBUG0,"Sending response %d to client request\n", reason);
+	/* Request has finished - Actually send a reply */
 	struct evbuffer_iovec v[1];
+	v[0].iov_len = 0;
 	ssize_t ret = 0;
 	ssize_t pos = 0;
 
@@ -233,14 +288,21 @@ int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
 	ret = evbuffer_reserve_space(ctx->out, MUACC_TLV_MAXLEN, v, 1);
 	if(ret <= 0)
 	{
-		DLOG(MAM_UTIL_NOISY_DEBUG0,"ERROR reserving buffer\n");
+		DLOG(MAM_UTIL_NOISY_DEBUG1,"ERROR reserving buffer\n");
+		mam_release_request_context(ctx);
 		return(-1);
 	}
 
-	DLOG(MAM_UTIL_NOISY_DEBUG1, "packing request\n");
+	DLOG(MAM_UTIL_NOISY_DEBUG2, "packing request\n");
 
 	/* pack request */
 	if( 0 > _muacc_push_tlv(v[0].iov_base, &pos, v[0].iov_len, action, &reason, sizeof(muacc_mam_action_t)) ) goto  _muacc_send_ctx_event_pack_err;
+
+	if (reason == muacc_act_socketchoose_resp_existing && ctx->sockets != NULL)
+	{
+		if( 0 > _muacc_push_tlv(v[0].iov_base, &pos, v[0].iov_len, socketset_file, &(ctx->sockets->file), sizeof(int)) ) goto  _muacc_send_ctx_event_pack_err;
+	}
+
 	if( 0 > _muacc_pack_ctx(v[0].iov_base, &pos, v[0].iov_len, ctx->ctx) ) goto  _muacc_send_ctx_event_pack_err;
 	if( 0 > _muacc_push_tlv_tag(v[0].iov_base, &pos, v[0].iov_len, eof) ) goto  _muacc_send_ctx_event_pack_err;
 	DLOG(MAM_UTIL_NOISY_DEBUG2,"packing request done\n");
@@ -248,19 +310,22 @@ int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
    v[0].iov_len = pos;
 
 
-	DLOG(MAM_UTIL_NOISY_DEBUG1,"committing buffer\n");
+	DLOG(MAM_UTIL_NOISY_DEBUG2,"committing buffer\n");
 	if (evbuffer_commit_space(ctx->out, v, 1) < 0)
 	{
-		DLOG(MAM_UTIL_NOISY_DEBUG0,"ERROR committing buffer\n");
+		DLOG(MAM_UTIL_NOISY_DEBUG1,"ERROR committing buffer\n");
+		mam_release_request_context(ctx);
 	    return(-1); /* Error committing */
 	}
 	else
 	{
 		DLOG(MAM_UTIL_NOISY_DEBUG2,"committed buffer - finished sending request\n");
+		mam_release_request_context(ctx);
 	    return(0);
 	}
 
 	_muacc_send_ctx_event_pack_err:
+		mam_release_request_context(ctx);
 		return(-1);
 }
 
@@ -281,7 +346,7 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
     buf = evbuffer_pullup(ctx->in, tlv_len);
 	if(buf == NULL)
 	{
-		DLOG(MAM_UTIL_NOISY_DEBUG1, "header read failed: buffer too small - please try again later\n");
+		DLOG(MAM_UTIL_NOISY_DEBUG1, "TLV read failed: not enough data \n");
 		return(_muacc_proc_tlv_event_too_short);
 	}
 	assert(evbuffer_get_length(ctx->in) >= tlv_len );
@@ -308,7 +373,7 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
     buf = evbuffer_pullup(ctx->in, tlv_len);
 	if(buf == NULL)
 	{
-		DLOG(MAM_UTIL_NOISY_DEBUG1, "header read failed: buffer too small - please try again later\n");
+		DLOG(MAM_UTIL_NOISY_DEBUG1, "TLV read failed: not enough data\n");
 		return(_muacc_proc_tlv_event_too_short);
 	}
 	assert(evbuffer_get_length(ctx->in) >= tlv_len );
@@ -320,13 +385,56 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
 		DLOG(MAM_UTIL_NOISY_DEBUG2, "unpacking action: %d \n" , *((muacc_mam_action_t *) data));
 		ctx->action = *((muacc_mam_action_t *) data);
 	}
+	else if (*tag == socketset_file)
+	{
+		DLOG(MAM_UTIL_NOISY_DEBUG2, "socketset file descriptor %d \n" , *((muacc_mam_action_t *) data));
+
+		/* Searching for a place to insert the new socketset member */
+		if (ctx->sockets == NULL)
+		{
+			DLOG(MAM_UTIL_NOISY_DEBUG2, "Receiving new socket set\n");
+			ctx->sockets = malloc(sizeof(struct socketlist));
+			ctx->sockets->next = NULL;
+			ctx->sockets->file = *(int *) data;
+			ctx->sockets->ctx = _muacc_create_ctx();
+		}
+		else
+		{
+			DLOG(MAM_UTIL_NOISY_DEBUG2, "Adding to existing set\n");
+			struct socketlist *new = ctx->sockets;
+			while (new->next != NULL)
+			{
+				new = new->next;
+			}
+
+			/* Creating socket set member */
+			new->next = malloc(sizeof(struct socketlist));
+			new->next->next = NULL;
+			new->next->file = *(int *) data;
+			new->next->ctx = _muacc_create_ctx();
+		}
+	}
 	else
 	{
-		/* process tlv */
-		switch( _muacc_unpack_ctx(*tag, data, *data_len, ctx->ctx) )
+		struct _muacc_ctx *parsectx = ctx->ctx;
+
+		if (ctx->sockets != NULL)
+		{
+			/* parse incoming context into the socket set */
+			struct socketlist *socklist = ctx->sockets;
+			while (socklist->next != NULL)
+			{
+				socklist = socklist->next;
+			}
+			DLOG(MAM_UTIL_NOISY_DEBUG2, "receiving context for socketset member %d\n", socklist->file);
+			parsectx = socklist->ctx;
+		}
+
+		/* unpack context */
+		switch( _muacc_unpack_ctx(*tag, data, *data_len, parsectx) )
 		{
 			case 0:
-				DLOG(MAM_UTIL_NOISY_DEBUG1, "parsing TLV successful\n");
+				DLOG(MAM_UTIL_NOISY_DEBUG2, "parsing TLV successful\n");
 				break;
 			default:
 				DLOG(MAM_UTIL_NOISY_DEBUG0, "WARNING: parsing TLV failed: tag=%d data_len=%ld\n", (int) *tag, (long) *data_len);

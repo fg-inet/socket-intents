@@ -12,8 +12,8 @@
 #include "mam.h"
 #include "mam_pmeasure.h"
 
-#include "lib/muacc_util.h"
-#include "lib/dlog.h"
+#include "clib/muacc_util.h"
+#include "clib/dlog.h"
 
 #ifndef MAM_PMEASURE_NOISY_DEBUG0
 #define MAM_PMEASURE_NOISY_DEBUG0 1

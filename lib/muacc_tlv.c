@@ -8,9 +8,9 @@
 #include <assert.h>
 
 #include "muacc_tlv.h"
-#include "muacc_util.h"
+#include "clib/muacc_util.h"
 
-#include "dlog.h"
+#include "clib/dlog.h"
 
 #ifndef MUACC_TLV_NOISY_DEBUG0
 #define MUACC_TLV_NOISY_DEBUG0 1

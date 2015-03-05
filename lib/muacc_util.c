@@ -7,8 +7,9 @@
 #include <sys/un.h>
 #include <netdb.h>
 
-#include "muacc.h"
-#include "muacc_util.h"
+#include "clib/muacc.h"
+#include "clib/muacc_util.h"
+#include "clib/muacc_client.h"
 
 #include "intents.h"
 
@@ -150,6 +151,41 @@ struct socketopt *_muacc_clone_socketopts(const struct socketopt *src)
 	}
 
 	return ret;
+}
+
+struct _muacc_ctx *_muacc_clone_ctx(struct _muacc_ctx *origin)
+{
+	if (origin == NULL)
+	{
+		DLOG(MUACC_UTIL_NOISY_DEBUG, "Warning: Cloned NULL ctx\n");
+		return NULL;
+	}
+
+	struct _muacc_ctx *_ctx;
+
+	if( (_ctx = malloc( sizeof(struct _muacc_ctx) )) == NULL )
+	{
+		perror("muacc_clone_context malloc failed");
+		return NULL;
+	}
+
+	memcpy(_ctx, origin, sizeof(struct _muacc_ctx));
+
+	_ctx->bind_sa_req   = _muacc_clone_sockaddr(origin->bind_sa_req, origin->bind_sa_req_len);
+	_ctx->bind_sa_suggested   = _muacc_clone_sockaddr(origin->bind_sa_suggested, origin->bind_sa_suggested_len);
+	_ctx->remote_sa   = _muacc_clone_sockaddr(origin->remote_sa, origin->remote_sa_len);
+
+	_ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(origin->remote_addrinfo_hint);
+	_ctx->remote_addrinfo_res  = _muacc_clone_addrinfo(origin->remote_addrinfo_res);
+
+	_ctx->remote_hostname = _muacc_clone_string(origin->remote_hostname);
+
+	_ctx->sockopts_current = _muacc_clone_socketopts(origin->sockopts_current);
+	_ctx->sockopts_suggested = _muacc_clone_socketopts(origin->sockopts_suggested);
+
+	__uuid_copy(_ctx->ctxid, origin->ctxid);
+
+	return _ctx;
 }
 
 void _muacc_free_socketopts(struct socketopt *so)
@@ -342,4 +378,75 @@ void __uuid_copy(uuid_t dst, uuid_t src)
 	int i;
 	for (i = 0; i < 16; ++i)
 		dst[i] = src[i];
+}
+
+int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const void *optval, socklen_t optlen, int flags)
+{
+	int retval = -2;
+
+	/* Go through sockopt list and look for this option */
+	struct socketopt *current = *opts;
+	struct socketopt *prev = current;
+
+	while (current != NULL && current->optname != optname)
+	{
+		prev = current;
+		current = current->next;
+	}
+
+	if (current != NULL)
+	{
+		/* Option already exists: overwrite value */
+		memcpy(current->optval, optval, current->optlen);
+		current->flags = flags;
+		DLOG(MUACC_UTIL_NOISY_DEBUG, "Changed existing sockopt:\n\t\t\t");
+		if (MUACC_UTIL_NOISY_DEBUG) _muacc_print_socket_option_list(current);
+	}
+	else
+	{
+		/* Option did not exist: create new option in list */
+		struct socketopt *newopt = malloc(sizeof(struct socketopt));
+		newopt->level = level;
+		newopt->optname = optname;
+		newopt->optlen = optlen;
+		if(optlen > 0 && optval != NULL)
+		{
+			newopt->optval = malloc(optlen);
+			if (newopt->optval == NULL)
+			{
+				perror("__function__ malloc failed");
+                free(newopt);
+				return retval;
+			}
+			memcpy(newopt->optval, optval, optlen);
+			newopt->flags = flags;
+		}
+		else
+			newopt->optval = (void *) optval;
+		newopt->next = NULL;
+
+		if (current == *opts)
+			*opts = newopt;
+		else
+			prev->next = newopt;
+
+		retval = 0;
+
+		DLOG(MUACC_UTIL_NOISY_DEBUG, "Added new option to the end of the list:\n\t\t\t");
+		if (MUACC_UTIL_NOISY_DEBUG) _muacc_print_socket_option_list(newopt);
+		if (MUACC_UTIL_NOISY_DEBUG) _muacc_print_socket_option_list(*opts);
+	}
+
+	return retval;
+}
+
+struct socketlist *_muacc_socketlist_find_file (struct socketlist *slist, int socket)
+{
+       while (slist != NULL)
+       {
+               if (slist->file == socket)
+                       return slist;
+               slist = slist->next;
+       }
+       return NULL;
 }

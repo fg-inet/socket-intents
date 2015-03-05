@@ -54,4 +54,10 @@ int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason);
  */
 void _mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags);
 
+/** helper that tries to call a policy function. If it fails, it simply tries to send back the context
+ *
+ * @return 0 if callback was successfully invoked, -1 if it failed
+ */
+int _mam_callback_or_fail(request_context_t *ctx, const char *function, unsigned int calls_performed_flag, muacc_mam_action_t action_if_fail);
+
 #endif /* __MAM_UTIL_H__ */

@@ -33,6 +33,11 @@ struct addrinfo *_muacc_clone_addrinfo(const struct addrinfo *src);
  */
 struct socketopt *_muacc_clone_socketopts(const struct socketopt *src);
 
+/** helper to deep copy a _muacc_ctx
+ *
+ */
+struct _muacc_ctx *_muacc_clone_ctx(struct _muacc_ctx *origin);
+
 /** helper to deep free socketopt linked lists
  *
  */
@@ -76,5 +81,16 @@ void __uuid_copy(uuid_t dst, uuid_t src);
 int  __uuid_compare(uuid_t a, uuid_t b);
 int  __uuid_is_null(uuid_t uuid);
 void __uuid_unparse_lower(const uuid_t uuid, char* dst);
+
+/** helper to set a socket option in a socketopt list
+ *
+ */
+int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const void *optval, socklen_t optlen, int flags);
+
+/** Find the socketset struct from a given file descriptor
+ *
+ * @return The corresponding socketset
+ */
+struct socketlist *_muacc_socketlist_find_file (struct socketlist *slist, int socket);
 
 #endif /* __MUACC_UTIL_H__ */
