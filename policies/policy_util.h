@@ -1,5 +1,8 @@
 /** \file policy_util.h
  *  \brief Utilities for writing MAM policies
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
  */
 
 #include "mam/mam.h"

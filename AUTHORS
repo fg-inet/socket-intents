@@ -1,2 +1,26 @@
-Philipp Schmidt <philipp@net.t-labs.tu-berlin.de>
+Authors of the Socket Intents framework
+---------------------------------------
 
+Theresa Enghardt <theresa@inet.tu-berlin.de>
+
+Implemented most of the features, such as large parts of the client
+library/socketconnect interface, some utilities for managing socket contexts,
+the policies and their loading mechanism, and the passive measurement framework in
+the Multi Access Manager. Adjusted some tests, fixed many bugs, memory issues,
+and typos.
+
+------
+
+Philipp Schmidt <philipp@inet.tu-berlin.de>
+
+Proposed the original idea and concept. Wrote the first version of the client
+library, utilities for sending and receiving TLVs, large parts of the Multi
+Access Manager, the SOCKS proxy, and tests.
+
+------
+
+Mirko Palmer <mpalmer@inet.tu-berlin.de>
+
+Added interface for MPTCP path management support.
+
+------

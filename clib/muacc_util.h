@@ -1,6 +1,10 @@
 /** \file  muacc_util.h
  *  \brief Helper functions used by the muacc library that do not manipulate the muacc ctx directly
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
  */
+
 #ifndef __MUACC_UTIL_H__
 #define __MUACC_UTIL_H__
 

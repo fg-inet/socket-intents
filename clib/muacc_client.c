@@ -1,3 +1,9 @@
+/** \file muacc_client.c
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>

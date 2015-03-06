@@ -1,6 +1,10 @@
 #!/bin/sh
 # Test script for muacc client library with mam that has a policy module loaded (default: sample policy)
 # Author: Theresa Enghardt <theresa@inet.tu-berlin.de>
+#
+### Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+### All rights reserved. This project is released under the New BSD License.
+
 
 already_running=0
 ret=0

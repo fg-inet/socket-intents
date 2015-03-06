@@ -4,6 +4,9 @@
 /** \file  muacc_client.h
  *  \brief Alternate Socket API, as it can be used by applications
  *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ *
  *	Implements a low-level socket functions with socket context as additional parameter,
  *	and a high-level socketconnect function that returns a newly connected socket or a
  *	socket from an already connected set
@@ -35,9 +38,9 @@ typedef struct socketset
 	pthread_rwlock_t destroylock;/**< Lock for deleting this set */
 	uint8_t	use_count;			/**< Number of sockets in this set that are in use */
 	char   *host;				/**< Host name for this socket set */
-	size_t  hostlen;
+	size_t  hostlen;			/**< Length of host name in bytes (without \0) */
 	char   *serv;				/**< Destination port or service for this socket set */
-	size_t  servlen;
+	size_t  servlen;			/**< Length of service in bytes (without \0) */
 	int 	type;				/**< Connection type, e.g. SOCK_STREAM or SOCK_DGRAM */
 	struct  socketlist *sockets;/**< List of sockets within this socket set */
 	struct	socketset *next;

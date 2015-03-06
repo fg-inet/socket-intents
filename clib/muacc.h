@@ -1,5 +1,8 @@
 /** \file  muacc.h
  *  \brief Defines data structures for generic muacc library
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
  */
 
 #ifndef __MUACC_H__

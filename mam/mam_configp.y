@@ -1,4 +1,8 @@
-/** a parser for mammas config file 
+/*
+ *  A parser for mammas config file 
+ *
+ *  Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
  */
 
 %{

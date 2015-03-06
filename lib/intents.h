@@ -1,6 +1,9 @@
-/** \file   intents.h
- *  \brief 	Definition of intent sockopts
- *  		NOT intended to provide any guarantees or quality of service of any kind.
+/** \file   lib/intents.h
+ *  \brief  Definition of intent sockopts -
+ *          NOT intended to provide any guarantees or quality of service of any kind.
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
  *
  *  Intents are additional information about the expected characteristics and needs of an application's
  *  traffic that is expected to flow through the particular socket.

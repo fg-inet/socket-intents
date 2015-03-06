@@ -1,5 +1,9 @@
-
-/** Dummy to illustrate how policies work
+/** \file policy_sample.c
+ *  \brief Example policy to illustrate how policies work
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ *
  *  Policy_info: Whether interface has been specified as default in the config file
  *               (e.g. set default = 1 in the prefix statement)
  *  Behavior:

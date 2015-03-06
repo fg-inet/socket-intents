@@ -1,3 +1,9 @@
+/** \file mam_iface.c
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ */
+
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>

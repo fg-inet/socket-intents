@@ -1,5 +1,8 @@
 /** \file  muacc_tlv.h
  *  \brief Functions for reading/writing tags and structs from/to TLV buffers
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
  */
 
 #ifndef __MUACC_TLV_H__
