@@ -481,14 +481,14 @@ void *test_worker (void *argp) {
 
 	if (args->socket != -1)
 	{
-		DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Finished - trying to close socket %d\n", args->thread_id, args->socket);
-		if (socketclose(args->socket) == 0)
+		DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Finished - trying to clean up socket set %d\n", args->thread_id, args->socket);
+		if (socketcleanup(args->socket) == 0)
 		{
-			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Closed socket %d \n", args->thread_id, args->socket);
+			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Cleaned up socket set of socket %d \n", args->thread_id, args->socket);
 		}
 		else
 		{
-			DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Failed to close socket %d \n", args->thread_id, args->socket);
+			DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Failed to clean up socket set of socket %d \n", args->thread_id, args->socket);
 		}
 	}
 	_muacc_free_socketopts(args->options);
