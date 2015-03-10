@@ -33,7 +33,7 @@
 #endif
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG2
-#define MUACC_CLIENT_UTIL_NOISY_DEBUG2 1
+#define MUACC_CLIENT_UTIL_NOISY_DEBUG2 0
 #endif
 
 int muacc_init_context(struct muacc_context *ctx)

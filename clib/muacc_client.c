@@ -708,7 +708,8 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 		}
 		else
 		{
-			DLOG(CLIB_IF_NOISY_DEBUG2, "Socket was successfully connected. Adding %d to list.\n", *s);
+			DLOG(CLIB_IF_NOISY_DEBUG0, "Successfully created and connected socket %d\n", *s);
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Adding %d to list.\n", *s);
 
 			pthread_rwlock_wrlock(&socketsetlist_lock);
 			DLOG(CLIB_IF_LOCKS, "LOCK: Adding socket to a socket set - Got global lock\n");
