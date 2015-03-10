@@ -184,7 +184,7 @@ int _muacc_connect_ctx_to_mam(muacc_context_t *ctx)
 		return 0;
 
 	strncpy( mams.sun_path, MUACC_SOCKET, sizeof(mams.sun_path));
-	ctx->mamsock = socket(PF_UNIX, SOCK_STREAM, 0);
+	ctx->mamsock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if(ctx->mamsock == -1)
 	{
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "WARNING: socket creation failed: %s\n", strerror(errno));
