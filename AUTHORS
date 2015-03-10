@@ -3,24 +3,30 @@ Authors of the Socket Intents framework
 
 Theresa Enghardt <theresa@inet.tu-berlin.de>
 
-Implemented most of the features, such as large parts of the client
-library/socketconnect interface, some utilities for managing socket contexts,
-the policies and their loading mechanism, and the passive measurement framework in
-the Multi Access Manager. Adjusted some tests, fixed many bugs, memory issues,
-and typos.
+ - Policy loading support for the multi access manager
+ - Realization of Socket Intents within the client library 
+   and multi access manager
+ - Implementation of the socket management support for pipelined
+   applications (socketset, socketconnect/choose/release/...),
+   for the client library and multi access manager
+ - Passive measurement framework for the multi access manager
+ - Client library unit tests
 
 ------
 
 Philipp Schmidt <philipp@inet.tu-berlin.de>
 
-Proposed the original idea and concept. Wrote the first version of the client
-library, utilities for sending and receiving TLVs, large parts of the Multi
-Access Manager, the SOCKS proxy, and tests.
+ - Overall concept and system design.
+ - Implementaton of the multi access manager 
+   management of configuration and network interfaces
+ - Inital implemtation of the client library
+ - TLV based ICP between client library and multi access manager
+ - Client library based socks proxy and other example programs.
 
 ------
 
 Mirko Palmer <mpalmer@inet.tu-berlin.de>
 
-Added interface for MPTCP path management support.
+ - Added interface for Linux MPTCP path management support.
 
 ------
