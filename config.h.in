@@ -1,0 +1,2 @@
+/* have BSD sockaddr length field */
+#cmakedefine HAVE_SOCKADDR_LEN 1
