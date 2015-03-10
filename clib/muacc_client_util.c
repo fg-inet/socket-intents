@@ -769,12 +769,6 @@ int _muacc_remove_socket_from_list (struct socketset **list_of_sets, int socket)
 		int ret;
 		if ((ret = _muacc_free_socket(set_to_delete, list_to_delete, prevlist)) == 0 && set_to_delete->use_count == 0)
 		{
-			// Socket was freed, other sockets are not in use - cleaning up
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Looking if there are other sockets to free\n", socket);
-			ret = _muacc_cleanup_sockets(&set_to_delete);
-		}
-		if (ret == 0)
-		{
 			// Returnvalue is still 0, so there are still sockets in the set
 			pthread_rwlock_unlock(&(set_to_delete->lock));
 			DLOG(CLIB_IF_LOCKS, "LOCK: Removed a socket from set - Releasing its lock %p\n", (void *)set_to_delete);

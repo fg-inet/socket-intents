@@ -158,4 +158,10 @@ int socketclose(int socket);
  */
 int socketrelease(int socket);
 
+/** Closes a socket and cleans up all unused sockets from its socket set
+ *
+ *  @return 0 if successful, -1 if fail
+ */
+int socketcleanup(int socket);
+
 #endif
