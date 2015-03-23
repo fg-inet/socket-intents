@@ -158,10 +158,59 @@ int cleanup(mam_context_t *mctx)
 	return 0;
 }
 
+/** Asynchronous callback function for resolve request
+ *  Invoked once a response to the resolver query has been received
+ *  Sends back a reply to the client with the received answer
+ */
+static void resolve_request_result(int errcode, struct evutil_addrinfo *addr, void *ptr)
+{
+
+	request_context_t *rctx = ptr;
+
+	if (errcode) {
+	    printf("\n\tError resolving: %s -> %s\n", rctx->ctx->remote_hostname, evutil_gai_strerror(errcode));
+	}
+	else
+	{
+		printf("\n\tGot resolver response for %s: %s\n",
+			rctx->ctx->remote_hostname,
+			addr->ai_canonname ? addr->ai_canonname : "");
+
+		assert(addr != NULL);
+		assert(rctx->ctx->remote_addrinfo_res == NULL);
+		rctx->ctx->remote_addrinfo_res = _muacc_clone_addrinfo(addr);
+		evutil_freeaddrinfo(addr);
+		print_addrinfo_response (rctx->ctx->remote_addrinfo_res);
+	}
+
+	// send reply
+	_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
+}
+
+/** Resolve request function (mandatory)
+ *  Is called upon each getaddrinfo request from a client
+ *  Must send a reply back using _muacc_sent_ctx_event or register a callback that does so
+ */
 int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
-	printf("\tResolve request: Not resolving\n\n");
-	_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
+    struct evdns_getaddrinfo_request *req;
+
+	printf("\tResolve request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+
+	/* Try to resolve this request using asynchronous lookup */
+    req = evdns_getaddrinfo(
+			rctx->mctx->evdns_default_base,
+			rctx->ctx->remote_hostname,
+			rctx->ctx->remote_service,
+            rctx->ctx->remote_addrinfo_hint,
+			&resolve_request_result,
+			rctx);
+	printf(" - Sending request to default nameserver\n");
+    if (req == NULL) {
+		/* returned immediately - Send reply to the client */
+		_muacc_send_ctx_event(rctx, muacc_act_socketconnect_resp);
+		printf("\tRequest failed.\n");
+	}
 	return 0;
 }
 

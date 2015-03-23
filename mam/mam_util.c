@@ -269,12 +269,19 @@ int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason)
 		{
 			if (ctx->ctx->remote_sa == NULL)
 			{
-				// Choose first getaddrinfo result as remote address before invoking connect callback
-				ctx->ctx->domain = ctx->ctx->remote_addrinfo_res->ai_family;
-				ctx->ctx->type = ctx->ctx->remote_addrinfo_res->ai_socktype;
-				ctx->ctx->protocol = ctx->ctx->remote_addrinfo_res->ai_protocol;
-				ctx->ctx->remote_sa_len = ctx->ctx->remote_addrinfo_res->ai_addrlen;
-				ctx->ctx->remote_sa = _muacc_clone_sockaddr(ctx->ctx->remote_addrinfo_res->ai_addr, ctx->ctx->remote_addrinfo_res->ai_addrlen);
+				if (ctx->ctx->remote_addrinfo_res != NULL)
+				{
+					// Choose first getaddrinfo result as remote address before invoking connect callback
+					ctx->ctx->domain = ctx->ctx->remote_addrinfo_res->ai_family;
+					ctx->ctx->type = ctx->ctx->remote_addrinfo_res->ai_socktype;
+					ctx->ctx->protocol = ctx->ctx->remote_addrinfo_res->ai_protocol;
+					ctx->ctx->remote_sa_len = ctx->ctx->remote_addrinfo_res->ai_addrlen;
+					ctx->ctx->remote_sa = _muacc_clone_sockaddr(ctx->ctx->remote_addrinfo_res->ai_addr, ctx->ctx->remote_addrinfo_res->ai_addrlen);
+				}
+				else
+				{
+					DLOG(MAM_UTIL_NOISY_DEBUG1,"WARNING: No remote address available, and name was not resolved either\n");
+				}
 			}
 			DLOG(MAM_UTIL_NOISY_DEBUG0,"Calling on_connect_request to complete Socketconnect fallback\n");
 			return _mam_callback_or_fail(ctx, "on_connect_request", MAM_POLICY_CONNECT_CALLED, reason);
