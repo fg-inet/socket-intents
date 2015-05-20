@@ -833,11 +833,22 @@ int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostl
         ctx->ctx->remote_hostname[hostlen] = 0;
         ctx->ctx->remote_hostname = strncpy(ctx->ctx->remote_hostname, host, hostlen);
 
-        ctx->ctx->remote_service = malloc(servlen + 1);
-        ctx->ctx->remote_service[servlen] = 0;
-        ctx->ctx->remote_service = strncpy(ctx->ctx->remote_service, serv, servlen);
+		struct servent *service = getservbyname(serv, NULL);
+		if (service != NULL)
+		{
+			int port = ntohs(service->s_port);
+			printf("Resolved Service name %s to port number %d\n", serv, port);
+			asprintf(&(ctx->ctx->remote_service), "%d", port);
+		}
+		else
+		{
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Warning: Could not convert service name %s to port number\n", serv);
+			ctx->ctx->remote_service = malloc(servlen + 1);
+			ctx->ctx->remote_service[servlen] = 0;
+			ctx->ctx->remote_service = strncpy(ctx->ctx->remote_service, serv, servlen);
+		}
 
-        DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Successfully wrote hostname %s and service %s to context\n", ctx->ctx->remote_hostname, ctx->ctx->remote_service);
+        DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Wrote hostname %s and service %s to context\n", ctx->ctx->remote_hostname, ctx->ctx->remote_service);
 	}
 	return 0;
 }
