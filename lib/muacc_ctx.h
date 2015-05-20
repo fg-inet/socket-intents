@@ -1,5 +1,8 @@
 /** \file  muacc_ctx.h
  *  \brief Functions to manipulate and print "_muacc_ctx" and to pack it to a TLV buffer
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
  */
 
 #ifndef __MUACC_CTX_H__
@@ -11,6 +14,11 @@
 
 #include "clib/muacc.h"
 
+/** Type for uuid
+ *
+ */
+typedef unsigned char uuid_t[16];
+
 /** Helper to allocate and initialize _muacc_ctx
  *
  */
@@ -19,7 +27,7 @@ struct _muacc_ctx *_muacc_create_ctx();
 /** Helper that computes a new context ID from a counter and the current PID
  *
  */
-muacc_ctxid_t _get_ctxid();
+//muacc_ctxid_t _get_ctxid();
 
 /** Helper to free _muacc_ctx if reference count reaches 0
  *

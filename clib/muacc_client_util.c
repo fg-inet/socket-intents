@@ -1,3 +1,9 @@
+/** \file muacc_client_util.c
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+*/
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -19,11 +25,11 @@
 #include "config.h"
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG0
-#define MUACC_CLIENT_UTIL_NOISY_DEBUG0 0
+#define MUACC_CLIENT_UTIL_NOISY_DEBUG0 1
 #endif
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG1
-#define MUACC_CLIENT_UTIL_NOISY_DEBUG1 0
+#define MUACC_CLIENT_UTIL_NOISY_DEBUG1 1
 #endif
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG2
@@ -36,7 +42,6 @@ int muacc_init_context(struct muacc_context *ctx)
 
 	if(_ctx == NULL || ctx == NULL)
 		return(-1);
-	_ctx->ctxid = _get_ctxid();
 
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0,"Context successfully initialized\n");
 
@@ -140,6 +145,24 @@ int muacc_clone_context(struct muacc_context *dst, struct muacc_context *src)
 		dst->ctx = _muacc_clone_ctx(src->ctx);
 	}
 
+/*<<<<<<< HEAD
+	memcpy(_ctx, src->ctx, sizeof(struct _muacc_ctx));
+
+	_ctx->bind_sa_req   = _muacc_clone_sockaddr(src->ctx->bind_sa_req, src->ctx->bind_sa_req_len);
+	_ctx->bind_sa_suggested   = _muacc_clone_sockaddr(src->ctx->bind_sa_suggested, src->ctx->bind_sa_suggested_len);
+
+	_ctx->remote_addrinfo_hint = _muacc_clone_addrinfo(src->ctx->remote_addrinfo_hint);
+	_ctx->remote_addrinfo_res  = _muacc_clone_addrinfo(src->ctx->remote_addrinfo_res);
+
+	_ctx->remote_hostname = _muacc_clone_string(src->ctx->remote_hostname);
+
+	_ctx->sockopts_current = _muacc_clone_socketopts(src->ctx->sockopts_current);
+	_ctx->sockopts_suggested = _muacc_clone_socketopts(src->ctx->sockopts_suggested);
+
+	_ctx->ctxid[0] += 1;
+
+=======
+>>>>>>> pipelining*/
 	dst->usage = 1;
 	dst->locks = 0;
 	dst->mamsock = -1;
@@ -161,7 +184,7 @@ int _muacc_connect_ctx_to_mam(muacc_context_t *ctx)
 		return 0;
 
 	strncpy( mams.sun_path, MUACC_SOCKET, sizeof(mams.sun_path));
-	ctx->mamsock = socket(PF_UNIX, SOCK_STREAM, 0);
+	ctx->mamsock = socket(AF_UNIX, SOCK_STREAM, 0);
 	if(ctx->mamsock == -1)
 	{
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "WARNING: socket creation failed: %s\n", strerror(errno));
@@ -746,12 +769,6 @@ int _muacc_remove_socket_from_list (struct socketset **list_of_sets, int socket)
 		int ret;
 		if ((ret = _muacc_free_socket(set_to_delete, list_to_delete, prevlist)) == 0 && set_to_delete->use_count == 0)
 		{
-			// Socket was freed, other sockets are not in use - cleaning up
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Looking if there are other sockets to free\n", socket);
-			ret = _muacc_cleanup_sockets(&set_to_delete);
-		}
-		if (ret == 0)
-		{
 			// Returnvalue is still 0, so there are still sockets in the set
 			pthread_rwlock_unlock(&(set_to_delete->lock));
 			DLOG(CLIB_IF_LOCKS, "LOCK: Removed a socket from set - Releasing its lock %p\n", (void *)set_to_delete);
@@ -816,11 +833,22 @@ int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostl
         ctx->ctx->remote_hostname[hostlen] = 0;
         ctx->ctx->remote_hostname = strncpy(ctx->ctx->remote_hostname, host, hostlen);
 
-        ctx->ctx->remote_service = malloc(servlen + 1);
-        ctx->ctx->remote_service[servlen] = 0;
-        ctx->ctx->remote_service = strncpy(ctx->ctx->remote_service, serv, servlen);
+		struct servent *service = getservbyname(serv, NULL);
+		if (service != NULL)
+		{
+			int port = ntohs(service->s_port);
+			printf("Resolved Service name %s to port number %d\n", serv, port);
+			asprintf(&(ctx->ctx->remote_service), "%d", port);
+		}
+		else
+		{
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Warning: Could not convert service name %s to port number\n", serv);
+			ctx->ctx->remote_service = malloc(servlen + 1);
+			ctx->ctx->remote_service[servlen] = 0;
+			ctx->ctx->remote_service = strncpy(ctx->ctx->remote_service, serv, servlen);
+		}
 
-        DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Successfully wrote hostname %s and service %s to context\n", ctx->ctx->remote_hostname, ctx->ctx->remote_service);
+        DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Wrote hostname %s and service %s to context\n", ctx->ctx->remote_hostname, ctx->ctx->remote_service);
 	}
 	return 0;
 }

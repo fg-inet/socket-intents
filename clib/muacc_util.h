@@ -1,6 +1,10 @@
 /** \file  muacc_util.h
  *  \brief Helper functions used by the muacc library that do not manipulate the muacc ctx directly
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
  */
+
 #ifndef __MUACC_UTIL_H__
 #define __MUACC_UTIL_H__
 
@@ -72,6 +76,15 @@ void _muacc_print_socket_addr(const struct sockaddr *addr, size_t addr_len);
  *
  */
 void _muacc_print_socket_option(strbuf_t *sb, const struct socketopt *current);
+
+
+/** helper to avoid having to link the uuid lib into the client
+ *
+ */
+void __uuid_copy(uuid_t dst, uuid_t src);
+int  __uuid_compare(uuid_t a, uuid_t b);
+int  __uuid_is_null(uuid_t uuid);
+void __uuid_unparse_lower(const uuid_t uuid, char* dst);
 
 /** helper to set a socket option in a socketopt list
  *

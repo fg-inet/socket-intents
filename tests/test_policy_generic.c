@@ -1,6 +1,9 @@
 /** \file test_policy_generic.c
  *  \brief Test utility for MAM with generic policy
  *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ *
  *  This test utility opens a connection with the given parameters using the muacc socket library
  *  and thus sends a resolve_request and connect_request to the Multi Access Manager.
  *  It suceeds if there is an answer, which is then displayed.

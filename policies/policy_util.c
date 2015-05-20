@@ -1,3 +1,9 @@
+/** \file policy_util.c
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ */
+
 #include "policy_util.h"
 
 int mampol_get_socketopt(struct socketopt *list, int level, int optname, socklen_t *optlen, void *optval)

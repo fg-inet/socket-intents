@@ -1,5 +1,8 @@
-/* \file  mam.h
- * \brief Definition of structs and basic functions used by Multi Access Manager
+/** \file  mam/mam.h
+ *  \brief Definition of structs and basic functions used by Multi Access Manager
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
  */
 
 #ifndef __MAM_H__
@@ -17,6 +20,8 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <event2/dns.h>
+
+#include <uuid/uuid.h>
 
 #include <ltdl.h>
 #include <glib.h>
@@ -71,6 +76,7 @@ typedef struct src_prefix_list {
 	struct evdns_base 		*evdns_base; 		/**< DNS base to do look ups for that prefix */
 	GHashTable 				*policy_set_dict; 	/**< dictionary for policy configuration */
 	void					*policy_info;		/**< Policy-internal data structure for additional information */
+	GHashTable				*measure_dict;		/**< Dictionary for measurement data of this interface */
 } src_prefix_list_t;
 
 /** list of interfacses */
@@ -88,7 +94,21 @@ typedef struct mam_context {
 	struct event_base 		*ev_base;			/**< Libevent Event Base */
 	struct evdns_base 		*evdns_default_base; /**< DNS base to do look ups if all other fails */
 	GHashTable 				*policy_set_dict; /**< dictionary for policy configuration */
+	GSList					*clients;  /**< list of all applications that are connected to the MAM */
 } mam_context_t;
+
+/** List of clients connected to the MAM */
+typedef struct _client_list {
+	int						client_sk;
+	uuid_t					id;
+	GSList					*sockets;
+	void (*callback_function)(GSList*);
+} client_list_t;
+
+/** List of sockets opened by a client application */
+typedef struct _socket_list {
+	int sk;
+} socket_list_t;
 
 /** Model that describes a prefix, used for lookup in the list */
 struct src_prefix_model {

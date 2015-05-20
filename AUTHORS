@@ -1,2 +1,32 @@
-Philipp Schmidt <philipp@net.t-labs.tu-berlin.de>
+Authors of the Socket Intents framework
+---------------------------------------
 
+Theresa Enghardt <theresa@inet.tu-berlin.de>
+
+ - Policy loading support for the multi access manager
+ - Realization of Socket Intents within the client library 
+   and multi access manager
+ - Implementation of the socket management support for pipelined
+   applications (socketset, socketconnect/choose/release/...),
+   for the client library and multi access manager
+ - Passive measurement framework for the multi access manager
+ - Client library unit tests
+
+------
+
+Philipp Schmidt <philipp@inet.tu-berlin.de>
+
+ - Overall concept and system design.
+ - Implementaton of the multi access manager 
+   management of configuration and network interfaces
+ - Inital implemtation of the client library
+ - TLV based ICP between client library and multi access manager
+ - Client library based socks proxy and other example programs.
+
+------
+
+Mirko Palmer <mpalmer@inet.tu-berlin.de>
+
+ - Added interface for Linux MPTCP path management support.
+
+------

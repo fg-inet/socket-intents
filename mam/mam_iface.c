@@ -1,3 +1,9 @@
+/** \file mam_iface.c
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ */
+
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>
@@ -203,6 +209,8 @@ static void _scan_update_prefix (
 	_append_sockaddr_list( &(new->if_addrs), addr, family_size);
 	new->if_netmask = _muacc_clone_sockaddr(mask, family_size);
 	new->if_netmask_len = family_size;
+
+	new->measure_dict = g_hash_table_new(g_str_hash, g_str_equal);
 	
 	/* append to list */
 	*spfxl = g_slist_append(*spfxl, (gpointer) new);
@@ -312,6 +320,9 @@ void _free_src_prefix_list (gpointer data)
 
 	if(element->policy_set_dict != NULL)
 		g_hash_table_destroy(element->policy_set_dict);
+
+	if(element->measure_dict != NULL)
+		g_hash_table_destroy(element->measure_dict);
 
 	free(element);
 

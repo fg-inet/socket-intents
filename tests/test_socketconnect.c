@@ -1,6 +1,9 @@
 /** \file test_socketconnect.c
  *  \brief Test utility for high-level socketconnect API and its policies
  *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ *
  *	This test utility requests a new socket via the socketconnect call, which results in a
  *	new socketset being created. It subsequently makes some more writes on the socket while calling
  *	socketconnect again, getting the same socket back, or a different one from the set.
@@ -478,14 +481,14 @@ void *test_worker (void *argp) {
 
 	if (args->socket != -1)
 	{
-		DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Finished - trying to close socket %d\n", args->thread_id, args->socket);
-		if (socketclose(args->socket) == 0)
+		DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Finished - trying to clean up socket set %d\n", args->thread_id, args->socket);
+		if (socketcleanup(args->socket) == 0)
 		{
-			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Closed socket %d \n", args->thread_id, args->socket);
+			DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Cleaned up socket set of socket %d \n", args->thread_id, args->socket);
 		}
 		else
 		{
-			DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Failed to close socket %d \n", args->thread_id, args->socket);
+			DLOG(TEST_POLICY_NOISY_DEBUG1, "Thread %d: Failed to clean up socket set of socket %d \n", args->thread_id, args->socket);
 		}
 	}
 	_muacc_free_socketopts(args->options);

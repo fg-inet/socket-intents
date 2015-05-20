@@ -1,5 +1,8 @@
 /** \file mam_util.h
  *	Utilities for handling mam contexts and other data structures
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
  */
 #ifndef __MAM_UTIL_H__
 #define __MAM_UTIL_H__
@@ -18,8 +21,14 @@ void _mam_print_prefix(strbuf_t *sb, struct src_prefix_list *current);
 /** Helper to print a mam context to a string */
 void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx);
 
+/** Helper that prints the measurement dictionary */
+void _mam_print_measure_dict (gpointer key,  gpointer val, gpointer sb);
+
 /** Helper that frees a source prefix list - to be called using g_slist_free_full */
 void _free_src_prefix_list (gpointer data);
+
+void _free_client_list (gpointer data);
+void _free_socket_list (gpointer data);
 
 /** Helper that frees a context */
 int _mam_free_ctx(struct mam_context *ctx);

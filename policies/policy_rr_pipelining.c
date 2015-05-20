@@ -1,3 +1,8 @@
+/** \file policy_rr_pipelining.c
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ */
 
 #include "policy.h"
 #include "policy_util.h"
@@ -167,8 +172,7 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 			rctx);
 	printf(" - Sending request to default nameserver\n");
     if (req == NULL) {
-		/* returned immediately - Send reply to the client */
-		_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
+		/* returned immediately */
 		printf("\tRequest failed.\n");
 	}
 	return 0;
@@ -225,9 +229,10 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 		lastsocket = suggestedsocket;
 
 		/* Provide the information to open a new similar socket, in case the suggested socket cannot be used */
-		muacc_ctxid_t context_id = rctx->ctx->ctxid;
+		uuid_t context_id;
+		__uuid_copy(context_id, rctx->ctx->ctxid);
 		rctx->ctx = _muacc_clone_ctx(rctx->sockets->ctx);
-		rctx->ctx->ctxid = context_id;
+		__uuid_copy(rctx->ctx->ctxid, context_id);
 
 		_muacc_send_ctx_event(rctx, muacc_act_socketchoose_resp_existing);
 	}
@@ -245,8 +250,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 			rctx);
 		printf(" - Sending request to default nameserver\n");
 		if (req == NULL) {
-			/* returned immediately - Send reply to the client */
-			_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
+			/* returned immediately */
 			printf("\tRequest failed.\n");
 		}
 	}

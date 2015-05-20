@@ -1,5 +1,8 @@
 /** \file  muacc.h
  *  \brief Defines data structures for generic muacc library
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
  */
 
 #ifndef __MUACC_H__
@@ -9,6 +12,8 @@
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <netdb.h>
+
+#include <uuid/uuid.h>
 
 #include "strbuf.h"
 #include "dlog.h"
@@ -25,7 +30,8 @@ typedef enum
 	muacc_act_socketchoose_req,				/**< choose between existing set of sockets or open new one */
 	muacc_act_socketchoose_resp_existing,	/**< socketchoose response, choose existing socket */
 	muacc_act_socketchoose_resp_new,		/**< socketchoose response, create new socket */
-	muacc_error_unknown_request,			/**< indicates an error */
+	muacc_error_unknown_request,			/**< Error: Unknown request */
+	muacc_error_resolve,					/**< Error: Name resolution failed */
 } muacc_mam_action_t;
 
 /** Linked list of socket options to be set */
@@ -43,16 +49,18 @@ typedef struct socketopt {
 #define SOCKOPT_OPTIONAL 0x0002	/**< If setting the option fails, still continue */
 
 /** Context identifier that is unique per MAM socket in a client */
-typedef uint64_t muacc_ctxid_t;
+//typedef uuid_t muacc_ctxid_t;
 
-/** Identifier that is unique per MPTCP session */
+/** Inode of a client
+	Used as an identifier that is unique per MPTCP session */
 typedef uint64_t muacc_ctxino_t;
 
 /** Internal muacc context struct
 	All data will be serialized and sent to MAM */
 struct _muacc_ctx {
-	muacc_ctxid_t		ctxid;					/**< identifier for the context if sharing mamsock */
-    muacc_ctxino_t      ctxino;                  /**< inode of the socket (used as identifier for MPTCP sessions) */
+	uuid_t		ctxid;					/**< identifier for the context if sharing mamsock */
+    muacc_ctxino_t      ctxino;                 /**< inode of the socket (used as identifier for MPTCP sessions) */
+	int					sockfd;					/**< filedecriptor of the socket */
 	unsigned int		calls_performed;		/**< contains flags of which socket call have been performed*/
 	int					domain;					/**< communication domain of the socket (e.g. AF_INET) */
 	int					type;					/**< communication semantics, e.g. SOCK_STREAM or SOCK_DGRAM */
@@ -79,6 +87,7 @@ typedef enum
 	calls_performed,		/**< flags of which socket calls have already been performed */
 	ctxid = 0x08,			/**< identifier for the context if sharing mamsock */
     ctxino,                 /**< inode of the socket (used as identifier for MPTCP sessions) */
+	sockfd,
 	domain,					/**< protocol family */
 	type,					/**< socket type */
 	protocol,				/**< specific protocol in the given family */

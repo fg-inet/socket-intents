@@ -1,3 +1,9 @@
+/** \file muacc_util.c
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ */
+
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -183,7 +189,7 @@ struct _muacc_ctx *_muacc_clone_ctx(struct _muacc_ctx *origin)
 	_ctx->sockopts_current = _muacc_clone_socketopts(origin->sockopts_current);
 	_ctx->sockopts_suggested = _muacc_clone_socketopts(origin->sockopts_suggested);
 
-	_ctx->ctxid = origin->ctxid;
+	__uuid_copy(_ctx->ctxid, origin->ctxid);
 
 	return _ctx;
 }
@@ -344,6 +350,40 @@ void _muacc_print_socket_addr(const struct sockaddr *addr, size_t addr_len)
     _muacc_print_sockaddr(&sb, addr, addr_len);
     printf("%s", strbuf_export(&sb));
     strbuf_release(&sb);
+}
+
+
+void __uuid_unparse_lower(const uuid_t u, char* dst)
+{
+	sprintf(dst, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+	u[0],u[1],u[2],u[3],u[4],u[5],u[6],u[7],u[8],u[9],u[10],u[11],u[12],u[13],u[14],u[15]);
+}
+
+int __uuid_is_null(uuid_t uuid)
+{
+	int i;
+	for (i = 0; i < 16; ++i)
+		if (uuid[i] != 0)
+			return 0;
+	return 1;
+}
+
+
+int __uuid_compare(uuid_t a, uuid_t b)
+{
+	int i;
+	for (i = 0; i < 16; ++i)
+		if (a[i] != b[i])
+			return 1;
+	return 0;
+}
+
+
+void __uuid_copy(uuid_t dst, uuid_t src)
+{
+	int i;
+	for (i = 0; i < 16; ++i)
+		dst[i] = src[i];
 }
 
 int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const void *optval, socklen_t optlen, int flags)

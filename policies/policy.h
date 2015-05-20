@@ -1,3 +1,9 @@
+/** \file policy.h
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

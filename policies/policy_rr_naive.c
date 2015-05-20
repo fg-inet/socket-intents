@@ -1,3 +1,8 @@
+/** \file policy_rr_naive.c
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ */
 
 #include "policy.h"
 #include "policy_util.h"

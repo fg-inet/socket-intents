@@ -2,6 +2,9 @@
  *  \brief 	Socket library, extending the Socket API to support intents -
  *  		Does NOT provide any guarantees or quality of service of any kind.
  * 
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ *
  *  Socket library that is intended to overload some socket API calls to support intents.
  *  Communicates socket intents to a Multi Access Manager (MAM) which translates the intents
  *  into concrete effects on the sockets.

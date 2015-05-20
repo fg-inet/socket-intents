@@ -1,3 +1,9 @@
+/** \file muacc_client.c
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -17,7 +23,7 @@
 #endif
 
 #ifndef CLIB_IF_NOISY_DEBUG1
-#define CLIB_IF_NOISY_DEBUG1 0
+#define CLIB_IF_NOISY_DEBUG1 1
 #endif
 
 #ifndef CLIB_IF_NOISY_DEBUG2
@@ -60,7 +66,8 @@ int muacc_socket(muacc_context_t *ctx,
 	ctx->ctx->protocol = protocol;
 
 	ret = socket(domain, type, protocol);
-    
+	
+	ctx->ctx->sockfd = ret;
     ctx->ctx->ctxino = _muacc_get_ctxino(ret);
 
 	_unlock_ctx(ctx);
@@ -359,7 +366,7 @@ int muacc_connect(muacc_context_t *ctx,
 	int retval;
 
 	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
-
+	
 	if( ctx == NULL )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG1, "NULL context - fallback to regular connect\n");
@@ -701,7 +708,8 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 		}
 		else
 		{
-			DLOG(CLIB_IF_NOISY_DEBUG2, "Socket was successfully connected. Adding %d to list.\n", *s);
+			DLOG(CLIB_IF_NOISY_DEBUG0, "Successfully created and connected socket %d\n", *s);
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Adding %d to list.\n", *s);
 
 			pthread_rwlock_wrlock(&socketsetlist_lock);
 			DLOG(CLIB_IF_LOCKS, "LOCK: Adding socket to a socket set - Got global lock\n");
@@ -775,7 +783,6 @@ int socketclose(int socket)
 
 int socketrelease(int socket)
 {
-	int cleanuplater = 0;
 	DLOG(CLIB_IF_NOISY_DEBUG0, "Releasing socket %d and marking it as free for reuse\n", socket);
 	pthread_rwlock_wrlock(&socketsetlist_lock);
 	DLOG(CLIB_IF_LOCKS, "LOCK: Releasing socket - Got global lock\n");
@@ -789,17 +796,6 @@ int socketrelease(int socket)
 	}
 	else
 	{
-		if (pthread_rwlock_trywrlock(&(set_to_release->destroylock)) == 0)
-		{
-			// Got destroylock on set - decide to clean up later
-			cleanuplater = 1;
-			DLOG(CLIB_IF_NOISY_DEBUG2, "After releasing %d, maybe clean up socket set\n", socket);
-		}
-		else
-		{
-			DLOG(CLIB_IF_NOISY_DEBUG2, "Set of released socket %d is still in use, do not clean up\n", socket);
-		}
-		DLOG(CLIB_IF_LOCKS, "LOCK: Getting destroylock of set %p\n", (void *)set_to_release);
 		pthread_rwlock_wrlock(&(set_to_release->lock));
 		DLOG(CLIB_IF_LOCKS, "LOCK: Releasing socket - Locking set %p\n", (void *)set_to_release);
 		struct socketlist *slist = set_to_release->sockets;
@@ -812,8 +808,6 @@ int socketrelease(int socket)
 			DLOG(CLIB_IF_NOISY_DEBUG1, "Socket %d not found in list - cannot mark it as free\n", socket);
 			pthread_rwlock_unlock(&(set_to_release->lock));
 			DLOG(CLIB_IF_LOCKS, "LOCK: Did not find socket - Releasing set %p\n", (void *) set_to_release);
-			pthread_rwlock_unlock(&(set_to_release->destroylock));
-			DLOG(CLIB_IF_LOCKS, "LOCK: Did not find socket - Releasing set %p\n", (void *) set_to_release);
 			pthread_rwlock_unlock(&socketsetlist_lock);
 			DLOG(CLIB_IF_LOCKS, "LOCK: Socket not found - Unlocking global lock\n");
 			return -1;
@@ -823,44 +817,9 @@ int socketrelease(int socket)
 			slist->flags = slist->flags & ~MUACC_SOCKET_IN_USE;
 			set_to_release->use_count -= 1;
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Socket set of %d: use count = %d\n", socket, set_to_release->use_count);
-			if (cleanuplater && set_to_release->use_count == 0)
-			{
-				DLOG(CLIB_IF_NOISY_DEBUG2, "Socket %d was the last socket - cleaning up\n", socket);
-				if (1 == _muacc_cleanup_sockets(&set_to_release))
-				{
-					DLOG(CLIB_IF_NOISY_DEBUG2, "Socket set of %d was cleared completely - freeing it.\n", socket);
-					struct socketset *prevset = _muacc_find_prev_socketset(&socketsetlist, set_to_release);
-					if (prevset != NULL)
-					{
-						prevset->next = set_to_release->next;
-						DLOG(CLIB_IF_NOISY_DEBUG2, "Readjusted socketset list pointers\n");
-					}
-					else
-					{
-						DLOG(CLIB_IF_NOISY_DEBUG2, "Freed the first list entry, reset head\n");
-						socketsetlist = set_to_release->next;
-					}
-					pthread_rwlock_destroy(&(set_to_release->lock));
-		            DLOG(CLIB_IF_LOCKS, "LOCK: Removed socket set - destroyed its lock %p\n", (void *)set_to_release);
-		            pthread_rwlock_destroy(&(set_to_release->destroylock));
-					DLOG(CLIB_IF_LOCKS, "LOCK: Removed a socket from set - Releasing its destroylock %p\n", (void *)set_to_release);
-					free(set_to_release);
-				}
-				else
-				{
-					pthread_rwlock_unlock(&(set_to_release->lock));
-					DLOG(CLIB_IF_LOCKS, "LOCK: Marked socket as free - Releasing set %p\n", (void *) set_to_release);
-					pthread_rwlock_unlock(&(set_to_release->destroylock));
-					DLOG(CLIB_IF_LOCKS, "LOCK: Marked socket as free - Releasing destroylock of set %p\n", (void *) set_to_release);
-				}
-			}
-			else
-			{
-				pthread_rwlock_unlock(&(set_to_release->lock));
-				DLOG(CLIB_IF_LOCKS, "LOCK: Marked socket as free - Releasing set %p\n", (void *) set_to_release);
-				if (cleanuplater) // we obtained the destroylock -- release it again
-					pthread_rwlock_unlock(&(set_to_release->destroylock));
-			}
+
+			pthread_rwlock_unlock(&(set_to_release->lock));
+			DLOG(CLIB_IF_LOCKS, "LOCK: Marked socket as free - Releasing set %p\n", (void *) set_to_release);
 
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Set entry of socket %d found and marked as free\n", socket);
 		}
@@ -868,4 +827,81 @@ int socketrelease(int socket)
 		DLOG(CLIB_IF_LOCKS, "LOCK: Finished releasing and cleaning up - Unlocking global lock\n");
 		return 0;
 	}
+}
+
+int socketcleanup(int socket)
+{
+	DLOG(CLIB_IF_NOISY_DEBUG0, "Trying to close socket %d and clean up its socket set\n", socket);
+	pthread_rwlock_wrlock(&socketsetlist_lock);
+	DLOG(CLIB_IF_LOCKS, "LOCK: Cleaning up socket list - Got global lock\n");
+
+	struct socketset *set_to_cleanup = _muacc_find_socketset(socketsetlist, socket);
+	if (set_to_cleanup == NULL || set_to_cleanup->sockets == NULL)
+    {
+        DLOG(CLIB_IF_NOISY_DEBUG1, "Socket %d not found in list - cannot clean up\n", socket);
+        DLOG(CLIB_IF_LOCKS, "LOCK: Socket not found - Unlocking global lock\n");
+        pthread_rwlock_unlock(&socketsetlist_lock);
+        return -1;
+    }
+	else
+	{
+		pthread_rwlock_wrlock(&(set_to_cleanup->destroylock));
+		DLOG(CLIB_IF_LOCKS, "LOCK: Cleaning up socket set - setting destroylock on %p\n", (void *)set_to_cleanup);
+		pthread_rwlock_wrlock(&(set_to_cleanup->lock));
+		DLOG(CLIB_IF_LOCKS, "LOCK: Cleaning up socket set - Locking set %p\n", (void *)set_to_cleanup);
+
+		struct socketlist *slist = set_to_cleanup->sockets;
+		while (slist->file != socket && slist != NULL)
+		{
+			slist = slist->next;
+		}
+		if (slist == NULL)
+		{
+			DLOG(CLIB_IF_NOISY_DEBUG1, "Socket %d not found in list - cannot mark it as free\n", socket);
+			// Will still clean up though...
+		}
+		else
+		{
+			// Marking socket as free, so cleanup function will include it
+			slist->flags = slist->flags & ~MUACC_SOCKET_IN_USE;
+			set_to_cleanup->use_count -= 1;
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Socket set of %d: use count = %d\n", socket, set_to_cleanup->use_count);
+		}
+
+		DLOG(CLIB_IF_NOISY_DEBUG2, "Cleaning up socket set of socket %d\n", socket);
+		if (1 == _muacc_cleanup_sockets(&set_to_cleanup))
+		{
+			// Set is empty now
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Socket set of %d was cleared completely - freeing it.\n", socket);
+			struct socketset *prevset = _muacc_find_prev_socketset(&socketsetlist, set_to_cleanup);
+			if (prevset != NULL)
+			{
+				prevset->next = set_to_cleanup->next;
+				DLOG(CLIB_IF_NOISY_DEBUG2, "Readjusted socketset list pointers\n");
+			}
+			else
+			{
+				DLOG(CLIB_IF_NOISY_DEBUG2, "Freed the first list entry, reset head\n");
+				socketsetlist = set_to_cleanup->next;
+			}
+			pthread_rwlock_destroy(&(set_to_cleanup->lock));
+            DLOG(CLIB_IF_LOCKS, "LOCK: Removed socket set - destroyed its lock %p\n", (void *)set_to_cleanup);
+            pthread_rwlock_destroy(&(set_to_cleanup->destroylock));
+			DLOG(CLIB_IF_LOCKS, "LOCK: Removed a socket from set - Releasing its destroylock %p\n", (void *)set_to_cleanup);
+			free(set_to_cleanup);
+		}
+		else
+		{
+			// There are sockets left in the set
+			DLOG(CLIB_IF_NOISY_DEBUG2, "Cleaned up some sockets in set, but is not empty\n");
+			pthread_rwlock_unlock(&(set_to_cleanup->lock));
+			DLOG(CLIB_IF_LOCKS, "LOCK: Cleaned up - Releasing lock on set %p\n", (void *) set_to_cleanup);
+			pthread_rwlock_unlock(&(set_to_cleanup->destroylock));
+			DLOG(CLIB_IF_LOCKS, "LOCK: Cleaned up - Releasing destroylock of set %p\n", (void *) set_to_cleanup);
+		}
+	}
+	DLOG(CLIB_IF_NOISY_DEBUG2, "Socket set of socket %d cleaned up\n", socket);
+	pthread_rwlock_unlock(&socketsetlist_lock);
+	DLOG(CLIB_IF_LOCKS, "LOCK: Finished releasing and cleaning up - Unlocking global lock\n");
+	return 0;
 }

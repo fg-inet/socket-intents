@@ -1,5 +1,9 @@
-
-/** Dummy to illustrate how policies work
+/** \file policy_sample.c
+ *  \brief Example policy to illustrate how policies work
+ *
+ *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  All rights reserved. This project is released under the New BSD License.
+ *
  *  Policy_info: Whether interface has been specified as default in the config file
  *               (e.g. set default = 1 in the prefix statement)
  *  Behavior:
@@ -165,8 +169,7 @@ int on_resolve_request(request_context_t *rctx, struct event_base *base)
 			rctx);
 	printf(" - Sending request to default nameserver\n");
     if (req == NULL) {
-		/* returned immediately - Send reply to the client */
-		_muacc_send_ctx_event(rctx, muacc_act_socketconnect_resp);
+		/* returned immediately  */
 		printf("\tRequest failed.\n");
 	}
 	return 0;
@@ -208,14 +211,20 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
  *  Sends back a reply to the client with the received answer
  */
 static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *addr, void *ptr)
-{
+{	
 	strbuf_t sb;
 	strbuf_init(&sb);
 
 	request_context_t *rctx = ptr;
+	muacc_mam_action_t action = muacc_act_socketconnect_resp;
+	if (rctx->action == muacc_act_socketchoose_req)
+	{
+		action = muacc_act_socketchoose_resp_new;
+	}
 
 	if (errcode) {
-	    printf("\n\tError resolving: %s -> %s\n", rctx->ctx->remote_hostname, evutil_gai_strerror(errcode));
+	    printf("\n\tError resolving: %s:%s -> %s\n", rctx->ctx->remote_hostname, rctx->ctx->remote_service, evutil_gai_strerror(errcode));
+		action = muacc_error_resolve;
 	}
 	else
 	{
@@ -265,12 +274,7 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 		}
 	}
 
-	muacc_mam_action_t action = muacc_act_socketconnect_resp;
-	// send response back
-	if (rctx->action == muacc_act_socketchoose_req)
-	{
-		action = muacc_act_socketchoose_resp_new;
-	}
+	strbuf_printf(&sb, "\tSending reply\n");
 	_muacc_send_ctx_event(rctx, action);
 
     printf("%s\n\n", strbuf_export(&sb));
@@ -287,6 +291,7 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
     struct evdns_getaddrinfo_request *req;
 	
 	printf("\tSocketconnect request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+	printf(" - Sending request to default nameserver\n");
 
 	/* Try to resolve this request using asynchronous lookup */
     req = evdns_getaddrinfo(
@@ -296,10 +301,8 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
             rctx->ctx->remote_addrinfo_hint,
 			&resolve_request_result_connect,
 			rctx);
-	printf(" - Sending request to default nameserver\n");
     if (req == NULL) {
-		/* returned immediately - Send reply to the client */
-		_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
+		/* returned immediately */
 		printf("\tRequest failed.\n");
 	}
 	return 0;
@@ -321,9 +324,10 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 		printf("\tSuggest using socket %d\n", rctx->sockets->file);
 
 		/* Provide the information to open a new similar socket, in case the suggested socket cannot be used */
-		muacc_ctxid_t context_id = rctx->ctx->ctxid;
+		uuid_t context_id;
+		__uuid_copy(context_id, rctx->ctx->ctxid);
 		rctx->ctx = _muacc_clone_ctx(rctx->sockets->ctx);
-		rctx->ctx->ctxid = context_id;
+		__uuid_copy(rctx->ctx->ctxid, context_id);
 
 		_muacc_send_ctx_event(rctx, muacc_act_socketchoose_resp_existing);
 	}
@@ -341,8 +345,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 			rctx);
 		printf(" - Sending request to default nameserver\n");
 		if (req == NULL) {
-			/* returned immediately - Send reply to the client */
-			_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
+			/* returned immediately  */
 			printf("\tRequest failed.\n");
 		}
 	}
