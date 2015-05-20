@@ -30,7 +30,8 @@ typedef enum
 	muacc_act_socketchoose_req,				/**< choose between existing set of sockets or open new one */
 	muacc_act_socketchoose_resp_existing,	/**< socketchoose response, choose existing socket */
 	muacc_act_socketchoose_resp_new,		/**< socketchoose response, create new socket */
-	muacc_error_unknown_request,			/**< indicates an error */
+	muacc_error_unknown_request,			/**< Error: Unknown request */
+	muacc_error_resolve,					/**< Error: Name resolution failed */
 } muacc_mam_action_t;
 
 /** Linked list of socket options to be set */

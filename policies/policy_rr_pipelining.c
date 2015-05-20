@@ -172,8 +172,7 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 			rctx);
 	printf(" - Sending request to default nameserver\n");
     if (req == NULL) {
-		/* returned immediately - Send reply to the client */
-		_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
+		/* returned immediately */
 		printf("\tRequest failed.\n");
 	}
 	return 0;
@@ -251,8 +250,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 			rctx);
 		printf(" - Sending request to default nameserver\n");
 		if (req == NULL) {
-			/* returned immediately - Send reply to the client */
-			_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
+			/* returned immediately */
 			printf("\tRequest failed.\n");
 		}
 	}
