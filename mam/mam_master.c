@@ -143,10 +143,7 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 				(*rctx)->ctx = _muacc_create_ctx();
 				printf("in read cb\n");
     			uuid_copy((*rctx)->ctx->ctxid, old);
-				
-				/* done processing - do MAM's magic */
-				process_mam_request(crctx);
-												
+
 				if (global_mctx->clients)
 				{
 					GSList *client_list = g_slist_find_custom(global_mctx->clients, crctx->ctx->ctxid, compare_id_in_struct);
@@ -163,6 +160,10 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 #endif
 					}
 				}
+
+				/* Process the request by calling the policy */
+				process_mam_request(crctx);
+
     			continue;
     		default:
     			/* read a TLV - are there more out there? */
