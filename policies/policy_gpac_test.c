@@ -30,6 +30,8 @@ struct intents_info {
 GSList *in4_enabled = NULL;
 GSList *in6_enabled = NULL;
 
+void set_sa_for_category(request_context_t *rctx, enum intent_category given, strbuf_t sb);
+
 /** Helper to set the policy information for each prefix
  *  Here, check if this prefix has been configured as default
  *  and parse the category information from config file
@@ -120,12 +122,13 @@ void set_sa_for_category(request_context_t *rctx, enum intent_category given, st
 		{
 			/* Category matches. Set source address */
 			set_bind_sa(rctx, cur, &sb);
-			strbuf_printf(&sb, " for category %s (%d)", info->category_string, given);
+			strbuf_printf(&sb, "found suitable interface for category %s (%d)", info->category_string, given);
 			break;
 		}
 		if (info->is_default)
 		{
 			/* Configured as default. Store for fallback */
+			strbuf_printf(&sb, "setting this source address as default");
 			defaultaddr = cur;
 		}
 		spl = spl->next;
@@ -138,7 +141,7 @@ void set_sa_for_category(request_context_t *rctx, enum intent_category given, st
 		if (defaultaddr != NULL)
 		{
 			set_bind_sa(rctx, defaultaddr, &sb);
-			strbuf_printf(&sb, " (default)");
+			strbuf_printf(&sb, "no suitable address for this category was found using (default)");
 		}
 	}
 }
@@ -149,13 +152,13 @@ void set_sa_for_category(request_context_t *rctx, enum intent_category given, st
  */
 int init(mam_context_t *mctx)
 {
-	printf("Policy module \"gpac_test" is loading.\n");
+	printf("Policy module \"gpac_test\" is loading.\n");
 
 	g_slist_foreach(mctx->prefixes, &set_policy_info, NULL);
 
 	make_v4v6_enabled_lists (mctx->prefixes, &in4_enabled, &in6_enabled);
 
-	printf("\nPolicy module \"gpac_test" has been loaded.\n");
+	printf("\nPolicy module \"gpac_test\" has been loaded.\n");
 	return 0;
 }
 
@@ -169,7 +172,7 @@ int cleanup(mam_context_t *mctx)
 	g_slist_free(in6_enabled);
 	g_slist_foreach(mctx->prefixes, &freepolicyinfo, NULL);
 
-	printf("Policy gpac_test library cleaned up.\n");
+	printf("Policy \"gpac_test\" library cleaned up.\n");
 	return 0;
 }
 
@@ -257,6 +260,7 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	else
 	{
 		// search address to bind to
+		strbuf_printf(&sb, "\n\t searching for suitable source address for given category");
 		set_sa_for_category(rctx, c, sb);
 	}
 
@@ -330,7 +334,7 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 			// search address to bind to
 			if(rctx->ctx->bind_sa_suggested != NULL)
 			{
-				strbuf_printf(&sb, "\tSuggested address: ");
+				strbuf_printf(&sb, "\t Suggested source address for given category, address: ");
 				_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_suggested, rctx->ctx->bind_sa_suggested_len);
 				strbuf_printf(&sb, "\n");
 			}
