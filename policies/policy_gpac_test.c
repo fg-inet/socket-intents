@@ -30,7 +30,7 @@ struct intents_info {
 GSList *in4_enabled = NULL;
 GSList *in6_enabled = NULL;
 
-void set_sa_for_category(request_context_t *rctx, enum intent_category given, strbuf_t sb);
+void set_sa_for_category(request_context_t *rctx, enum intent_category given, strbuf_t *sb);
 
 /** Helper to set the policy information for each prefix
  *  Here, check if this prefix has been configured as default
@@ -102,12 +102,14 @@ void freepolicyinfo(gpointer elem, gpointer data)
 
 /* Set the matching source address for a given category */
 //static void set_sa_if_default(request_context_t *rctx, strbuf_t sb)
-void set_sa_for_category(request_context_t *rctx, enum intent_category given, strbuf_t sb)
+void set_sa_for_category(request_context_t *rctx, enum intent_category given, strbuf_t *sb)
 {
 	GSList *spl = NULL;
 	struct src_prefix_list *cur = NULL;
 	struct intents_info *info = NULL;
 	struct src_prefix_list *defaultaddr = NULL;
+
+	strbuf_printf(sb, "\n \t set_sa_for_category aufgerufen");
 
 	if (rctx->ctx->domain == AF_INET)
 		spl = in4_enabled;
@@ -121,14 +123,14 @@ void set_sa_for_category(request_context_t *rctx, enum intent_category given, st
 		if (info != NULL && info->category == given)
 		{
 			/* Category matches. Set source address */
-			set_bind_sa(rctx, cur, &sb);
-			strbuf_printf(&sb, "found suitable interface for category %s (%d)", info->category_string, given);
+			set_bind_sa(rctx, cur, sb);
+			strbuf_printf(sb, "\n \t found suitable interface for category %s (%d)", info->category_string, given);
 			break;
 		}
 		if (info->is_default)
 		{
 			/* Configured as default. Store for fallback */
-			strbuf_printf(&sb, "setting this source address as default");
+			strbuf_printf(sb, "\n \t setting this source address as default");
 			defaultaddr = cur;
 		}
 		spl = spl->next;
@@ -137,11 +139,11 @@ void set_sa_for_category(request_context_t *rctx, enum intent_category given, st
 	{
 		/* No suitable address for this category was found */
 		if (given >= 0 && given <= INTENT_STREAM)
-			strbuf_printf(&sb, "\n\tDid not find a suitable src address for category %d", given);
+			strbuf_printf(sb, "\n\tDid not find a suitable src address for category %d", given);
 		if (defaultaddr != NULL)
 		{
-			set_bind_sa(rctx, defaultaddr, &sb);
-			strbuf_printf(&sb, "no suitable address for this category was found using (default)");
+			set_bind_sa(rctx, defaultaddr, sb);
+			strbuf_printf(sb, "no suitable address for this category was found using (default)");
 		}
 	}
 }
@@ -250,7 +252,7 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	{
 		// no category given
 		strbuf_printf(&sb, "\n\tNo category intent given - Setting default if applicable.");
-		set_sa_for_category(rctx, -1, sb);
+		set_sa_for_category(rctx, -1, &sb);
 	}
 	else if(rctx->ctx->bind_sa_req != NULL)
 	{	// already bound
@@ -261,7 +263,7 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	{
 		// search address to bind to
 		strbuf_printf(&sb, "\n\t searching for suitable source address for given category");
-		set_sa_for_category(rctx, c, sb);
+		set_sa_for_category(rctx, c, &sb);
 	}
 
 	// send response back
@@ -319,7 +321,7 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
         {
 		// no category given
 		strbuf_printf(&sb, "\n\tNo category intent given - Setting default if applicable.");
-		set_sa_for_category(rctx, -1, sb);
+		set_sa_for_category(rctx, -1, &sb);
         }
 		else if(rctx->ctx->bind_sa_req != NULL)
 		{	// already bound
@@ -329,7 +331,8 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 		}
 		else
 		{
-			set_sa_for_category(rctx, category, sb);
+			strbuf_printf(&sb, "\t vor set sa for category \n");
+			set_sa_for_category(rctx, category, &sb);
 
 			// search address to bind to
 			if(rctx->ctx->bind_sa_suggested != NULL)
