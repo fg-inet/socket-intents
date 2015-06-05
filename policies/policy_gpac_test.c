@@ -21,6 +21,8 @@
 //};
 
 struct intents_info {
+    int minfilesize;
+    int maxfilesize;
 	enum intent_category	category;
 	char					*category_string;
 	int						is_default;
@@ -30,7 +32,7 @@ struct intents_info {
 GSList *in4_enabled = NULL;
 GSList *in6_enabled = NULL;
 
-void set_sa_for_category(request_context_t *rctx, enum intent_category given, strbuf_t *sb);
+void set_sa(request_context_t *rctx, enum intent_category given, int filesize, strbuf_t *sb);
 
 /** Helper to set the policy information for each prefix
  *  Here, check if this prefix has been configured as default
@@ -47,7 +49,7 @@ void set_policy_info(gpointer elem, gpointer data)
 	{
 		gpointer value = NULL;
 
-		// parse the
+		// parse the config file for arguments
 		if ((value = g_hash_table_lookup(spl->policy_set_dict, "category")) != NULL)
 		{
 			enum intent_category cat = -1;
@@ -71,6 +73,15 @@ void set_policy_info(gpointer elem, gpointer data)
 				asprintf(&(new->category_string), "%s", (char *) value);
 			}
 		}
+		// check for filesize restrictions on this interface, in none found minsize =-1 and maxsize = -1
+		if ((value = g_hash_table_lookup(spl->policy_set_dict, "minfilesize")) != NULL)
+            new->minfilesize= atoi(value);
+            else
+                new->minfilesize = -1;
+        if ((value = g_hash_table_lookup(spl->policy_set_dict, "maxfilesize")) != NULL)
+            new->maxfilesize= atoi(value);
+            else
+                new->maxfilesize=-1;
 		// set default interface
 		if (((value = g_hash_table_lookup(spl->policy_set_dict, "default")) != NULL) && value )
 			new->is_default = 1;
@@ -84,7 +95,13 @@ void print_policy_info(void *policy_info)
 {
 	struct intents_info *info = policy_info;
 	if (info->is_default)
-		printf(" (default)");
+		printf("\n\t policy contains default interface");
+    if (info->category_string)
+        printf(" \t policy information for category: %s ", info->category_string);
+    if (info->maxfilesize)
+        printf("\t maximumfilesize info: %i", info->maxfilesize);
+    if (info->minfilesize)
+        printf("\t minfilesize info: %i \n", info->minfilesize);
 }
 
 /** Free the policy data structures */
@@ -100,9 +117,8 @@ void freepolicyinfo(gpointer elem, gpointer data)
 	}
 }
 
-/* Set the matching source address for a given category */
-//static void set_sa_if_default(request_context_t *rctx, strbuf_t sb)
-void set_sa_for_category(request_context_t *rctx, enum intent_category given, strbuf_t *sb)
+/* Set the matching source address for a given category and/or filesize */
+void set_sa(request_context_t *rctx, enum intent_category given, int filesize, strbuf_t *sb)
 {
 	GSList *spl = NULL;
 	struct src_prefix_list *cur = NULL;
@@ -120,20 +136,26 @@ void set_sa_for_category(request_context_t *rctx, enum intent_category given, st
 	{
 		cur = spl->data;
 		info = (struct intents_info *)cur->policy_info;
-		if (info != NULL && info->category == given)
-		{
-			/* Category matches. Set source address */
-			set_bind_sa(rctx, cur, sb);
-			strbuf_printf(sb, "\n \t found suitable interface for category %s (%d)", info->category_string, given);
-			break;
-		}
-		if (info->is_default)
-		{
-			/* Configured as default. Store for fallback */
-			strbuf_printf(sb, "\n \t setting this source address as default");
-			defaultaddr = cur;
-		}
-		spl = spl->next;
+		//if no minfilesize is set in config it is set to 0
+		if( info != NULL)
+        {
+                if (info->category == given && (info->minfilesize) <= filesize && filesize <= (info->maxfilesize))
+                {
+                    /* Category and filesize matches. Set source address */
+                    set_bind_sa(rctx, cur, sb);
+                    strbuf_printf(sb, "\n \t found suitable interface for category %s (%d)", info->category_string, given);
+                    break;
+                }
+
+
+            if (info->is_default)
+            {
+                /* Configured as default. Store for fallback */
+                strbuf_printf(sb, "\n \t setting this source address as default");
+                defaultaddr = cur;
+            }
+            spl = spl->next;
+        }
 	}
 	if (spl == NULL)
 	{
@@ -178,102 +200,6 @@ int cleanup(mam_context_t *mctx)
 	return 0;
 }
 
-/** Asynchronous callback function for resolve request
- *  Invoked once a response to the resolver query has been received
- *  Sends back a reply to the client with the received answer
- */
-static void resolve_request_result(int errcode, struct evutil_addrinfo *addr, void *ptr)
-{
-
-	request_context_t *rctx = ptr;
-
-	if (errcode) {
-	    printf("\n\tError resolving: %s -> %s\n", rctx->ctx->remote_hostname, evutil_gai_strerror(errcode));
-	}
-	else
-	{
-		printf("\n\tGot resolver response for %s: %s\n",
-			rctx->ctx->remote_hostname,
-			addr->ai_canonname ? addr->ai_canonname : "");
-
-		assert(addr != NULL);
-		assert(rctx->ctx->remote_addrinfo_res == NULL);
-		rctx->ctx->remote_addrinfo_res = _muacc_clone_addrinfo(addr);
-		evutil_freeaddrinfo(addr);
-		print_addrinfo_response (rctx->ctx->remote_addrinfo_res);
-	}
-
-	// send reply
-	_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
-}
-
-/** Resolve request function (mandatory)
- *  Is called upon each getaddrinfo request from a client
- *  Must send a reply back using _muacc_sent_ctx_event or register a callback that does so
- */
-int on_resolve_request(request_context_t *rctx, struct event_base *base)
-{
-    struct evdns_getaddrinfo_request *req;
-
-	printf("\tResolve request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
-
-	/* Try to resolve this request using asynchronous lookup */
-    req = evdns_getaddrinfo(
-    		rctx->mctx->evdns_default_base,
-			rctx->ctx->remote_hostname,
-			rctx->ctx->remote_service,
-            rctx->ctx->remote_addrinfo_hint,
-			&resolve_request_result,
-			rctx);
-	printf(" - Sending request to default nameserver\n");
-    if (req == NULL) {
-		/* returned immediately - Send reply to the client */
-		_muacc_send_ctx_event(rctx, muacc_act_socketconnect_resp);
-		printf("\tRequest failed.\n");
-	}
-	return 0;
-}
-
-/** Connect request function (mandatory)
- *  Is called upon each connect request from a client
- *  Must send a reply back using _muacc_sent_ctx_event or register a callback that does so
- */
-int on_connect_request(request_context_t *rctx, struct event_base *base)
-{
-	strbuf_t sb;
-	strbuf_init(&sb);
-	strbuf_printf(&sb, "\tConnect request: dest=");
-	_muacc_print_sockaddr(&sb, rctx->ctx->remote_sa, rctx->ctx->remote_sa_len);
-
-	intent_category_t c = 0;
-	socklen_t option_length = sizeof(intent_category_t);
-
-	if (0 != mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_CATEGORY, &option_length, &c))
-	{
-		// no category given
-		strbuf_printf(&sb, "\n\tNo category intent given - Setting default if applicable.");
-		set_sa_for_category(rctx, -1, &sb);
-	}
-	else if(rctx->ctx->bind_sa_req != NULL)
-	{	// already bound
-		strbuf_printf(&sb, "\tAlready bound to src=");
-		_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
-	}
-	else
-	{
-		// search address to bind to
-		strbuf_printf(&sb, "\n\t searching for suitable source address for given category");
-		set_sa_for_category(rctx, c, &sb);
-	}
-
-	// send response back
-
-	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
-    printf("%s\n\n", strbuf_export(&sb));
-    strbuf_release(&sb);
-
-	return 0;
-}
 
 /** Asynchronous callback function for socketconnect request after resolve
  *  Invoked once a response to the resolver query has been received
@@ -283,8 +209,10 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 {
 	strbuf_t sb;
 	strbuf_init(&sb);
-	intent_category_t category = 0;
-	socklen_t option_length = sizeof(intent_category_t);
+	intent_category_t category = -1;
+	int filesize = -1;
+	socklen_t cat_length = sizeof(intent_category_t);
+	socklen_t filesize_length = sizeof(int);
 
 	request_context_t *rctx = ptr;
 
@@ -317,11 +245,19 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 		_muacc_print_sockaddr(&sb, rctx->ctx->remote_sa, rctx->ctx->remote_sa_len);
 		strbuf_printf(&sb, "\n");
 
-		if (0 != mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_CATEGORY, &option_length, &category))
+		struct socketopt *optlist = rctx->ctx->sockopts_current;
+
+		if (0 != mampol_get_socketopt(optlist, SOL_INTENTS, INTENT_CATEGORY, &cat_length, &category))
         {
 		// no category given
-		strbuf_printf(&sb, "\n\tNo category intent given - Setting default if applicable.");
-		set_sa_for_category(rctx, -1, &sb);
+            strbuf_printf(&sb, "\n\tNo category intent given - checking for filesize rules.");
+
+            if (0 != mampol_get_socketopt(optlist, SOL_INTENTS, INTENT_FILESIZE, &filesize_length, &filesize))
+            {
+
+                strbuf_printf(&sb, "\n\tNo filesize intent given - lookinf for default interface.");
+
+            }
         }
 		else if(rctx->ctx->bind_sa_req != NULL)
 		{	// already bound
@@ -329,10 +265,9 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 			_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
 			strbuf_printf(&sb, "\n");
 		}
-		else
-		{
-			strbuf_printf(&sb, "\t vor set sa for category \n");
-			set_sa_for_category(rctx, category, &sb);
+
+			//strbuf_printf(&sb, "\t callin set sa for category \n");
+			set_sa(rctx, category, filesize, &sb);
 
 			// search address to bind to
 			if(rctx->ctx->bind_sa_suggested != NULL)
@@ -343,7 +278,7 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 			}
 			else
 				strbuf_printf(&sb, "\tNo default address available!\n");
-		}
+
 	}
 
 	muacc_mam_action_t action = muacc_act_socketconnect_resp;
