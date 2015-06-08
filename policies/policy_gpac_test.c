@@ -97,11 +97,11 @@ void print_policy_info(void *policy_info)
 	if (info->is_default)
 		printf("\n\t policy contains default interface");
     if (info->category_string)
-        printf(" \t policy information for category: %s ", info->category_string);
+        printf(" \n\t policy information for category: %s ", info->category_string);
     if (info->maxfilesize)
-        printf("\t maximumfilesize info: %i", info->maxfilesize);
+        printf("\n\t maximumfilesize info: %i", info->maxfilesize);
     if (info->minfilesize)
-        printf("\t minfilesize info: %i \n", info->minfilesize);
+        printf("\n\t minfilesize info: %i \n", info->minfilesize);
 }
 
 /** Free the policy data structures */
@@ -110,11 +110,10 @@ void freepolicyinfo(gpointer elem, gpointer data)
 	struct src_prefix_list *spl = elem;
 
 	if (spl->policy_info != NULL)
-		{
-		    if(((struct intents_info *)spl->policy_info)->category_string != NULL)
-			free(((struct intents_info *)spl->policy_info)->category_string);
             free(spl->policy_info);
-	}
+    spl->policy_info = NULL;
+
+
 }
 
 /* Set the matching source address for a given category and/or filesize */
@@ -125,7 +124,7 @@ void set_sa(request_context_t *rctx, enum intent_category given, int filesize, s
 	struct intents_info *info = NULL;
 	struct src_prefix_list *defaultaddr = NULL;
 
-	strbuf_printf(sb, "\n \t set_sa_for_category aufgerufen");
+	strbuf_printf(sb, "\n \t set_sa() called");
 
 	if (rctx->ctx->domain == AF_INET)
 		spl = in4_enabled;
@@ -217,11 +216,11 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 	request_context_t *rctx = ptr;
 
 	if (errcode) {
-	    printf("\n\tError resolving: %s -> %s\n", rctx->ctx->remote_hostname, evutil_gai_strerror(errcode));
+	    printf("\n\t Error resolving: %s -> %s\n", rctx->ctx->remote_hostname, evutil_gai_strerror(errcode));
 	}
 	else
 	{
-		printf("\n\tGot resolver response for %s: %s\n",
+		printf("\n\t Got resolver response for %s: %s\n",
 			rctx->ctx->remote_hostname,
 			addr->ai_canonname ? addr->ai_canonname : "");
 
@@ -251,14 +250,14 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
         {
 		// no category given
             strbuf_printf(&sb, "\n\tNo category intent given - checking for filesize rules.");
-
-            if (0 != mampol_get_socketopt(optlist, SOL_INTENTS, INTENT_FILESIZE, &filesize_length, &filesize))
-            {
-
-                strbuf_printf(&sb, "\n\tNo filesize intent given - lookinf for default interface.");
-
-            }
         }
+        if (0 != mampol_get_socketopt(optlist, SOL_INTENTS, INTENT_FILESIZE, &filesize_length, &filesize))
+        {
+        // no filesize intents given
+                strbuf_printf(&sb, "\n\t No filesize intent given. ");
+
+        }
+
 		else if(rctx->ctx->bind_sa_req != NULL)
 		{	// already bound
 			strbuf_printf(&sb, "\tAlready bound to src=");
@@ -266,18 +265,18 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 			strbuf_printf(&sb, "\n");
 		}
 
-			//strbuf_printf(&sb, "\t callin set sa for category \n");
+			//strbuf_printf(&sb, "\t \n callin set sa for category ");
 			set_sa(rctx, category, filesize, &sb);
 
 			// search address to bind to
 			if(rctx->ctx->bind_sa_suggested != NULL)
 			{
-				strbuf_printf(&sb, "\t Suggested source address for given category, address: ");
+				strbuf_printf(&sb, "\t \n Suggested source address for given intents, address: ");
 				_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_suggested, rctx->ctx->bind_sa_suggested_len);
 				strbuf_printf(&sb, "\n");
 			}
 			else
-				strbuf_printf(&sb, "\tNo default address available!\n");
+				strbuf_printf(&sb, "\tNo default interface is available!\n");
 
 	}
 
@@ -347,7 +346,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 	}
 	else
 	{
-		printf("\tSocketchoose with empty set - trying to create new socket, resolving %s\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname));
+		printf("\tSocketchoose with empty or almost empty set - trying to create new socket, resolving %s:%s\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 
 		/* Try to resolve this request using asynchronous lookup */
 		req = evdns_getaddrinfo(
