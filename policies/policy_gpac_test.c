@@ -32,7 +32,13 @@ struct intents_info {
 GSList *in4_enabled = NULL;
 GSList *in6_enabled = NULL;
 
+/** declaration of helper functions */
+typedef struct socketlist socketlist;
+typedef struct src_prefix_list src_prefix_list;
 void set_sa(request_context_t *rctx, enum intent_category given, int filesize, strbuf_t *sb);
+struct src_prefix_list* map_sock_to_src_prefix(request_context_t *rctx, struct socketlist *given_socket);
+int check_socket_for_intent(request_context_t *rctx, socketlist *given_socket);
+
 
 /** Helper to set the policy information for each prefix
  *  Here, check if this prefix has been configured as default
@@ -112,9 +118,115 @@ void freepolicyinfo(gpointer elem, gpointer data)
 	if (spl->policy_info != NULL)
             free(spl->policy_info);
     spl->policy_info = NULL;
-
-
 }
+
+
+//map a given socket to his source prefix
+struct src_prefix_list* map_sock_to_src_prefix(request_context_t *rctx, struct socketlist *given_socket)
+{
+    GSList *spl = NULL;
+    int given_domain = given_socket->ctx->domain;
+    printf(" \n domain in given socket: %d ", given_domain);
+
+	if (given_domain == AF_INET)
+		spl = in4_enabled;
+	else if (given_domain == AF_INET6)
+		spl = in6_enabled;
+
+    //struct intents_info info_curr = prefix_curr->policy_info;
+	struct sockaddr *socket_sa_curr = given_socket->ctx->bind_sa_suggested;
+
+    //lookup_source_prefix(spl, 0, NULL, ,)
+    struct src_prefix_list *prefix_curr = NULL;
+
+	//check to what source prefix socket_sa_curr belongs
+
+    while(spl != NULL)
+    {
+        prefix_curr = spl->data;
+        struct sockaddr_list *sock_list_for_curr_prefix = prefix_curr->if_addrs;
+
+        while(sock_list_for_curr_prefix != NULL)
+        {
+            struct sockaddr *sockaddr_prefix = sock_list_for_curr_prefix->addr;
+            struct sockaddr_in *ip4_prefix = (struct sockaddr_in *) sockaddr_prefix;
+            struct sockaddr_in *ip4_socket = (struct sockaddr_in *) socket_sa_curr;
+            char* ip4_pref_char = inet_ntoa(ip4_prefix->sin_addr);
+            char* ip4_sock_char = inet_ntoa(ip4_socket->sin_addr);
+
+
+            printf("\n\t name for current prefix: %s", inet_ntoa(ip4_prefix->sin_addr));
+            printf("\n\t sockaddr for given socket: %s", inet_ntoa(ip4_socket->sin_addr));
+
+            struct in_addr *a = &(ip4_prefix->sin_addr);
+            struct in_addr *b = &(ip4_socket->sin_addr);
+            in_addr_t a_addr = a->s_addr;
+            in_addr_t b_addr = b->s_addr;
+            in_addr_t ergebnis = b_addr - a_addr;
+
+            if(ergebnis == 0){
+                printf("\t\n ergebnis der substraktion: %d ", ergebnis);
+                return prefix_curr;
+            }
+            sock_list_for_curr_prefix = sock_list_for_curr_prefix->next;
+        }
+
+        spl = spl->next;
+    }
+    return NULL;
+}
+
+
+// helper function to check if a socket ctx, or repectively the corresponding prefix is suited for a given Intent
+int check_socket_for_intent(request_context_t *rctx, socketlist *given_socket)
+{
+    //int check_prefix(src_prefix_list *prefix, sockaddr *addr);
+    struct intents_info *prefix_info = NULL;
+
+    intent_category_t request_category = -1;
+    int request_filesize = -1;
+
+	socklen_t cat_length = sizeof(intent_category_t);
+	socklen_t filesize_length = sizeof(int);
+
+	struct socketopt *request_optlist = rctx->ctx->sockopts_current;
+
+		if (0 != mampol_get_socketopt(request_optlist, SOL_INTENTS, INTENT_CATEGORY, &cat_length, &request_category))
+        {
+		// no category given
+            printf("\n found no category in request");
+        }
+        if (0 != mampol_get_socketopt(request_optlist, SOL_INTENTS, INTENT_FILESIZE, &filesize_length, &request_filesize))
+        {
+        // no filesize intents given
+            printf("\n found no filesize intent in request");
+        }
+
+    src_prefix_list *prefix_for_curr_sock = NULL;
+    prefix_for_curr_sock = map_sock_to_src_prefix(rctx, given_socket);
+	// try to map the current socket to an interface
+	if( prefix_for_curr_sock == NULL)
+    {
+        printf("\t \n could not match prefix for current socket");
+        return -1;
+    }
+
+    prefix_info = (struct intents_info*) prefix_for_curr_sock->policy_info;
+
+    if(prefix_info != NULL)
+    {
+                if (prefix_info->category == request_category && (prefix_info->minfilesize) <= request_filesize && request_filesize <= (prefix_info->maxfilesize))
+                {
+                    printf("\n \t socket suits current request Intents ");
+                    return 0;
+                }
+    }
+    else
+        printf("\n no intents info given for the prefix");
+
+    return -1;
+}
+
 
 /* Set the matching source address for a given category and/or filesize */
 void set_sa(request_context_t *rctx, enum intent_category given, int filesize, strbuf_t *sb)
@@ -204,7 +316,7 @@ int cleanup(mam_context_t *mctx)
  *  Invoked once a response to the resolver query has been received
  *  Sends back a reply to the client with the received answer
  */
-static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *addr, void *ptr)
+static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *addr, void *ptr_to_context)
 {
 	strbuf_t sb;
 	strbuf_init(&sb);
@@ -213,7 +325,7 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 	socklen_t cat_length = sizeof(intent_category_t);
 	socklen_t filesize_length = sizeof(int);
 
-	request_context_t *rctx = ptr;
+	request_context_t *rctx = ptr_to_context;
 
 	if (errcode) {
 	    printf("\n\t Error resolving: %s -> %s\n", rctx->ctx->remote_hostname, evutil_gai_strerror(errcode));
@@ -264,7 +376,8 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 			_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
 			strbuf_printf(&sb, "\n");
 		}
-
+        /** call set_sa to set the source address accordingt to given intents and policy configuration
+        */
 			//strbuf_printf(&sb, "\t \n callin set sa for category ");
 			set_sa(rctx, category, filesize, &sb);
 
@@ -329,7 +442,44 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 {
     struct evdns_getaddrinfo_request *req;
 
+
+    struct socketlist *curr_socket = rctx->sockets;
+    struct socketlist *prev_socket = NULL;
+
 	printf("\tSocketchoose request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+    printf("\t what domain is given in rctx->ctx: %d", rctx->ctx->domain);
+    printf("\t  what  domain ins socketlist rctx->sockets->ctx: %d ", rctx->sockets->ctx->domain);
+    //only select sockets that have same intents as the request itself
+    while(curr_socket != NULL)
+    {
+        // check if current socket fits to request intents and delete it from sockets list if necessary
+       if(0 != check_socket_for_intent(rctx, curr_socket))
+        {
+            if(prev_socket == NULL)
+            {
+                rctx->sockets = rctx->sockets->next;
+
+            }
+            else
+            {
+                prev_socket->next = curr_socket->next;
+
+            }
+            struct socketlist *to_delete = curr_socket;
+            curr_socket = curr_socket->next;
+
+            //free the unused socket
+            _muacc_free_ctx(to_delete->ctx);
+			free(to_delete);
+
+        }
+        else
+        {
+            prev_socket =  curr_socket;
+            curr_socket = curr_socket->next;
+        }
+
+    }
 
 	if (rctx->sockets != NULL)
 	{
@@ -344,9 +494,9 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 
 		_muacc_send_ctx_event(rctx, muacc_act_socketchoose_resp_existing);
 	}
-	else
+	else if(rctx->sockets == NULL)
 	{
-		printf("\tSocketchoose with empty or almost empty set - trying to create new socket, resolving %s:%s\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+		printf("\tSocketchoose with empty set - trying to create new socket, resolving %s:%s\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 
 		/* Try to resolve this request using asynchronous lookup */
 		req = evdns_getaddrinfo(
