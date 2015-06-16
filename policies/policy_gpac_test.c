@@ -93,7 +93,7 @@ void set_policy_info(gpointer elem, gpointer data)
             else
                 new->maxfilesize=-1;
 		// set default interface
-		if (((value = g_hash_table_lookup(spl->policy_set_dict, "default")) != NULL) && value )
+		if ((value = g_hash_table_lookup(spl->policy_set_dict, "default")) != NULL)
 			new->is_default = 1;
 	}
 	spl->policy_info = new;
@@ -153,21 +153,44 @@ struct src_prefix_list* map_sock_to_src_prefix(request_context_t *rctx, struct s
         while(sock_list_for_curr_prefix != NULL)
         {
             struct sockaddr *sockaddr_prefix = sock_list_for_curr_prefix->addr;
-            struct sockaddr_in *ip4_prefix = (struct sockaddr_in *) sockaddr_prefix;
-            struct sockaddr_in *ip4_socket = (struct sockaddr_in *) socket_sa_curr;
-            char* ip4_pref_char = inet_ntoa(ip4_prefix->sin_addr);
-            char* ip4_sock_char = inet_ntoa(ip4_socket->sin_addr);
+            int equality = -1;
+            if (given_domain == AF_INET){
+                struct sockaddr_in *ip4_prefix = (struct sockaddr_in *) sockaddr_prefix;
+                struct sockaddr_in *ip4_socket = (struct sockaddr_in *) socket_sa_curr;
+                char* ip4_pref_char = inet_ntoa(ip4_prefix->sin_addr);
+                char* ip4_sock_char = inet_ntoa(ip4_socket->sin_addr);
 
-            if(DEBUG_OUTPUT_0){
-            printf("\n\t IP for current interface: %s", ip4_pref_char);
-            printf("\n\t IP for given socket: %s", ip4_sock_char);
+                if(DEBUG_OUTPUT_0){
+                printf("\n\t IP for current interface: %s", ip4_pref_char);
+                printf("\n\t IP for given socket: %s", ip4_sock_char);
+                }
+
+                struct in_addr *a = &(ip4_prefix->sin_addr);
+                struct in_addr *b = &(ip4_socket->sin_addr);
+                in_addr_t a_addr = a->s_addr;
+                in_addr_t b_addr = b->s_addr;
+                equality = b_addr - a_addr;
             }
+            if (given_domain == AF_INET6){
+                struct sockaddr_in6 *ip6_prefix = (struct sockaddr_in6 *) sockaddr_prefix;
+                struct sockaddr_in6 *ip6_socket = (struct sockaddr_in6 *) socket_sa_curr;
+                struct in6_addr *a = &(ip6_prefix->sin6_addr);
+                struct in6_addr *b = &(ip6_socket->sin6_addr);
+                /*a_addr = a->__u6_addr8;
+                s6_addr b_addr = b->__u6_addr8;*/
 
-            struct in_addr *a = &(ip4_prefix->sin_addr);
-            struct in_addr *b = &(ip4_socket->sin_addr);
-            in_addr_t a_addr = a->s_addr;
-            in_addr_t b_addr = b->s_addr;
-            int equality = b_addr - a_addr;
+                for(int i=0; i<16; i++)
+                {
+                    if(0 != (a->s6_addr[i] ^ b->s6_addr[i])){
+                        equality = (i+1);
+                        if(DEBUG_OUTPUT_0){printf("IPv6 address of interface and current socket are not equal");}
+                        break;
+                    }
+                    else
+                        equality = 0;
+                }
+
+            }
 
             if(0 == equality){
                 if(DEBUG_OUTPUT_0){printf("\n\t equality of sock and interface IPs: %d ", equality);}
@@ -255,25 +278,53 @@ void set_sa(request_context_t *rctx, enum intent_category given, int filesize, s
 		//if no minfilesize is set in config it is set to 0
 		if( info != NULL)
         {
-                if (info->category == given && (info->minfilesize) <= filesize && filesize <= (info->maxfilesize))
+            // if filesize, category and policy infos are set
+            if(filesize >= 0  && info->maxfilesize >= 0 && given >=0){
+
+                if ((info->category == given) && ((info->minfilesize) <= filesize) && (filesize <= (info->maxfilesize))){
+                    /* Category and filesize matches. Set source address */
+                    set_bind_sa(rctx, cur, sb);
+                    strbuf_printf(sb, "\n \t found suitable interface for category: %s (%d) , and given filesize: %d", info->category_string, given, filesize);
+
+                }
+            }
+            // if maxfilesize is not set in policy
+            else if(filesize >=0 && info->maxfilesize <=0 && given >= 0){
+                if ((info->category == given) && ((info->minfilesize) <= filesize))
                 {
                     /* Category and filesize matches. Set source address */
                     set_bind_sa(rctx, cur, sb);
                     strbuf_printf(sb, "\n \t found suitable interface for category %s (%d)", info->category_string, given);
-                    break;
+
                 }
+            }
+            // if no filesize intent is given, then only category matters
+            else if(filesize <0 && given >= 0){
+                if (info->category == given){
+                    /* Category and filesize matches. Set source address */
+                    set_bind_sa(rctx, cur, sb);
+                    strbuf_printf(sb, "\n \t found suitable interface for category %s (%d)", info->category_string, given);
+
+                }
+            }
+            // if no filesize and no category are given then every interface is considered suitable
+            else if(filesize < 0 && given < 0 ){
+                set_bind_sa(rctx, cur, sb);
+                    strbuf_printf(sb, "\n \t taking any interface, as no filesize and category are given");
+            }
+
 
 
             if (info->is_default)
             {
                 /* Configured as default. Store for fallback */
-                strbuf_printf(sb, "\n \t setting this source address as default");
+                strbuf_printf(sb, "\n \t setting this interface address as default");
                 defaultaddr = cur;
             }
             spl = spl->next;
         }
 	}
-	if (spl == NULL)
+	if (rctx->ctx->bind_sa_suggested == NULL)
 	{
 		/* No suitable address for this category was found */
 		if (given >= 0 && given <= INTENT_STREAM)
