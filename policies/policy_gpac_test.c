@@ -15,6 +15,10 @@
 #include "policy.h"
 #include "policy_util.h"
 
+#ifndef DEBUG_OUTPUT_0
+#define DEBUG_OUTPUT_0 0
+#endif
+
 /** Policy-specific per-prefix data structure that contains additional information */
 //struct sample_info {
 //	int is_default;
@@ -126,7 +130,7 @@ struct src_prefix_list* map_sock_to_src_prefix(request_context_t *rctx, struct s
 {
     GSList *spl = NULL;
     int given_domain = given_socket->ctx->domain;
-    printf(" \n domain in given socket: %d ", given_domain);
+    if(DEBUG_OUTPUT_0){printf(" \n\t domain in given socket: %d ", given_domain);}
 
 	if (given_domain == AF_INET)
 		spl = in4_enabled;
@@ -154,18 +158,19 @@ struct src_prefix_list* map_sock_to_src_prefix(request_context_t *rctx, struct s
             char* ip4_pref_char = inet_ntoa(ip4_prefix->sin_addr);
             char* ip4_sock_char = inet_ntoa(ip4_socket->sin_addr);
 
-
-            printf("\n\t name for current prefix: %s", inet_ntoa(ip4_prefix->sin_addr));
-            printf("\n\t sockaddr for given socket: %s", inet_ntoa(ip4_socket->sin_addr));
+            if(DEBUG_OUTPUT_0){
+            printf("\n\t IP for current interface: %s", ip4_pref_char);
+            printf("\n\t IP for given socket: %s", ip4_sock_char);
+            }
 
             struct in_addr *a = &(ip4_prefix->sin_addr);
             struct in_addr *b = &(ip4_socket->sin_addr);
             in_addr_t a_addr = a->s_addr;
             in_addr_t b_addr = b->s_addr;
-            in_addr_t ergebnis = b_addr - a_addr;
+            int equality = b_addr - a_addr;
 
-            if(ergebnis == 0){
-                printf("\t\n ergebnis der substraktion: %d ", ergebnis);
+            if(0 == equality){
+                if(DEBUG_OUTPUT_0){printf("\n\t equality of sock and interface IPs: %d ", equality);}
                 return prefix_curr;
             }
             sock_list_for_curr_prefix = sock_list_for_curr_prefix->next;
@@ -194,12 +199,12 @@ int check_socket_for_intent(request_context_t *rctx, socketlist *given_socket)
 		if (0 != mampol_get_socketopt(request_optlist, SOL_INTENTS, INTENT_CATEGORY, &cat_length, &request_category))
         {
 		// no category given
-            printf("\n found no category in request");
+            if(DEBUG_OUTPUT_0)printf("\n\t found no category in request context");
         }
         if (0 != mampol_get_socketopt(request_optlist, SOL_INTENTS, INTENT_FILESIZE, &filesize_length, &request_filesize))
         {
         // no filesize intents given
-            printf("\n found no filesize intent in request");
+            if(DEBUG_OUTPUT_0)printf("\n\t found no filesize Intent in request context");
         }
 
     src_prefix_list *prefix_for_curr_sock = NULL;
@@ -217,12 +222,12 @@ int check_socket_for_intent(request_context_t *rctx, socketlist *given_socket)
     {
                 if (prefix_info->category == request_category && (prefix_info->minfilesize) <= request_filesize && request_filesize <= (prefix_info->maxfilesize))
                 {
-                    printf("\n \t socket suits current request Intents ");
+                    if(DEBUG_OUTPUT_0)printf("\n \t Socket suits current request's Intents");
                     return 0;
                 }
     }
     else
-        printf("\n no intents info given for the prefix");
+        printf("\n \t current prefix has no infos attached");
 
     return -1;
 }
@@ -236,7 +241,7 @@ void set_sa(request_context_t *rctx, enum intent_category given, int filesize, s
 	struct intents_info *info = NULL;
 	struct src_prefix_list *defaultaddr = NULL;
 
-	strbuf_printf(sb, "\n \t set_sa() called");
+	if(DEBUG_OUTPUT_0)strbuf_printf(sb, "\n \t set_sa() called");
 
 	if (rctx->ctx->domain == AF_INET)
 		spl = in4_enabled;
@@ -447,8 +452,9 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
     struct socketlist *prev_socket = NULL;
 
 	printf("\tSocketchoose request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
-    printf("\t what domain is given in rctx->ctx: %d", rctx->ctx->domain);
-    printf("\t  what  domain ins socketlist rctx->sockets->ctx: %d ", rctx->sockets->ctx->domain);
+    /*if(DEBUG_OUTPUT_0)printf("\t what domain is given in rctx->ctx: %d", rctx->ctx->domain);
+    if(DEBUG_OUTPUT_0)printf("\t  what  domain ins socketlist rctx->sockets->ctx: %d ", rctx->sockets->ctx->domain);*/
+
     //only select sockets that have same intents as the request itself
     while(curr_socket != NULL)
     {
@@ -483,7 +489,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 
 	if (rctx->sockets != NULL)
 	{
-		printf("\tSuggest using socket %d\n", rctx->sockets->file);
+		printf("\tSuggest using this socket first %d\n", rctx->sockets->file);
 
 		/* Provide the information to open a new similar socket, in case the suggested socket cannot be used */
 		// i.e. copying the current ctxid into the cloned ctx
