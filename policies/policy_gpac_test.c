@@ -229,13 +229,13 @@ int check_socket_for_intent(request_context_t *rctx, socketlist *given_socket)
         // no filesize intents given
             if(DEBUG_OUTPUT_0)printf("\n\t found no filesize Intent in request context");
         }
-
+    // try to map the current socket to an interface
     src_prefix_list *prefix_for_curr_sock = NULL;
     prefix_for_curr_sock = map_sock_to_src_prefix(rctx, given_socket);
-	// try to map the current socket to an interface
+
 	if( prefix_for_curr_sock == NULL)
     {
-        printf("\t \n could not match prefix for current socket");
+        printf("\t \n could not match a prefix for current socket");
         return -1;
     }
 
@@ -243,11 +243,52 @@ int check_socket_for_intent(request_context_t *rctx, socketlist *given_socket)
 
     if(prefix_info != NULL)
     {
-                if (prefix_info->category == request_category && (prefix_info->minfilesize) <= request_filesize && request_filesize <= (prefix_info->maxfilesize))
+                /*if (prefix_info->category == request_category && (prefix_info->minfilesize) <= request_filesize && request_filesize <= (prefix_info->maxfilesize))
                 {
                     if(DEBUG_OUTPUT_0)printf("\n \t Socket suits current request's Intents");
                     return 0;
+                }*/
+                // if filesize, category infos are set in policy aswell as in the
+            if (prefix_info->category == request_category && (prefix_info->minfilesize <= request_filesize) && (request_filesize <= prefix_info->maxfilesize)){
+                    /* Category and filesize matches */
+                    return 0;
+            }
+
+            // if maxfilesize is not set in policy
+            else if(request_filesize >=0 && prefix_info->maxfilesize <=0 && request_category >= 0){
+                if ((prefix_info->category == request_category) && ((prefix_info->minfilesize) <= request_filesize))
+                {
+                    /* Category and filesize matches.  */
+                    return 0;
+
                 }
+            }
+            // if no filesize intent but category intent is given, then only category matters
+            else if(request_filesize <0 && request_category >= 0){
+                if (prefix_info->category == request_category){
+                    return 0;
+
+                }
+            }
+            // if no category intent is given but filesize intent, then only filesize policy info matters
+            else if(request_category<0 && request_filesize > 0){
+                if((prefix_info->minfilesize <= request_filesize) && (request_filesize <= prefix_info->maxfilesize)){
+                    return 0;
+                }
+                //if also no maxfilesize is set in policy config then only minfilesize matters
+                else if(prefix_info->maxfilesize <=0){
+                        if(prefix_info->minfilesize <= request_filesize){
+                            return 0;
+                        }
+
+                }
+
+            }
+            // if no filesize and no category are given then every interface is considered suitable
+            else if(request_filesize < 0 && request_category < 0 ){
+                return 0;
+            }
+
     }
     else
         printf("\n \t current prefix has no infos attached");
@@ -278,7 +319,7 @@ void set_sa(request_context_t *rctx, enum intent_category given, int filesize, s
 		//if no minfilesize is set in config it is set to 0
 		if( info != NULL)
         {
-            // if filesize, category and policy infos are set
+            // if filesize, category infos are set in policy aswell as in the request intents
             if(filesize >= 0  && info->maxfilesize >= 0 && given >=0){
 
                 if ((info->category == given) && ((info->minfilesize) <= filesize) && (filesize <= (info->maxfilesize))){
@@ -307,6 +348,24 @@ void set_sa(request_context_t *rctx, enum intent_category given, int filesize, s
 
                 }
             }
+
+             // if no category intent is given but filesize intent, then only filesize policy info matters
+            else if(given < 0 && filesize > 0){
+                if((info->minfilesize <= filesize) && (filesize <= info->maxfilesize)){
+                    /* Category and filesize matches. Set source address */
+                    set_bind_sa(rctx, cur, sb);
+                    strbuf_printf(sb, "\n \t found suitable interface for given filesize: %d", filesize);
+                }
+                //if also no maxfilesize is set in policy config then only minfilesize matters
+                if(info->maxfilesize <=0){
+                        if(info->minfilesize <= filesize){
+                            set_bind_sa(rctx, cur, sb);
+                            strbuf_printf(sb, "\n \t found suitable interface for filesize: %d", filesize);
+                        }
+
+                }
+            }
+
             // if no filesize and no category are given then every interface is considered suitable
             else if(filesize < 0 && given < 0 ){
                 set_bind_sa(rctx, cur, sb);
@@ -540,7 +599,15 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 
 	if (rctx->sockets != NULL)
 	{
-		printf("\tSuggest using this socket first %d\n", rctx->sockets->file);
+		printf("\t\n Suggest using these sockets first: %d", rctx->sockets->file);
+		socketlist *current = rctx->sockets->next;
+		if(current == NULL) printf("\n");
+		while(current != NULL){
+                printf(" ,%d", current->file);
+                current = current->next;
+                if(current == NULL) printf("\n");
+
+		}
 
 		/* Provide the information to open a new similar socket, in case the suggested socket cannot be used */
 		// i.e. copying the current ctxid into the cloned ctx
