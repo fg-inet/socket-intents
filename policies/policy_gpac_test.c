@@ -105,7 +105,7 @@ void print_policy_info(void *policy_info)
 {
 	struct intents_info *info = policy_info;
 	if (info->is_default)
-		printf("\n\t policy contains default interface");
+		printf("\n\t set as default");
     if (info->category_string)
         printf(" \n\t policy information for category: %s ", info->category_string);
     if (info->maxfilesize)
@@ -377,7 +377,7 @@ void set_sa(request_context_t *rctx, enum intent_category given, int filesize, s
             if (info->is_default)
             {
                 /* Configured as default. Store for fallback */
-                strbuf_printf(sb, "\n \t setting this interface address as default");
+                // strbuf_printf(sb, "\n \t remember current prefix as default");
                 defaultaddr = cur;
             }
             spl = spl->next;
@@ -485,7 +485,7 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 
         }
 
-		else if(rctx->ctx->bind_sa_req != NULL)
+		if(rctx->ctx->bind_sa_req != NULL)
 		{	// already bound
 			strbuf_printf(&sb, "\tAlready bound to src=");
 			_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
@@ -493,6 +493,7 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 		}
         /** call set_sa to set the source address accordingt to given intents and policy configuration
         */
+		else{
 			//strbuf_printf(&sb, "\t \n callin set sa for category ");
 			set_sa(rctx, category, filesize, &sb);
 
@@ -505,6 +506,7 @@ static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *
 			}
 			else
 				strbuf_printf(&sb, "\tNo default interface is available!\n");
+		}
 
 	}
 
@@ -620,7 +622,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 	}
 	else if(rctx->sockets == NULL)
 	{
-		printf("\tSocketchoose with empty set - trying to create new socket, resolving %s:%s\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+		printf("\tSocketchoose with empty set or previoius socket not suitable - trying to create new socket, resolving %s:%s\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 
 		/* Try to resolve this request using asynchronous lookup */
 		req = evdns_getaddrinfo(
