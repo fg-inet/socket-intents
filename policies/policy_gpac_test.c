@@ -80,9 +80,13 @@ void set_policy_info(gpointer elem, gpointer data)
 			{
 				/* found valid category in config file */
 				new->category = cat;
-				asprintf(&(new->category_string), "%s", (char *) value);
+				int bytes_printed = asprintf(&(new->category_string), "%s", (char *) value);
 			}
 		}
+		else {
+            new->category=-1;
+            int bytes_printed = asprintf(&(new->category_string), "no category set");
+        }
 		// check for filesize restrictions on this interface, in none found minsize =-1 and maxsize = -1
 		if ((value = g_hash_table_lookup(spl->policy_set_dict, "minfilesize")) != NULL)
             new->minfilesize= atoi(value);
