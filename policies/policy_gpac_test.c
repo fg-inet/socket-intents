@@ -293,6 +293,23 @@ int check_socket_for_intent(request_context_t *rctx, socketlist *given_socket)
                 return 0;
             }
 
+            // if not category is set in policy then only filesize intents matter
+            else if(prefix_info->category < 0){
+                // if also no filesize intent is given then this interface is suitable
+                if(request_filesize <= 0){
+                        return 0;
+                }
+                else if(prefix_info->maxfilesize <=0){
+                    //if no maxfilesize is set in policy then only minfilesize matters
+                    if(prefix_info->minfilesize <= request_filesize){
+                            return 0;
+                        }
+                }
+                else if((prefix_info->minfilesize <= request_filesize) && (request_filesize <= prefix_info->maxfilesize)){
+                    return 0;
+                }
+            }
+
     }
     else
         printf("\n \t current prefix has no infos attached");
@@ -371,9 +388,28 @@ void set_sa(request_context_t *rctx, enum intent_category given, int filesize, s
             }
 
             // if no filesize and no category are given then every interface is considered suitable
-            else if(filesize < 0 && given < 0 ){
+            else if(filesize <= 0 && given < 0 ){
                 set_bind_sa(rctx, cur, sb);
                     strbuf_printf(sb, "\n \t taking any interface, as no filesize and category are given");
+            }
+            // if no category is set in policy
+            else if(info->category < 0){
+                // if also no filesize intent is given then this interface is suitable
+                if(filesize <= 0){
+                    set_bind_sa(rctx, cur, sb);
+                    strbuf_printf(sb, "\n \t no filesize intent given and interface has no category set");
+                }
+                else if(info->maxfilesize <=0){
+                    //if no maxfilesize is set in policy then only minfilesize matters
+                    if(info->minfilesize <= filesize){
+                        set_bind_sa(rctx, cur, sb);
+                        strbuf_printf(sb, "\n \t found suitable interface for given filesize: %d", filesize);
+                        }
+                }
+                else if((info->minfilesize <= filesize) && (filesize <= info->maxfilesize)){
+                    set_bind_sa(rctx, cur, sb);
+                    strbuf_printf(sb, "\n \t found suitable interface for given filesize: %d", filesize);
+                }
             }
 
 
