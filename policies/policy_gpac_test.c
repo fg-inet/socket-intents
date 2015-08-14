@@ -209,7 +209,7 @@ struct src_prefix_list* map_sock_to_src_prefix(request_context_t *rctx, struct s
 }
 
 
-// helper function to check if a socket ctx, or repectively the corresponding prefix is suited for a given Intent
+// helper function to check if a socket ctx, or repectively the corresponding interface prefix is suited for a given Intent
 int check_socket_for_intent(request_context_t *rctx, socketlist *given_socket)
 {
     //int check_prefix(src_prefix_list *prefix, sockaddr *addr);
@@ -237,10 +237,13 @@ int check_socket_for_intent(request_context_t *rctx, socketlist *given_socket)
     src_prefix_list *prefix_for_curr_sock = NULL;
     prefix_for_curr_sock = map_sock_to_src_prefix(rctx, given_socket);
 
-	if( prefix_for_curr_sock == NULL)
-    {
-        printf("\t \n could not match a prefix for current socket");
-        return -1;
+    if(DEBUG_OUTPUT_0){
+        if( prefix_for_curr_sock == NULL)
+        {
+            printf("\t \n could not match a prefix for current socket");
+            return -1;
+        }
+        else printf(" \t \n found the matching interface prefix for current socket: %d", given_socket->file);
     }
 
     prefix_info = (struct intents_info*) prefix_for_curr_sock->policy_info;
@@ -252,14 +255,14 @@ int check_socket_for_intent(request_context_t *rctx, socketlist *given_socket)
                     if(DEBUG_OUTPUT_0)printf("\n \t Socket suits current request's Intents");
                     return 0;
                 }*/
-                // if filesize, category infos are set in policy aswell as in the
+                // if filesize, category infos are set in policy aswell as in the request
             if (prefix_info->category == request_category && (prefix_info->minfilesize <= request_filesize) && (request_filesize <= prefix_info->maxfilesize)){
                     /* Category and filesize matches */
                     return 0;
             }
 
             // if maxfilesize is not set in policy
-            else if(request_filesize >=0 && prefix_info->maxfilesize <=0 && request_category >= 0){
+            else if(request_filesize >0 && prefix_info->maxfilesize <=0 && request_category >= 0){
                 if ((prefix_info->category == request_category) && ((prefix_info->minfilesize) <= request_filesize))
                 {
                     /* Category and filesize matches.  */
@@ -268,7 +271,7 @@ int check_socket_for_intent(request_context_t *rctx, socketlist *given_socket)
                 }
             }
             // if no filesize intent but category intent is given, then only category matters
-            else if(request_filesize <0 && request_category >= 0){
+            else if(request_filesize <=0 && request_category >= 0){
                 if (prefix_info->category == request_category){
                     return 0;
 
@@ -289,7 +292,7 @@ int check_socket_for_intent(request_context_t *rctx, socketlist *given_socket)
 
             }
             // if no filesize and no category are given then every interface is considered suitable
-            else if(request_filesize < 0 && request_category < 0 ){
+            else if(request_filesize <= 0 && request_category < 0 ){
                 return 0;
             }
 
@@ -341,7 +344,7 @@ void set_sa(request_context_t *rctx, enum intent_category given, int filesize, s
 		if( info != NULL)
         {
             // if filesize, category infos are set in policy aswell as in the request intents
-            if(filesize >= 0  && info->maxfilesize >= 0 && given >=0){
+            if(filesize > 0  && info->maxfilesize >= 0 && given >=0){
 
                 if ((info->category == given) && ((info->minfilesize) <= filesize) && (filesize <= (info->maxfilesize))){
                     /* Category and filesize matches. Set source address */
@@ -351,7 +354,7 @@ void set_sa(request_context_t *rctx, enum intent_category given, int filesize, s
                 }
             }
             // if maxfilesize is not set in policy
-            else if(filesize >=0 && info->maxfilesize <=0 && given >= 0){
+            else if(filesize >0 && info->maxfilesize <=0 && given >= 0){
                 if ((info->category == given) && ((info->minfilesize) <= filesize))
                 {
                     /* Category and filesize matches. Set source address */
@@ -361,7 +364,7 @@ void set_sa(request_context_t *rctx, enum intent_category given, int filesize, s
                 }
             }
             // if no filesize intent is given, then only category matters
-            else if(filesize <0 && given >= 0){
+            else if(filesize <=0 && given >= 0){
                 if (info->category == given){
                     /* Category and filesize matches. Set source address */
                     set_bind_sa(rctx, cur, sb);
@@ -603,7 +606,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
     struct socketlist *curr_socket = rctx->sockets;
     struct socketlist *prev_socket = NULL;
 
-	printf("\tSocketchoose request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+	printf("\t Socketchoose request to connect with: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
     /*if(DEBUG_OUTPUT_0)printf("\t what domain is given in rctx->ctx: %d", rctx->ctx->domain);
     if(DEBUG_OUTPUT_0)printf("\t  what  domain ins socketlist rctx->sockets->ctx: %d ", rctx->sockets->ctx->domain);*/
 
