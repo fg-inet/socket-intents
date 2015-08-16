@@ -25,11 +25,11 @@
 #include "config.h"
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG0
-#define MUACC_CLIENT_UTIL_NOISY_DEBUG0 1
+#define MUACC_CLIENT_UTIL_NOISY_DEBUG0 0
 #endif
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG1
-#define MUACC_CLIENT_UTIL_NOISY_DEBUG1 1
+#define MUACC_CLIENT_UTIL_NOISY_DEBUG1 0
 #endif
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG2
@@ -83,7 +83,7 @@ int muacc_retain_context(struct muacc_context *ctx)
 void muacc_print_context(struct muacc_context *ctx)
 {
 	strbuf_t sb;
-	
+
 	if (ctx == NULL)
 	{
 		printf("ctx = NULL\n");
@@ -762,7 +762,7 @@ int _muacc_remove_socket_from_list (struct socketset **list_of_sets, int socket)
 		return -1;
 	}
 	else
-	{	
+	{
 		// Decrease set use count
 		set_to_delete->use_count -= 1;
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Decreased use count to %d\n", socket, set_to_delete->use_count);
@@ -834,10 +834,18 @@ int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostl
         ctx->ctx->remote_hostname = strncpy(ctx->ctx->remote_hostname, host, hostlen);
 
 		struct servent *service = getservbyname(serv, NULL);
+		// check if the serv is already the port number given as string
+		if (service == NULL)
+        {
+          int servnb = (int) strtol(serv, NULL, 10);
+          DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, " \t This is the casted int port number: %d \n", servnb);
+          service = getservbyport(servnb, "tcp");
+		}
+
 		if (service != NULL)
 		{
 			int port = ntohs(service->s_port);
-			printf("Resolved Service name %s to port number %d\n", serv, port);
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0,"Resolved Service name %s to port number %d\n", serv, port);
 			asprintf(&(ctx->ctx->remote_service), "%d", port);
 		}
 		else
