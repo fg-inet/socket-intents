@@ -25,15 +25,15 @@
 #include "config.h"
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG0
-#define MUACC_CLIENT_UTIL_NOISY_DEBUG0 0
+#define MUACC_CLIENT_UTIL_NOISY_DEBUG0 1
 #endif
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG1
-#define MUACC_CLIENT_UTIL_NOISY_DEBUG1 0
+#define MUACC_CLIENT_UTIL_NOISY_DEBUG1 1
 #endif
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG2
-#define MUACC_CLIENT_UTIL_NOISY_DEBUG2 0
+#define MUACC_CLIENT_UTIL_NOISY_DEBUG2 1
 #endif
 
 int muacc_init_context(struct muacc_context *ctx)
@@ -837,9 +837,11 @@ int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostl
 		// check if the serv is already the port number given as string
 		if (service == NULL)
         {
-          int servnb = (int) strtol(serv, NULL, 10);
+          double servnb_h = strtod(serv, NULL);
+          int servnb_n = (int) htons(servnb_h);
           DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, " \t This is the casted int port number: %d \n", servnb);
-          service = getservbyport(servnb, "tcp");
+          service = getservbyport(servnb_n, NULL);
+          if(service== NULL) DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, " \t getservbyport couldn't resolve port \n");
 		}
 
 		if (service != NULL)

@@ -27,7 +27,7 @@
 #endif
 
 #ifndef CLIB_IF_NOISY_DEBUG2
-#define CLIB_IF_NOISY_DEBUG2 0
+#define CLIB_IF_NOISY_DEBUG2 1
 #endif
 
 struct socketset *socketsetlist = NULL;
@@ -66,7 +66,7 @@ int muacc_socket(muacc_context_t *ctx,
 	ctx->ctx->protocol = protocol;
 
 	ret = socket(domain, type, protocol);
-	
+
 	ctx->ctx->sockfd = ret;
     ctx->ctx->ctxino = _muacc_get_ctxino(ret);
 
@@ -107,10 +107,10 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 		_unlock_ctx(ctx);
 		goto muacc_getaddrinfo_fallback;
 	}
-	
+
 	/* flag call performed */
 	ctx->ctx->calls_performed |= MUACC_GETADDRINFO_CALLED;
-	
+
 	/* save hostname */
 	if(ctx->ctx->remote_hostname != NULL)
 		free(ctx->ctx->remote_hostname);
@@ -135,14 +135,14 @@ int muacc_getaddrinfo(muacc_context_t *ctx,
 	if(ctx->ctx->remote_addrinfo_res != NULL)
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG2, "using result from mam\n");
-		
+
 		*res = _muacc_clone_addrinfo(ctx->ctx->remote_addrinfo_res);
 		ret = 0;
 	}
 	else
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG0, "no result from mam - resolving name on my own\n");
-		
+
 		/* do query on our own */
 		ret = 	 getaddrinfo(hostname, servname, hints, res);
 		if (ret == 0)
@@ -366,7 +366,7 @@ int muacc_connect(muacc_context_t *ctx,
 	int retval;
 
 	DLOG(CLIB_IF_NOISY_DEBUG2, "invoked\n");
-	
+
 	if( ctx == NULL )
 	{
 		DLOG(CLIB_IF_NOISY_DEBUG1, "NULL context - fallback to regular connect\n");
@@ -483,7 +483,7 @@ int muacc_close(muacc_context_t *ctx,
 	/* Release and deinitialize context */
 	if (0 == muacc_release_context(ctx))
 		ctx->ctx = NULL;
-	
+
 	_unlock_ctx(ctx);
 
 	return ret;
