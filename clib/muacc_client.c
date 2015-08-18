@@ -18,8 +18,6 @@
 
 #include "muacc_client_util.h"
 
-#include "muacc.h"
-
 #ifndef CLIB_IF_NOISY_DEBUG0
 #define CLIB_IF_NOISY_DEBUG0 1
 #endif
@@ -541,7 +539,7 @@ int socketconnect(int *s, const char *host, size_t hostlen, const char *serv, si
 
 		pthread_rwlock_wrlock(&socketsetlist_lock);
 		DLOG(CLIB_IF_LOCKS, "LOCK: Looking up socket - Got global lock\n");
-		if ((set = _muacc_find_set_for_socket(socketsetlist, ctx.ctx)) != NULL)
+		if ((set = _muacc_find_socketset(socketsetlist, *s)) != NULL)
 		{
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Found Socket Set\n");
 			DLOG(CLIB_IF_LOCKS, "LOCK: Set found - Locking set %p\n", set);
@@ -550,15 +548,6 @@ int socketconnect(int *s, const char *host, size_t hostlen, const char *serv, si
 			pthread_rwlock_rdlock(&(set->destroylock));
 			DLOG(CLIB_IF_LOCKS, "LOCK: Set found - Unlocking global lock\n");
 			pthread_rwlock_unlock(&socketsetlist_lock);
-
-			//check if socket is already part of the found set, if not add it
-			if ((set = _muacc_find_socketset(socketsetlist, *s)) != NULL)
-            {
-                DLOG(CLIB_IF_NOISY_DEBUG2, "Socket is not in the found set, add it\n");
-                set = _muacc_add_socket_to_set(&socketsetlist, *s, ctx.ctx);
-            }
-
-
 			if (_muacc_host_serv_to_ctx(&ctx, host, hostlen, serv, servlen) != 0)
 			{
 				DLOG(CLIB_IF_NOISY_DEBUG2, "No hostname and service given this time - taking the one from the set: %s\n", set->sockets->ctx->remote_hostname);
@@ -566,11 +555,6 @@ int socketconnect(int *s, const char *host, size_t hostlen, const char *serv, si
 				ctx.ctx->remote_service = _muacc_clone_string(set->sockets->ctx->remote_service);
 			}
 		}
-		// apparently the socket ctx is new so create a new set and add the socket
-		else if((set = _muacc_add_socket_to_set(&socketsetlist, *s, ctx.ctx) != NULL))
-        {
-            DLOG(CLIB_IF_NOISY_DEBUG2, "Socket not in any set yet, create one and add the socket to it\n");
-        }
 		else
 		{
 			DLOG(CLIB_IF_LOCKS, "LOCK: Set not found - Unlocking global lock\n");
