@@ -839,7 +839,7 @@ int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostl
         {
           double servnb_h = strtod(serv, NULL);
           int servnb_n = (int) htons(servnb_h);
-          DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, " \t This is the casted int port number: %d \n", servnb);
+          DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, " \t This is the casted int port number: %d \n", servnb_n);
           service = getservbyport(servnb_n, NULL);
           if(service== NULL) DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, " \t getservbyport couldn't resolve port \n");
 		}
@@ -848,7 +848,11 @@ int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostl
 		{
 			int port = ntohs(service->s_port);
 			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0,"Resolved Service name %s to port number %d\n", serv, port);
-			asprintf(&(ctx->ctx->remote_service), "%d", port);
+			int resp = asprintf(&(ctx->ctx->remote_service), "%d", port);
+            if(resp == -1){
+                DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, " \t Error: couldn't set port in ctx \n");
+                return -1;
+            }
 		}
 		else
 		{
