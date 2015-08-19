@@ -512,6 +512,10 @@ int socketconnect(int *s, const char *host, size_t hostlen, const char *serv, si
 	ctx.ctx->type = type;
 	ctx.ctx->protocol = proto;
 	ctx.ctx->sockopts_current = _muacc_clone_socketopts((const struct socketopt*) sockopts);
+	if (_muacc_host_serv_to_ctx(&ctx, host, hostlen, serv, servlen) != 0)
+	{
+		DLOG(CLIB_IF_NOISY_DEBUG2, "No hostname and service given this time!\n");
+	}
 
 	if (*s == -1)
 	{
