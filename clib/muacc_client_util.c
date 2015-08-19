@@ -382,6 +382,9 @@ struct socketset* _muacc_add_socket_to_set(struct socketset **list_of_sets, int 
 
 struct socketset *_muacc_find_set_for_socket(struct socketset *list_of_sets, struct _muacc_ctx *ctx)
 {
+	if (ctx->remote_hostname == NULL || ctx->remote_service == NULL)
+			return NULL;
+
 	while (list_of_sets != NULL)
 	{
 		if (list_of_sets->type == ctx->type && (strncmp(list_of_sets->host, ctx->remote_hostname, list_of_sets->hostlen) == 0) && (strncmp(list_of_sets->serv, ctx->remote_service, list_of_sets->servlen) == 0))
