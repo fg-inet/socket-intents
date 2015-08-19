@@ -519,7 +519,7 @@ int socketconnect(int *s, const char *host, size_t hostlen, const char *serv, si
 
 	if (*s == -1)
 	{
-		/* Socket does not exist yet - create it */
+		/* Create a new socket */
 		int ret;
 
 		if ((ret = _socketconnect_request(&ctx, s, host, hostlen, serv, servlen)) == -1)
@@ -537,13 +537,19 @@ int socketconnect(int *s, const char *host, size_t hostlen, const char *serv, si
 	}
 	else
 	{
-		/* Socket exists - Search for corresponding socket set */
+		/* Search for corresponding socket set */
 		struct socketset *set;
 		int ret;
 
 		pthread_rwlock_wrlock(&socketsetlist_lock);
 		DLOG(CLIB_IF_LOCKS, "LOCK: Looking up socket - Got global lock\n");
-		if ((set = _muacc_find_socketset(socketsetlist, *s)) != NULL)
+
+		if (*s == 0) /* No valid socket file descriptor passed - search by hostname, service, type */
+			set = _muacc_find_set_for_socket(socketsetlist, ctx.ctx);
+		else /* Search by socket file descriptor */
+			set = _muacc_find_socketset(socketsetlist, *s);
+
+		if (set != NULL)
 		{
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Found Socket Set\n");
 			DLOG(CLIB_IF_LOCKS, "LOCK: Set found - Locking set %p\n", set);

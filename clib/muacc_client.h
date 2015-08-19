@@ -111,7 +111,7 @@ int muacc_close(muacc_context_t *ctx,
  *  @return 0 if successful (socket is from an existing socket set), 1 if successful (socket is new), -1 if fail
  */
 int socketconnect(
-	int *socket,		/**< [in,out]	Pointer to representant of a socket set. "-1" if none exists */
+	int *socket,		/**< [in,out]	Pointer to representant of a socket set. "-1" to create a new socket, "0" will try to find a suitable socket set for the request */
 	const char *host,	/**< [in]		Host name to connect to */
 	size_t hostlen,
 	const char *serv,	/**< [in]		Service or port (in ASCII) to connect to */
