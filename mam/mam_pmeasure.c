@@ -58,6 +58,7 @@ GList * parse_nl_msg(struct inet_diag_msg *pMsg, int rtalen, void *pfx, GList *v
 int send_nl_msg(int sock, int i);
 int recv_nl_msg(int sock, void *pfx, GList **values);
 void compute_srtt(void *pfx, void *data);
+void insert_errors(GHashTable *pTable, struct rtnl_link *pLink);
 
 void print_ip(struct sockaddr *ip)
 {
@@ -116,7 +117,6 @@ int is_addr_in_pfx (const void *a, const void *b)
     {
         if (compare_ip((struct sockaddr *)addr, (struct sockaddr *) addr_list->addr) == 0)
             return 0;
-        //printf("Error value is: %d",compare_ip((struct sockaddr *)addr, (struct sockaddr *) addr_list->addr));
     }
     return -1;
 }
@@ -127,7 +127,7 @@ int is_addr_in_pfx (const void *a, const void *b)
  */
 void compute_mean(GHashTable *dict, GList *values)
 {
-    // smooth formel benutzen
+
     double *meanvalue;
     double old_rtt;
     double alpha = 0.9;
@@ -166,7 +166,7 @@ void compute_mean(GHashTable *dict, GList *values)
 
     // calculate SRTT in accord with the formula
     // SRTT = (alpha * SRTT) + ((1-alpha) * RTT)
-    // RFC793
+    // see RFC793
     *meanvalue = (alpha * *meanvalue) + ((1-alpha) * old_rtt);
 
     DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List of length %d has mean value %f \n", n, *meanvalue);
@@ -246,8 +246,6 @@ void compute_minimum(GHashTable *dict, GList *values)
     DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List of length %d has minimum value %f \n", n, *minimum);
 }
 
-
-
 /** Print the flow table of every prefix that has one,
  *  and the mean and median RTTs if they exist
  */
@@ -265,6 +263,15 @@ void pmeasure_print_summary(void *pfx, void *data)
 	double *medianvalue = g_hash_table_lookup(prefix->measure_dict, "srtt_median");
 	if (medianvalue != NULL)
 		printf("\tMedian SRTT: %f ms\n", *medianvalue);
+
+
+    uint64_t  *rx_errors = g_hash_table_lookup(prefix->measure_dict, "rx_errors");
+    if (rx_errors != NULL)
+        printf("\tRX Errors: %d \n", *rx_errors);
+
+    uint64_t *tx_errors = g_hash_table_lookup(prefix->measure_dict, "tx_errors");
+    if (medianvalue != NULL)
+        printf("\tTX Errors: %d \n", *tx_errors);
 
 	printf("\n");
 }
@@ -521,6 +528,80 @@ void compute_srtt(void *pfx, void *data)
 	return;
 }
 
+void get_stats(void *pfx, void *data)
+{
+    struct nl_sock *sock;
+    struct nl_cache *cache;
+    struct rtnl_link *link;
+
+    struct src_prefix_list *prefix = pfx;
+
+    if (prefix == NULL || prefix->measure_dict == NULL)
+        return;
+
+    sock = nl_socket_alloc();
+
+    if (!sock)
+    {
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Error creating Socket");
+        return;
+    }
+
+    if(nl_connect(sock, NETLINK_ROUTE) < 0)
+    {
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Error connecting Socket");
+        return;
+    }
+
+    if (rtnl_link_alloc_cache(sock, AF_UNSPEC, &cache) <0)
+    {
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Error allocating Link cache");
+        nl_socket_free(sock);
+        return;
+    }
+
+    if (!(link = rtnl_link_get_by_name(cache, prefix->if_name)))
+    {
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Error getting Interface");
+        return;
+    }
+
+    insert_errors(prefix->measure_dict, link);
+
+    // clean up
+    rtnl_link_put(link);
+    nl_cache_put(cache);
+    nl_socket_free(sock);
+}
+
+void insert_errors(GHashTable *dict, struct rtnl_link *link)
+{
+    uint64_t *tx_errors;
+    uint64_t *rx_errors;
+
+    tx_errors = g_hash_table_lookup(dict, "tx_errors");
+    rx_errors = g_hash_table_lookup(dict, "rx_error");
+
+    if (tx_errors == NULL)
+    {
+        tx_errors = malloc(sizeof(uint64_t));
+        memset(tx_errors, 0, sizeof(uint64_t));
+        g_hash_table_insert(dict, "tx_errors", tx_errors);
+    }
+
+    if (rx_errors == NULL)
+    {
+        rx_errors = malloc(sizeof(uint64_t));
+        memset(rx_errors, 0, sizeof(uint64_t));
+        g_hash_table_insert(dict, "rx_errors", rx_errors);
+    }
+
+    *tx_errors = rtnl_link_get_stat(link,RTNL_LINK_TX_ERRORS);
+    DLOG(MAM_PMEASURE_NOISY_DEBUG2,"Added %d as TX_ERRORS\n", *tx_errors);
+    *rx_errors = rtnl_link_get_stat(link,RTNL_LINK_RX_PACKETS);
+    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Added %d as RX_ERRORS\n", *rx_errors);
+}
+
 void pmeasure_setup()
 {
 	DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Setting up pmeasure \n");
@@ -542,6 +623,7 @@ void pmeasure_callback(evutil_socket_t fd, short what, void *arg)
 
 	DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Computing SRTTs\n");
 	g_slist_foreach(ctx->prefixes, &compute_srtt, NULL);
+    g_slist_foreach(ctx->prefixes, &get_stats, NULL);
 	if (MAM_PMEASURE_NOISY_DEBUG2)
 	{
 		DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Printing summary\n");
