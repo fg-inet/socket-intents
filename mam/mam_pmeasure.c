@@ -59,23 +59,7 @@ int send_nl_msg(int sock, int i);
 int recv_nl_msg(int sock, void *pfx, GList **values);
 void compute_srtt(void *pfx, void *data);
 void insert_errors(GHashTable *pTable, struct rtnl_link *pLink);
-
-void print_ip(struct sockaddr *ip)
-{
-    char str[40];
-    memset(str, 0, 40);
-
-    if (ip->sa_family == AF_INET) {
-        struct sockaddr_in *v4 = (struct sockaddr_in *) ip;
-        inet_ntop(AF_INET, &(v4->sin_addr), str, 40);
-        printf("%s\n ", str);
-    }
-    else if (ip->sa_family == AF_INET6) {
-        struct sockaddr_in6 *v6 = (struct sockaddr_in6 *) ip;
-        inet_ntop(AF_INET6, &(v6->sin6_addr), str, 40);
-        printf("real: %s\n ", str);
-    }
-}
+void get_stats(void *pfx, void *data);
 
 /** compare two ip addresses
  *  return 0 if equal, non-zero otherwise
@@ -95,7 +79,6 @@ int compare_ip (struct sockaddr *a1, struct sockaddr *a2)
     }
     return -1;
 }
-
 
 /** Checks whether a prefix contains a given sockaddr
  *  Returns 0 in this case
@@ -120,7 +103,6 @@ int is_addr_in_pfx (const void *a, const void *b)
     }
     return -1;
 }
-
 
 /** Compute the mean SRTT from the currently valid srtts
  *  Insert it into the measure_dict as "srtt_mean"
@@ -244,6 +226,34 @@ void compute_minimum(GHashTable *dict, GList *values)
     }
 
     DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List of length %d has minimum value %f \n", n, *minimum);
+}
+
+void insert_errors(GHashTable *dict, struct rtnl_link *link)
+{
+    uint64_t *tx_errors;
+    uint64_t *rx_errors;
+
+    tx_errors = g_hash_table_lookup(dict, "tx_errors");
+    rx_errors = g_hash_table_lookup(dict, "rx_error");
+
+    if (tx_errors == NULL)
+    {
+        tx_errors = malloc(sizeof(uint64_t));
+        memset(tx_errors, 0, sizeof(uint64_t));
+        g_hash_table_insert(dict, "tx_errors", tx_errors);
+    }
+
+    if (rx_errors == NULL)
+    {
+        rx_errors = malloc(sizeof(uint64_t));
+        memset(rx_errors, 0, sizeof(uint64_t));
+        g_hash_table_insert(dict, "rx_errors", rx_errors);
+    }
+
+    *tx_errors = rtnl_link_get_stat(link,RTNL_LINK_TX_ERRORS);
+    DLOG(MAM_PMEASURE_NOISY_DEBUG2,"Added %d as TX_ERRORS\n", *tx_errors);
+    *rx_errors = rtnl_link_get_stat(link,RTNL_LINK_RX_PACKETS);
+    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Added %d as RX_ERRORS\n", *rx_errors);
 }
 
 /** Print the flow table of every prefix that has one,
@@ -528,6 +538,11 @@ void compute_srtt(void *pfx, void *data)
 	return;
 }
 
+/*
+ * Get TCP Statistics like TX_ERRORS and RX_ERRORS
+ * of an Interface and insert it into the measure_dict
+ *
+ * */
 void get_stats(void *pfx, void *data)
 {
     struct nl_sock *sock;
@@ -572,34 +587,6 @@ void get_stats(void *pfx, void *data)
     rtnl_link_put(link);
     nl_cache_put(cache);
     nl_socket_free(sock);
-}
-
-void insert_errors(GHashTable *dict, struct rtnl_link *link)
-{
-    uint64_t *tx_errors;
-    uint64_t *rx_errors;
-
-    tx_errors = g_hash_table_lookup(dict, "tx_errors");
-    rx_errors = g_hash_table_lookup(dict, "rx_error");
-
-    if (tx_errors == NULL)
-    {
-        tx_errors = malloc(sizeof(uint64_t));
-        memset(tx_errors, 0, sizeof(uint64_t));
-        g_hash_table_insert(dict, "tx_errors", tx_errors);
-    }
-
-    if (rx_errors == NULL)
-    {
-        rx_errors = malloc(sizeof(uint64_t));
-        memset(rx_errors, 0, sizeof(uint64_t));
-        g_hash_table_insert(dict, "rx_errors", rx_errors);
-    }
-
-    *tx_errors = rtnl_link_get_stat(link,RTNL_LINK_TX_ERRORS);
-    DLOG(MAM_PMEASURE_NOISY_DEBUG2,"Added %d as TX_ERRORS\n", *tx_errors);
-    *rx_errors = rtnl_link_get_stat(link,RTNL_LINK_RX_PACKETS);
-    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Added %d as RX_ERRORS\n", *rx_errors);
 }
 
 void pmeasure_setup()
