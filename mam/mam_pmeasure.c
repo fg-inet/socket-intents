@@ -554,6 +554,7 @@ void get_stats(void *pfx, void *data)
     if (prefix == NULL || prefix->measure_dict == NULL)
         return;
 
+    // Allocate Socket
     sock = nl_socket_alloc();
 
     if (!sock)
@@ -561,20 +562,20 @@ void get_stats(void *pfx, void *data)
         DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Error creating Socket");
         return;
     }
-
+    // connect Socket
     if(nl_connect(sock, NETLINK_ROUTE) < 0)
     {
         DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Error connecting Socket");
         return;
     }
-
+    // Allocate Link Cache
     if (rtnl_link_alloc_cache(sock, AF_UNSPEC, &cache) <0)
     {
         DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Error allocating Link cache");
         nl_socket_free(sock);
         return;
     }
-
+    // Get Interface by name
     if (!(link = rtnl_link_get_by_name(cache, prefix->if_name)))
     {
         DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Error getting Interface");
