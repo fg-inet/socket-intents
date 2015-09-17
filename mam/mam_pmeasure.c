@@ -339,6 +339,7 @@ int send_nl_msg(int sock, int af)
     //       we have to do the filtering manual
     nlh.nlmsg_flags = NLM_F_MATCH | NLM_F_REQUEST;
 
+    // Compose message
     nlh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
     iov[0].iov_base = (void*) &nlh;
     iov[0].iov_len = sizeof(nlh);
@@ -381,7 +382,6 @@ int recv_nl_msg(int sock, void *pfx, GList **values)
             if (nlh->nlmsg_type == NLMSG_DONE)
                 return EXIT_SUCCESS;
 
-
             // Error in message
             if (nlh->nlmsg_type == NLMSG_ERROR)
             {
@@ -395,7 +395,6 @@ int recv_nl_msg(int sock, void *pfx, GList **values)
 
             // parse the message
             *values = parse_nl_msg(diag_msg, rtalen, pfx, *values);
-
 
             // get the next message
             nlh = NLMSG_NEXT(nlh, numbytes);
@@ -417,25 +416,23 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
     // sockaddr structure for prefix sockets
     struct sockaddr_in msg_addr_v4;
     struct sockaddr_in6 msg_addr_v6;
-
-    // create sockaddr out of the message to compare it to pfx
-
-    char str[INET6_ADDRSTRLEN];
-    memset(&str, 0, sizeof(str));
+    
+    char address[INET6_ADDRSTRLEN];
+    memset(&address, 0, sizeof(address));
 
     if(msg->idiag_family == AF_INET)
     {
         msg_addr_v4.sin_family = msg->idiag_family;
         msg_addr_v4.sin_port = msg->id.idiag_sport;
-        inet_ntop(AF_INET, &(msg->id.idiag_src), str, INET_ADDRSTRLEN);
-        inet_pton(AF_INET, str, &(msg_addr_v4.sin_addr));
+        inet_ntop(AF_INET, &(msg->id.idiag_src), address, INET_ADDRSTRLEN);
+        inet_pton(AF_INET, address, &(msg_addr_v4.sin_addr));
 
     } else if(msg->idiag_family == AF_INET6)
     {
         msg_addr_v6.sin6_family = AF_INET6;
         msg_addr_v6.sin6_port = msg->id.idiag_sport;
-        inet_ntop(AF_INET6, (struct in_addr6 *) &(msg->id.idiag_src), str, INET6_ADDRSTRLEN);
-        inet_pton(AF_INET6, str,  &(msg_addr_v6.sin6_addr));
+        inet_ntop(AF_INET6, (struct in_addr6 *) &(msg->id.idiag_src), address, INET6_ADDRSTRLEN);
+        inet_pton(AF_INET6, address,  &(msg_addr_v6.sin6_addr));
     }
 
     // Find the right Socket
@@ -453,9 +450,9 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
         }
         default: return values;
     }
-        DLOG(MAM_PMEASURE_NOISY_DEBUG1,"%s IS in the Prefixlist!\n", str);
+    DLOG(MAM_PMEASURE_NOISY_DEBUG1,"%s is in the Prefixlist\n", address);
 
-        // Get Attributes
+    // Get Attributes
     if (rtalen > 0)
     {
         attr = (struct rtattr*) (msg+1);
@@ -470,7 +467,6 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
                 double rtt = tcpInfo->tcpi_rtt/1000;
                 DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Adding %f to values\n", rtt);
                 values = g_list_append(values, &rtt);
-
                 DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Values has now length %d\n", g_list_length(values));
             }
             //Get next attributes
@@ -478,9 +474,8 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
         }
         }
     return values;
-
-
 }
+
 
 /** Compute the SRTT on an interface
  *  Insert it into the measure_dict as "srtt_median"
@@ -501,28 +496,28 @@ void compute_srtt(void *pfx, void *data)
         DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Computing median SRTTs for a prefix of interface %s:\n", prefix->if_name);
 
         // create the socket
-        int sock = create_nl_sock();
-        if (sock == EXIT_FAILURE)
-        {
+        int sock_ip4 = create_nl_sock();
+        int sock_ip6 = create_nl_sock();
+
+        if (sock_ip4 == EXIT_FAILURE || sock_ip6 == EXIT_FAILURE)
             DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Socket creation failed");
-        }
+
         // Create and send netlink messages
         // we have to send two different requests, the first time
         // with the IPv4 Flag and the other time with the IPv6 flag
         DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Sending IPv4 Request\n");
-        if (send_nl_msg(sock, AF_INET) == -1)
+        if (send_nl_msg(sock_ip4, AF_INET) == -1)
             DLOG(MAM_PMEASURE_NOISY_DEBUG1, " Error sending Netlink Request");
 
         // receive messages
-        if (recv_nl_msg(sock, prefix, &values) != 0)
+        if (recv_nl_msg(sock_ip4, prefix, &values) != 0)
             DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Error receiving Netlink Messages")
 
         DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Sending IPv6 Request\n");
-        if (send_nl_msg(sock, AF_INET6) == -1)
+        if (send_nl_msg(sock_ip6, AF_INET6) == -1)
             DLOG(MAM_PMEASURE_NOISY_DEBUG1, " Error sending Netlink Request");
 
-        // receive messages
-        if (recv_nl_msg(sock, prefix, &values) != 0)
+        if (recv_nl_msg(sock_ip6, prefix, &values) != 0)
             DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Error receiving Netlink Messages");
 
         // compute mean, median and minimum out of the
@@ -533,7 +528,8 @@ void compute_srtt(void *pfx, void *data)
 
         // clean up
         g_list_free(values);
-        close(sock);
+        close(sock_ip4);
+        close(sock_ip6);
     }
 	return;
 }
