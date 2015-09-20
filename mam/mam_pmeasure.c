@@ -61,6 +61,10 @@ void compute_srtt(void *pfx, void *data);
 void insert_errors(GHashTable *pTable, struct rtnl_link *pLink);
 void get_stats(void *pfx, void *data);
 
+
+// Alpha Value for Smoothed RTT Calculation
+double alpha = 0.9;
+
 /** compare two ip addresses
  *  return 0 if equal, non-zero otherwise
  */
@@ -112,14 +116,11 @@ void compute_mean(GHashTable *dict, GList *values)
 
     double *meanvalue;
     double old_rtt;
-    double alpha = 0.9;
-
 
     int n = g_list_length(values);
     DLOG(MAM_PMEASURE_NOISY_DEBUG1, "List for interface has length %d\n", n);
 
     meanvalue = g_hash_table_lookup(dict, "srtt_mean");
-
 
     if (meanvalue == NULL)
     {
@@ -145,13 +146,13 @@ void compute_mean(GHashTable *dict, GList *values)
     }
 
     *meanvalue = *meanvalue / n;
+    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List of length %d has mean value %f \n", n, *meanvalue);
 
     // calculate SRTT in accord with the formula
     // SRTT = (alpha * SRTT) + ((1-alpha) * RTT)
     // see RFC793
     *meanvalue = (alpha * *meanvalue) + ((1-alpha) * old_rtt);
-
-    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List of length %d has mean value %f \n", n, *meanvalue);
+    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List of length %d has smoothed mean value %f \n", n, *meanvalue);
 }
 
 /** Compute the median SRTT from a table of individual flows with their SRTTs
