@@ -177,7 +177,7 @@ int compare_id_in_struct(gconstpointer list_data,  gconstpointer user_data)
 	client_list_t *list = (client_list_t*) list_data;
 	uuid_t *id = (uuid_t*) user_data;
 	
-	if (uuid_compare(list->id, *id) == 0)
+	if (memcmp(&(list->id), id, sizeof(uuid_t)) == 0)
 		return 0;
 	
 	return -1;
