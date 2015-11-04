@@ -33,7 +33,7 @@
 #endif
 
 #ifndef MUACC_CLIENT_UTIL_NOISY_DEBUG2
-#define MUACC_CLIENT_UTIL_NOISY_DEBUG2 0
+#define MUACC_CLIENT_UTIL_NOISY_DEBUG2 1
 #endif
 
 int muacc_init_context(struct muacc_context *ctx)
@@ -83,7 +83,7 @@ int muacc_retain_context(struct muacc_context *ctx)
 void muacc_print_context(struct muacc_context *ctx)
 {
 	strbuf_t sb;
-	
+
 	if (ctx == NULL)
 	{
 		printf("ctx = NULL\n");
@@ -382,6 +382,9 @@ struct socketset* _muacc_add_socket_to_set(struct socketset **list_of_sets, int 
 
 struct socketset *_muacc_find_set_for_socket(struct socketset *list_of_sets, struct _muacc_ctx *ctx)
 {
+	if (ctx->remote_hostname == NULL || ctx->remote_service == NULL)
+			return NULL;
+
 	while (list_of_sets != NULL)
 	{
 		if (list_of_sets->type == ctx->type && (strncmp(list_of_sets->host, ctx->remote_hostname, list_of_sets->hostlen) == 0) && (strncmp(list_of_sets->serv, ctx->remote_service, list_of_sets->servlen) == 0))
@@ -762,7 +765,7 @@ int _muacc_remove_socket_from_list (struct socketset **list_of_sets, int socket)
 		return -1;
 	}
 	else
-	{	
+	{
 		// Decrease set use count
 		set_to_delete->use_count -= 1;
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Decreased use count to %d\n", socket, set_to_delete->use_count);
@@ -834,10 +837,20 @@ int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostl
         ctx->ctx->remote_hostname = strncpy(ctx->ctx->remote_hostname, host, hostlen);
 
 		struct servent *service = getservbyname(serv, NULL);
+		// check if the serv is already the port number given as string
+		if (service == NULL)
+        {
+          double servnb_h = strtod(serv, NULL);
+          int servnb_n = (int) htons(servnb_h);
+          DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, " \t This is the casted int port number: %d \n", servnb_n);
+          service = getservbyport(servnb_n, NULL);
+          if(service== NULL) DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, " \t getservbyport couldn't resolve port \n");
+		}
+
 		if (service != NULL)
 		{
 			int port = ntohs(service->s_port);
-			printf("Resolved Service name %s to port number %d\n", serv, port);
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0,"Resolved Service name %s to port number %d\n", serv, port);
 			asprintf(&(ctx->ctx->remote_service), "%d", port);
 		}
 		else
