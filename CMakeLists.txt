@@ -5,11 +5,10 @@ PROJECT(muacc C)
 INCLUDE (CheckIncludeFiles)
 INCLUDE (CheckStructHasMember)
 
-ADD_DEFINITIONS(-Os -Wall -std=c99 -g3 -Wmissing-declarations)
+ADD_DEFINITIONS(-O0 -Wall -std=c99 -g3 -Wmissing-declarations)
 ADD_DEFINITIONS(-DMUACC_SOCKET="/tmp/muacc")
 ADD_DEFINITIONS(-D_BSD_SOURCE)
 ADD_DEFINITIONS(-D_GNU_SOURCE)
-ADD_DEFINITIONS(-D_XOPEN_SOURCE=700)
 
 IF(APPLE)
   INCLUDE_DIRECTORIES(/opt/local/include)

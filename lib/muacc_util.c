@@ -411,7 +411,13 @@ int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const
 	else
 	{
 		/* Option did not exist: create new option in list */
-		struct socketopt *newopt = malloc(sizeof(struct socketopt));
+        struct socketopt *newopt;
+        newopt = malloc(sizeof(struct socketopt));
+        if (newopt == NULL)
+        {
+            perror("__function__ malloc failed");
+            return retval;
+        }
 		newopt->level = level;
 		newopt->optname = optname;
 		newopt->optlen = optlen;
