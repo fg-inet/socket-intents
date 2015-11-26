@@ -264,16 +264,14 @@ void insert_errors(GHashTable *dict, struct rtnl_link *link)
 }
 #endif
 
-/** Print the flow table of every prefix that has one,
- *  and the mean and median RTTs if they exist
- */
-void pmeasure_print_summary(void *pfx, void *data)
+/** Print the available measurement data for each prefix */
+void pmeasure_print_prefix_summary(void *pfx, void *data)
 {
 	struct src_prefix_list *prefix = pfx;
 
 	if (prefix == NULL || prefix->measure_dict == NULL)
 		return;
-    printf("Summary for interface: %s, Family: %s\n", prefix->if_name, prefix->family == AF_INET?"IPv4":"IPv6");
+    printf("Summary for prefix on interface %s, Family: %s\n", prefix->if_name, prefix->family == AF_INET?"IPv4":"IPv6");
 	double *meanvalue = g_hash_table_lookup(prefix->measure_dict, "srtt_mean");
 	if (meanvalue != NULL)
 		printf("\tMean SRTT: %f ms\n", *meanvalue);
@@ -285,11 +283,35 @@ void pmeasure_print_summary(void *pfx, void *data)
 
     uint64_t  *rx_errors = g_hash_table_lookup(prefix->measure_dict, "rx_errors");
     if (rx_errors != NULL)
-        printf("\tRX Errors: %d \n", *rx_errors);
+        printf("\tRX Errors: %" PRIu64 " \n", *rx_errors);
 
     uint64_t *tx_errors = g_hash_table_lookup(prefix->measure_dict, "tx_errors");
     if (medianvalue != NULL)
-        printf("\tTX Errors: %d \n", *tx_errors);
+        printf("\tTX Errors: %" PRIu64 " \n", *tx_errors);
+
+	printf("\n");
+}
+
+void pmeasure_print_iface_summary(void *ifc, void *data)
+{
+	struct iface_list *iface = ifc;
+
+	if (iface == NULL || iface->measure_dict == NULL)
+		return;
+
+    printf("Summary for interface %s\n", iface->if_name);
+
+    uint16_t *numsta = g_hash_table_lookup(iface->measure_dict, "number_of_stations");
+	if (numsta != NULL)
+        printf("\tNumber of stations: %" PRIu16 " \n", *numsta);
+
+    uint8_t *chanutil = g_hash_table_lookup(iface->measure_dict, "channel_utilization_/255");
+	if (chanutil != NULL)
+        printf("\tChannel utilization: %" PRIu8 "/255 (%.2f%%)  \n", *chanutil, (*chanutil/255.0));
+
+    uint16_t *adcap = g_hash_table_lookup(iface->measure_dict, "available_admission_capacity");
+	if (adcap != NULL)
+        printf("\tAvailable admission capacity: %" PRIu16 " \n", *adcap);
 
 	printf("\n");
 }
@@ -623,8 +645,9 @@ void pmeasure_callback(evutil_socket_t fd, short what, void *arg)
     g_slist_foreach(ctx->prefixes, &get_stats, NULL);
 	if (MAM_PMEASURE_NOISY_DEBUG2)
 	{
-		DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Printing summary\n");
-		g_slist_foreach(ctx->prefixes, &pmeasure_print_summary, NULL);
+		DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Printing summary\n");
+		g_slist_foreach(ctx->prefixes, &pmeasure_print_prefix_summary, NULL);
+		g_slist_foreach(ctx->ifaces, &pmeasure_print_iface_summary, NULL);
 	}
 
 	DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Callback finished.\n\n");

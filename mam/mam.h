@@ -73,6 +73,7 @@ typedef struct sockaddr_list {
 typedef struct src_prefix_list {
 	unsigned int			pfx_flags;			/**< Flags of that prefix */
 	char 					*if_name;			/**< Name of the interface */
+	struct iface_list		*iface;				/**< Interface this prefix belongs to */
 	int 					family;				/**< Address family */
 	unsigned int			if_flags;			/**< Flags from SIOCGIFFLAGS */
 	struct sockaddr_list 	*if_addrs;			/**< List of socket addresses for this prefix */
@@ -81,20 +82,21 @@ typedef struct src_prefix_list {
 	struct evdns_base 		*evdns_base; 		/**< DNS base to do look ups for that prefix */
 	GHashTable 				*policy_set_dict; 	/**< dictionary for policy configuration */
 	void					*policy_info;		/**< Policy-internal data structure for additional information */
-	GHashTable				*measure_dict;		/**< Dictionary for measurement data of this interface */
+	GHashTable				*measure_dict;		/**< Dictionary for measurement data of this prefix */
 } src_prefix_list_t;
 
 /** list of interfacses */
 typedef struct iface_list {
-	struct iface_list 		*next;				/**< Next item in list */
 	char 					*if_name;			/**< Name of the interface */
 	GHashTable 				*policy_set_dict; 	/**< dictionary for policy configuration */
+	GHashTable				*measure_dict;		/**< Dictionary for measurement data of this interface */
 } iface_list_t;
 
 /** Context of the MAM */
 typedef struct mam_context {
 	int						usage;				/**< Reference counter */
 	GSList					*prefixes;			/**< Possible source prefixes on this system */
+	GSList					*ifaces;		/**< Interfaces of this system */
 	lt_dlhandle				policy;				/**< Handle of policy module */
 	struct event_base 		*ev_base;			/**< Libevent Event Base */
 	struct evdns_base 		*evdns_default_base;/**< DNS base to do look ups if all other fails */
@@ -164,6 +166,14 @@ struct src_prefix_list *lookup_source_prefix (
 int compare_src_prefix(
 	gconstpointer listelement, 		/**< [in] list element to start scanning */
 	gconstpointer model				/**< [in] src_prefix_model that contains properties to look for */
+);
+
+/** Helper function for finding a specific interface from the interface list
+ *  Returns 0 for the matching element, 1 otherwise
+ *  To be called from g_slist_find_custom() */
+int compare_if_name (
+	gconstpointer listelement, 		/**< [in] list element to compare */
+	gconstpointer ifname			/**< [in] interface name we are looking for */
 );
 
 /** Helper function for comparing all elements of a list against the model

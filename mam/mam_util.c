@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <ltdl.h>
 #include <assert.h>
+#include <inttypes.h>
 
 #include "clib/muacc_util.h"
 #include "lib/muacc_tlv.h"
@@ -74,6 +75,40 @@ void _mam_print_measure_dict (gpointer key,  gpointer val, gpointer sb)
 		strbuf_printf((strbuf_t *) sb, " %s -> (unknown format)", (char *) key);
 }
 
+void _mam_print_iface_list(strbuf_t *sb, GSList *ifaces)
+{
+	GSList *i = ifaces;
+	strbuf_printf(sb, "{ ");
+
+	while (i != NULL)
+	{
+		struct iface_list *current = (struct iface_list *) i->data;
+		strbuf_printf(sb, "\n\t");
+		_mam_print_iface(sb, current);
+		i = i->next;
+	}
+	strbuf_printf(sb, "}");
+}
+
+void _mam_print_iface(strbuf_t *sb, struct iface_list *current)
+{
+	strbuf_printf(sb, "{ ");
+	strbuf_printf(sb, " if_name = %s, ", current->if_name);
+	if(current->policy_set_dict != NULL)
+	{
+		strbuf_printf(sb, " policy_set_dict = {");
+		g_hash_table_foreach(current->policy_set_dict, &_mam_print_dict_kv, sb);
+		strbuf_printf(sb, " }");
+	}
+	if(current->measure_dict != NULL)
+	{
+		strbuf_printf(sb, " measure_dict = {");
+		g_hash_table_foreach(current->measure_dict, &_mam_print_measure_dict, sb);
+		strbuf_printf(sb, " }");
+	}
+	strbuf_printf(sb, "}, ");
+}
+
 void _mam_print_prefix_list(strbuf_t *sb, GSList *prefixes)
 {
 	GSList *p = prefixes;
@@ -96,6 +131,7 @@ void _mam_print_prefix(strbuf_t *sb, struct src_prefix_list *current)
 {
 	strbuf_printf(sb, "{ ");
 	strbuf_printf(sb, " if_name = %s, ", current->if_name);
+	strbuf_printf(sb, " associated if_name = %s, ", current->iface->if_name);
 	_mam_print_prefix_list_flags(sb, current->pfx_flags);
 	strbuf_printf(sb, " if_flags = %d, ", current->if_flags);
 	strbuf_printf(sb, " if_addrs = ");
@@ -117,6 +153,9 @@ void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx)
 	strbuf_printf(sb, "\tusage = %d\n", ctx->usage);
 	strbuf_printf(sb, "\tsrc_prefix_list = ");
 	_mam_print_prefix_list(sb, ctx->prefixes);
+	strbuf_printf(sb, "\n");
+	strbuf_printf(sb, "\tiface_list = ");
+	_mam_print_iface_list(sb, ctx->ifaces);
 	strbuf_printf(sb, "\n");
 	if(ctx->policy_set_dict != NULL) 
 	{
@@ -197,6 +236,7 @@ int _mam_free_ctx(struct mam_context *ctx)
 	}
 
 	g_slist_free_full(ctx->prefixes, &_free_src_prefix_list);
+	g_slist_free_full(ctx->ifaces, &_free_iface_list);
 	g_slist_free_full(ctx->clients,  &_free_client_list);
 	g_hash_table_destroy(ctx->state);
 	free(ctx);

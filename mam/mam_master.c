@@ -529,7 +529,8 @@ static void do_print_state(evutil_socket_t _, short what, void* evctx) {
 	DLOG(1, "got USR1 signal - dumping state\n");
 	mam_print_context(global_mctx);
     #ifdef HAVE_LIBNL
-	g_slist_foreach(global_mctx->prefixes, &pmeasure_print_summary, NULL);
+	g_slist_foreach(global_mctx->prefixes, &pmeasure_print_prefix_summary, NULL);
+	g_slist_foreach(global_mctx->ifaces, &pmeasure_print_iface_summary, NULL);
     #endif
 }
 

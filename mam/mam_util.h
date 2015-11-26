@@ -18,6 +18,12 @@ void _mam_print_prefix_list(strbuf_t *sb, GSList *prefixes);
 /** Helper to print a list of prefixes to a string */
 void _mam_print_prefix(strbuf_t *sb, struct src_prefix_list *current);
 
+/** Helper to print a list of interfaces to a string */
+void _mam_print_iface_list(strbuf_t *sb, GSList *ifaces);
+
+/** Helper to print an interface to a string */
+void _mam_print_iface(strbuf_t *sb, struct iface_list *current);
+
 /** Helper to print a mam context to a string */
 void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx);
 
@@ -26,6 +32,9 @@ void _mam_print_measure_dict (gpointer key,  gpointer val, gpointer sb);
 
 /** Helper that frees a source prefix list - to be called using g_slist_free_full */
 void _free_src_prefix_list (gpointer data);
+
+/** Helper that frees an iface list item - to be called using g_slist_free_full */
+void _free_iface_list (gpointer data);
 
 void _free_client_list (gpointer data);
 void _free_socket_list (gpointer data);
