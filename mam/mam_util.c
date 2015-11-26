@@ -71,6 +71,10 @@ void _mam_print_measure_dict (gpointer key,  gpointer val, gpointer sb)
 	{
 		strbuf_printf((strbuf_t *) sb, " %s -> %f", (char *) key, *(double *) val);
 	}
+	else if (strncmp((const char*)key+2, "_errors", 11) == 0)
+	{
+		strbuf_printf((strbuf_t *) sb, " %s -> %" PRIu64, (char *) key, *(uint64_t *) val);
+	}
 	else
 		strbuf_printf((strbuf_t *) sb, " %s -> (unknown format)", (char *) key);
 }
@@ -122,7 +126,7 @@ void _mam_print_prefix_list(strbuf_t *sb, GSList *prefixes)
 		_mam_print_prefix(sb, current);
 		p = p->next;
 	}
-	strbuf_printf(sb, "NULL }");
+	strbuf_printf(sb, "}");
 
 }
 
@@ -142,6 +146,12 @@ void _mam_print_prefix(strbuf_t *sb, struct src_prefix_list *current)
 	{
 		strbuf_printf(sb, " policy_set_dict = {");
 		g_hash_table_foreach(current->policy_set_dict, &_mam_print_dict_kv, sb);
+		strbuf_printf(sb, " }");
+	}
+	if(current->measure_dict != NULL)
+	{
+		strbuf_printf(sb, " measure_dict = {");
+		g_hash_table_foreach(current->measure_dict, &_mam_print_measure_dict, sb);
 		strbuf_printf(sb, " }");
 	}
 	strbuf_printf(sb, " }, ");

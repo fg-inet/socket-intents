@@ -258,9 +258,9 @@ void insert_errors(GHashTable *dict, struct rtnl_link *link)
     }
 
     *tx_errors = rtnl_link_get_stat(link,RTNL_LINK_TX_ERRORS);
-    DLOG(MAM_PMEASURE_NOISY_DEBUG2,"Added %d as TX_ERRORS\n", *tx_errors);
+    DLOG(MAM_PMEASURE_NOISY_DEBUG2,"Added %" PRIu64 " as TX_ERRORS\n", *tx_errors);
     *rx_errors = rtnl_link_get_stat(link,RTNL_LINK_RX_PACKETS);
-    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Added %d as RX_ERRORS\n", *rx_errors);
+    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Added %" PRIu64 " as RX_ERRORS\n", *rx_errors);
 }
 #endif
 
@@ -481,7 +481,7 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
         }
         default: return values;
     }
-    DLOG(MAM_PMEASURE_NOISY_DEBUG1,"%s is in the Prefixlist\n", address);
+    //DLOG(MAM_PMEASURE_NOISY_DEBUG1,"%s is in the Prefixlist\n", address);
 
     // Get Attributes
     if (rtalen > 0)
@@ -496,9 +496,9 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
                 tcpInfo = (struct tcp_info*) RTA_DATA(attr);
                 // append it to the list of values
                 double rtt = tcpInfo->tcpi_rtt/1000;
-                DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Adding %f to values\n", rtt);
+                //DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Adding %f to values\n", rtt);
                 values = g_list_append(values, &rtt);
-                DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Values has now length %d\n", g_list_length(values));
+                //DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Values has now length %d\n", g_list_length(values));
             }
             //Get next attributes
             attr = RTA_NEXT(attr, rtalen);
