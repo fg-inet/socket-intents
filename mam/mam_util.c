@@ -214,7 +214,7 @@ void _free_client_list (gpointer data)
 	
 	char uuid_str[37];
 	uuid_unparse_lower(element->id, uuid_str);
-	printf("cleaning client list %s:\n", uuid_str);
+	DLOG(MAM_UTIL_NOISY_DEBUG2,"cleaning client list %s:\n", uuid_str);
 	
 	if (element->sockets != NULL)
 		g_slist_free_full(element->sockets,  &_free_socket_list);
@@ -230,7 +230,7 @@ void _free_socket_list (gpointer data)
 	
 	socket_list_t *element = (socket_list_t *) data;
 	
-	printf("list had socket: %d\n", element->sk);
+	DLOG(MAM_UTIL_NOISY_DEBUG2,"list had socket: %d\n", element->sk);
 	
 	free(data);
 	return;
