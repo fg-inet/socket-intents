@@ -6,6 +6,21 @@
 
 #include "policy_util.h"
 
+#include "clib/dlog.h"
+
+#ifndef MAM_POLICY_UTIL_NOISY_DEBUG0
+#define MAM_POLICY_UTIL_NOISY_DEBUG0 0
+#endif
+
+#ifndef MAM_POLICY_UTIL_NOISY_DEBUG1
+#define MAM_POLICY_UTIL_NOISY_DEBUG1 1
+#endif
+
+#ifndef MAM_POLICY_UTIL_NOISY_DEBUG2
+#define MAM_POLICY_UTIL_NOISY_DEBUG2 0
+#endif
+
+
 int mampol_get_socketopt(struct socketopt *list, int level, int optname, socklen_t *optlen, void *optval)
 {
 	struct socketopt *current = list;
@@ -110,4 +125,52 @@ void print_addrinfo_response (struct addrinfo *res)
 
 	printf("%s\n", strbuf_export(&sb));
 	strbuf_release(&sb);
+}
+
+void *lookup_prefix_info(struct src_prefix_list *prefix, const void *key)
+{
+	if (prefix == NULL || key == NULL)
+	{
+		DLOG(MAM_POLICY_UTIL_NOISY_DEBUG1, "Warning: Tried to look up info for NULL prefix or NULL key\n");
+		return NULL;
+	}
+
+	void *value = NULL;
+	if (prefix->policy_set_dict != NULL)
+	{
+		value = g_hash_table_lookup(prefix->policy_set_dict, key);
+		if (value != NULL)
+		{
+			DLOG(MAM_POLICY_UTIL_NOISY_DEBUG2, "Found key %s in prefix policy_set_dict\n", (char* )key);
+			return value;
+		}
+	}
+	if (prefix->measure_dict != NULL)
+	{
+		value = g_hash_table_lookup(prefix->measure_dict, key);
+		if (value != NULL)
+		{
+			DLOG(MAM_POLICY_UTIL_NOISY_DEBUG2, "Found key %s in prefix measure_dict\n", (char *) key);
+			return value;
+		}
+	}
+	if (prefix->iface != NULL && prefix->iface->policy_set_dict != NULL)
+	{
+		value = g_hash_table_lookup(prefix->iface->policy_set_dict, key);
+		if (value != NULL)
+		{
+			DLOG(MAM_POLICY_UTIL_NOISY_DEBUG2, "Found key %s in iface policy_set_dict\n", (char *) key);
+			return value;
+		}
+	}
+	if (prefix->iface != NULL && prefix->iface->measure_dict != NULL)
+	{
+		value = g_hash_table_lookup(prefix->iface->measure_dict, key);
+		if (value != NULL)
+		{
+			DLOG(MAM_POLICY_UTIL_NOISY_DEBUG2, "Found key %s in iface measure_dict\n", (char *) key);
+			return value;
+		}
+	}
+	return value;
 }

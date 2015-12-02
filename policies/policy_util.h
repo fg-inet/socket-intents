@@ -41,3 +41,6 @@ void _set_bind_sa(request_context_t *rctx, struct sockaddr *addr, strbuf_t *sb);
 
 /** Helper that prints the addresses returned by getaddrinfo */
 void print_addrinfo_response (struct addrinfo *res);
+
+/** Helper that searches for information for a prefix in various dictionaries */
+void *lookup_prefix_info(struct src_prefix_list *prefix, const void *key);
