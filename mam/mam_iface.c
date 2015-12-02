@@ -40,7 +40,7 @@
 #endif
 
 #ifndef MAM_IF_NOISY_DEBUG1
-#define MAM_IF_NOISY_DEBUG1 0
+#define MAM_IF_NOISY_DEBUG1 1
 #endif
 
 #ifndef MAM_IF_NOISY_DEBUG2

@@ -123,7 +123,7 @@ void compute_mean(GHashTable *dict, GList *values)
     double old_rtt;
 
     int n = g_list_length(values);
-    DLOG(MAM_PMEASURE_NOISY_DEBUG1, "List for interface has length %d\n", n);
+    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List for interface has length %d\n", n);
 
     meanvalue = g_hash_table_lookup(dict, "srtt_mean");
 
@@ -136,7 +136,7 @@ void compute_mean(GHashTable *dict, GList *values)
 
     if (n == 0)
     {
-        DLOG(MAM_PMEASURE_NOISY_DEBUG1, "List is empty, there is no mean value.\n");
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List is empty, there is no mean value.\n");
         *meanvalue = 0;
         return;
     }
@@ -182,7 +182,7 @@ void compute_median(GHashTable *dict, GList *values)
 
     if (n == 0)
     {
-        DLOG(MAM_PMEASURE_NOISY_DEBUG1, "List is empty, there is no median value.\n");
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List is empty, there is no median value.\n");
         *medianvalue = 0;
         return;
     }
@@ -222,7 +222,7 @@ void compute_minimum(GHashTable *dict, GList *values)
 
     if (n == 0)
     {
-        DLOG(MAM_PMEASURE_NOISY_DEBUG1, "List is empty, there is no minimum value.\n");
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List is empty, there is no minimum value.\n");
         *minimum = 0;
         return;
     }
@@ -524,7 +524,7 @@ void compute_srtt(void *pfx, void *data)
 
 	if (prefix->if_name != NULL)
     {
-        DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Computing median SRTTs for a prefix of interface %s:\n", prefix->if_name);
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Computing median SRTTs for a prefix of interface %s:\n", prefix->if_name);
 
 		#ifdef HAVE_LIBNL
         // create the socket
@@ -537,7 +537,7 @@ void compute_srtt(void *pfx, void *data)
         // Create and send netlink messages
         // we have to send two different requests, the first time
         // with the IPv4 Flag and the other time with the IPv6 flag
-        DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Sending IPv4 Request\n");
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Sending IPv4 Request\n");
         if (send_nl_msg(sock_ip4, AF_INET) == -1)
             DLOG(MAM_PMEASURE_NOISY_DEBUG1, " Error sending Netlink Request");
 
@@ -545,7 +545,7 @@ void compute_srtt(void *pfx, void *data)
         if (recv_nl_msg(sock_ip4, prefix, &values) != 0)
             DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Error receiving Netlink Messages")
 
-        DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Sending IPv6 Request\n");
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Sending IPv6 Request\n");
         if (send_nl_msg(sock_ip6, AF_INET6) == -1)
             DLOG(MAM_PMEASURE_NOISY_DEBUG1, " Error sending Netlink Request");
 
@@ -635,12 +635,11 @@ void pmeasure_callback(evutil_socket_t fd, short what, void *arg)
 {
 	mam_context_t *ctx = (mam_context_t *) arg;
 
-	DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Callback invoked.\n");
+	DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Callback invoked.\n");
 
 	if (ctx == NULL)
 		return;
 
-	DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Computing SRTTs\n");
 	g_slist_foreach(ctx->prefixes, &compute_srtt, NULL);
     g_slist_foreach(ctx->prefixes, &get_stats, NULL);
 	if (MAM_PMEASURE_NOISY_DEBUG2)
@@ -650,5 +649,6 @@ void pmeasure_callback(evutil_socket_t fd, short what, void *arg)
 		g_slist_foreach(ctx->ifaces, &pmeasure_print_iface_summary, NULL);
 	}
 
-	DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Callback finished.\n\n");
+	DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Callback finished.\n\n");
+	DLOG(MAM_PMEASURE_NOISY_DEBUG2, "\n\n");
 }
