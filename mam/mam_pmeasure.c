@@ -172,30 +172,37 @@ void compute_mean(GHashTable *dict, GList *values)
         g_hash_table_insert(dict, "srtt_mean", meanvalue);
     }
 
+    old_rtt = *meanvalue;
+
     if (n == 0)
     {
-        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List is empty, there is no mean value.\n");
-        *meanvalue = 0;
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "No new RTT values. Keeping old mean %f\n", old_rtt);
         return;
     }
 
-
-    old_rtt = *meanvalue;
+	double sum_of_values = 0;
 
     for (int i = 0; i < n; i++)
     {
-        *meanvalue += *(double *) values->data;
+        sum_of_values += *(double *) values->data;
         values = values->next;
     }
 
-    *meanvalue = *meanvalue / n;
+    *meanvalue = sum_of_values / n;
     DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List of length %d has mean value %f \n", n, *meanvalue);
 
-    // calculate SRTT in accord with the formula
-    // SRTT = (alpha * SRTT) + ((1-alpha) * RTT)
-    // see RFC793
-    *meanvalue = (alpha * *meanvalue) + ((1-alpha) * old_rtt);
-    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List of length %d has smoothed mean value %f \n", n, *meanvalue);
+	if (old_rtt == 0)
+	{
+		DLOG(MAM_PMEASURE_NOISY_DEBUG2, "New mean value is %f \n", *meanvalue);
+	}
+	else
+	{
+		// calculate SRTT in accord with the formula
+		// SRTT = (alpha * SRTT) + ((1-alpha) * RTT)
+		// see RFC793
+		*meanvalue = (alpha * *meanvalue) + ((1-alpha) * old_rtt);
+		DLOG(MAM_PMEASURE_NOISY_DEBUG2, "New smoothed mean value is %f \n", *meanvalue);
+	}
 }
 
 /** Compute the median SRTT from a table of individual flows with their SRTTs
@@ -218,10 +225,11 @@ void compute_median(GHashTable *dict, GList *values)
         g_hash_table_insert(dict, "srtt_median", medianvalue);
     }
 
+	double old_rtt = *medianvalue;
+
     if (n == 0)
     {
-        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List is empty, there is no median value.\n");
-        *medianvalue = 0;
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "No new RTT values. Keeping old median %f\n", old_rtt);
         return;
     }
     else if (n % 2)
@@ -238,7 +246,18 @@ void compute_median(GHashTable *dict, GList *values)
         *medianvalue = (val1 + val2) / 2;
     }
 
-    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List of length %d has median value %f \n", n, *medianvalue);
+	if (old_rtt == 0)
+	{
+		DLOG(MAM_PMEASURE_NOISY_DEBUG2, "New median value is %f \n", *medianvalue);
+	}
+	else
+	{
+		// calculate SRTT in accord with the formula
+		// SRTT = (alpha * SRTT) + ((1-alpha) * RTT)
+		// see RFC793
+		*medianvalue = (alpha * *medianvalue) + ((1-alpha) * old_rtt);
+		DLOG(MAM_PMEASURE_NOISY_DEBUG2, "New smoothed median value is %f \n", *medianvalue);
+	}
 }
 
 void compute_minimum(GHashTable *dict, GList *values)
@@ -258,18 +277,26 @@ void compute_minimum(GHashTable *dict, GList *values)
         g_hash_table_insert(dict, "srtt_minimum", minimum);
     }
 
+	double old_rtt = *minimum;
     if (n == 0)
     {
-        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List is empty, there is no minimum value.\n");
-        *minimum = 0;
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "No new RTT values. Keeping old minimum %f\n", old_rtt);
         return;
     }
     else
     {
         *minimum = *(double *) g_list_first(values)->data;
+		if (old_rtt == 0 || *minimum < old_rtt)
+		{
+			DLOG(MAM_PMEASURE_NOISY_DEBUG2, "New minimum value: %f \n", *minimum);
+		}
+		else
+		{
+			DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Keeping old minimum value %f (=< %f) \n", old_rtt, *minimum);
+			*minimum = old_rtt;
+		}
     }
 
-    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "List of length %d has minimum value %f \n", n, *minimum);
 }
 
 #ifdef HAVE_LIBNL
