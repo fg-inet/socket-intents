@@ -826,7 +826,7 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
 }
 #endif
 
-/** Compute the SRTT on an interface
+/** Compute the SRTT on an prefix, except on lo
  *  Insert it into the measure_dict as "srtt_median"
  */
 void compute_srtt(void *pfx, void *data)
@@ -840,7 +840,7 @@ void compute_srtt(void *pfx, void *data)
 		return;
 
 
-	if (prefix->if_name != NULL)
+	if (prefix->if_name != NULL && strcmp(prefix->if_name,"lo"))
     {
         DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Computing median SRTTs for a prefix of interface %s:\n", prefix->if_name);
 
