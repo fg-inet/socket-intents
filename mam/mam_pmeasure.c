@@ -235,13 +235,13 @@ void compute_median(GHashTable *dict, GList *values)
     else if (n % 2)
     {
         // odd number of elements
-        *medianvalue = *(double *) g_list_nth(values, (n/2))->data;
+        *medianvalue = *(double *) g_list_nth_data(values, (n/2));
     }
     else
     {
         // even number of elements
-        double val1 = *(double *) g_list_nth(values, (n/2)-1)->data;
-        double val2 = *(double *) g_list_nth(values, (n/2))->data;
+        double val1 = *(double *) g_list_nth_data(values, (n/2)-1);
+        double val2 = *(double *) g_list_nth_data(values, (n/2));
         DLOG(MAM_PMEASURE_NOISY_DEBUG2, "(intermediate value between %d. element %f and %d. element %f)\n",(n-1)/2, val1, (n+1)/2, val2);
         *medianvalue = (val1 + val2) / 2;
     }
@@ -812,11 +812,12 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
             {
                 // Get rtt values
                 tcpInfo = (struct tcp_info*) RTA_DATA(attr);
+                double *rtt = malloc(sizeof(double));
+                *rtt = tcpInfo->tcpi_rtt/1000.;
+
                 // append it to the list of values
-                double rtt = tcpInfo->tcpi_rtt/1000;
-                //DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Adding %f to values\n", rtt);
-                values = g_list_append(values, &rtt);
-                //DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Values has now length %d\n", g_list_length(values));
+                values = g_list_append(values, rtt);
+                //DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Adding %f to values\n", *rtt);
             }
             //Get next attributes
             attr = RTA_NEXT(attr, rtalen);
