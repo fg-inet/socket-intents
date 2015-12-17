@@ -20,7 +20,7 @@
 #include "intents.h"
 
 #ifndef MUACC_UTIL_NOISY_DEBUG
-#define MUACC_UTIL_NOISY_DEBUG 0
+#define MUACC_UTIL_NOISY_DEBUG 1
 #endif
 
 
@@ -427,17 +427,19 @@ int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const
 			if (newopt->optval == NULL)
 			{
 				perror("__function__ malloc failed");
-                free(newopt);
+				free(newopt);
 				return retval;
 			}
 			memcpy(newopt->optval, optval, optlen);
 			newopt->flags = flags;
 		}
 		else
+		{
 			newopt->optval = (void *) optval;
+		}
 		newopt->next = NULL;
 
-		if (current == *opts)
+		if (*opts == NULL)
 			*opts = newopt;
 		else
 			prev->next = newopt;
@@ -445,7 +447,6 @@ int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const
 		retval = 0;
 
 		DLOG(MUACC_UTIL_NOISY_DEBUG, "Added new option to the end of the list:\n\t\t\t");
-		if (MUACC_UTIL_NOISY_DEBUG) _muacc_print_socket_option_list(newopt);
 		if (MUACC_UTIL_NOISY_DEBUG) _muacc_print_socket_option_list(*opts);
 	}
 
