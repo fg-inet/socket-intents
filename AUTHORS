@@ -14,7 +14,7 @@ Theresa Enghardt <theresa@inet.tu-berlin.de>
 
 ------
 
-Philipp Schmidt <philipp@inet.tu-berlin.de>
+Philipp S. Tiesel <philipp@inet.tu-berlin.de>
 
  - Overall concept and system design.
  - Implementaton of the multi access manager 
@@ -22,6 +22,7 @@ Philipp Schmidt <philipp@inet.tu-berlin.de>
  - Inital implemtation of the client library
  - TLV based ICP between client library and multi access manager
  - Client library based socks proxy and other example programs.
+ - Per interface DNS support
 
 ------
 
@@ -30,3 +31,9 @@ Mirko Palmer <mpalmer@inet.tu-berlin.de>
  - Added interface for Linux MPTCP path management support.
 
 ------
+
+Patrick Kutter <patk@mailbox.tu-berlin.de>
+
+ - Fixes and extension of socket management support for pipelined
+   applications
+
