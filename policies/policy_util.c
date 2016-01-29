@@ -69,9 +69,12 @@ void make_v4v6_enabled_lists (GSList *baselist, GSList **v4list, GSList **v6list
 
 void set_bind_sa(request_context_t *rctx, struct src_prefix_list *chosen, strbuf_t *sb)
 {
-	strbuf_printf(sb, "\n\tSet src=");
-	_muacc_print_sockaddr(sb, chosen->if_addrs->addr, chosen->if_addrs->addr_len);
-
+	if(sb != NULL)
+	{
+		strbuf_printf(sb, "\n\tSet src=");
+		_muacc_print_sockaddr(sb, chosen->if_addrs->addr, chosen->if_addrs->addr_len);
+	}
+	
 	rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(chosen->if_addrs->addr, chosen->if_addrs->addr_len);
 	rctx->ctx->bind_sa_suggested_len = chosen->if_addrs->addr_len;
 }
