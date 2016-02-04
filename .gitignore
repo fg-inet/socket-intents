@@ -1,0 +1,69 @@
+# Files that git should ignore
+
+# Objects, compiled libraries, executables
+*.o
+*.lo
+*.so
+*.so.*
+*.a
+*.la
+*.deps/
+*.dirstamp
+*.dSYM
+*.dylib
+.libs/
+*.swp
+
+# lex/yacc stuff
+lex.yy.c
+mam/mam_configp.c
+mam/mam_configp.h
+mam/mam_configp.output
+mam/mam_configs.c
+
+# binaried
+mamma
+muacsocksd
+addrinfo
+testintents
+testmuacc
+test_policy_generic
+policytest
+
+# Compiler docs
+doxygen/
+
+# CMake stuff
+build/
+CMakeCache.txt
+cmake_install.cmake
+CMakeScripts
+CMakeFiles
+CTestTestfile.cmake
+Testing
+install_manifest.txt
+
+# Automake stuff
+*.m4
+config*
+Makefile
+Makefile.in
+autom4te.cache/
+missing
+compile
+depcomp
+install-sh
+ar-lib
+libtool
+ltmain.sh
+
+# Random other stuff
+stamp-h1
+.settings
+.cproject
+.project
+tags
+.Tpo
+ylwrap
+libltdl/
+._*
