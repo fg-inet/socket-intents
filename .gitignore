@@ -66,4 +66,7 @@ tags
 .Tpo
 ylwrap
 libltdl/
+mptcp_nlmon
+
+#ignore osx file-info fallback files
 ._*

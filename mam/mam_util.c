@@ -198,6 +198,7 @@ int _mam_free_ctx(struct mam_context *ctx)
 
 	g_slist_free_full(ctx->prefixes, &_free_src_prefix_list);
 	g_slist_free_full(ctx->clients,  &_free_client_list);
+	g_hash_table_destroy(ctx->state);
 	free(ctx);
 
 	return 0;

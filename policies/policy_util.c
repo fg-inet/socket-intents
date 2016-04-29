@@ -79,6 +79,16 @@ void set_bind_sa(request_context_t *rctx, struct src_prefix_list *chosen, strbuf
 	rctx->ctx->bind_sa_suggested_len = chosen->if_addrs->addr_len;
 }
 
+void _set_bind_sa(request_context_t *rctx, struct sockaddr *addr, strbuf_t *sb)
+{
+	strbuf_printf(sb, "\n\tSet src=");
+	_muacc_print_sockaddr(sb, addr, sizeof(struct sockaddr));
+
+	rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(addr, sizeof(struct sockaddr));
+	rctx->ctx->bind_sa_suggested_len = sizeof(struct sockaddr);
+}
+
+
 void print_addrinfo_response (struct addrinfo *res)
 {
 	strbuf_t sb;

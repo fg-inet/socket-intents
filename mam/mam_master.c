@@ -17,6 +17,9 @@
 #include "mam_configp.h"
 #include "mam.h"
 
+#include "mam_netlink.h"
+
+
 #define MIN_BUF (sizeof(muacc_tlv_t)+sizeof(size_t))
 #define MAX_BUF 0
 
@@ -33,6 +36,7 @@
 #endif
 
 struct mam_context *global_mctx = NULL;
+const char fifo_path[] = "/tmp/mam_config_fifo";
 int config_fd = -1;
 
 void clean_client_state(GSList *client);
@@ -150,6 +154,13 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 			
 					if (client_list)
 					{
+
+						printf("client inode: %u:%u\n", (uint32_t)((crctx->ctx->ctxino) >> 32),
+ 										   		(uint32_t)((crctx->ctx->ctxino) & 0xFFFFFFFF));
+
+						((client_list_t*)client_list->data)->inode = crctx->ctx->ctxino;
+						((client_list_t*)client_list->data)->flow_table = g_hash_table_new(NULL, NULL);
+						
 						socket_list_t *sk = malloc(sizeof(socket_list_t));
 						sk->sk = crctx->ctx->sockfd;
 
@@ -276,6 +287,42 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
     }
 }
 
+static void do_read_fifo(evutil_socket_t fd, short event, void *arg)
+{
+	char buf[255];
+	int len, ret;
+	int (*callback_function)(struct mam_context *mctx, char* config) = NULL;
+
+	//printf("fifo_read called with fd: %d, event: %d\n", (int)fd, event);
+	
+	len = read(fd, buf, 255);
+
+	if (len <= 0) 
+	{
+		if (len == -1)
+			perror("read");
+		else if (len == 0)
+			fprintf(stderr, "Connection closed\n");
+		
+		return;
+	}
+
+	if (buf[len-1] == '\n')
+		len -=1;
+	buf[len] = '\0';
+
+	if (_mam_fetch_policy_function(global_mctx->policy, "on_config_request", (void **) &callback_function) == 0)
+	{
+			/* Call policy module function */
+			DLOG(MAM_MASTER_NOISY_DEBUG2, "calling on_config_request callback\n");
+			ret = callback_function(global_mctx, buf);
+	}
+	else
+		DLOG(MAM_MASTER_NOISY_DEBUG2, "Policy does not have a on_config_request method!\n");
+
+	DLOG(MAM_MASTER_NOISY_DEBUG2, "Read: \"%s\"\n", buf);
+}
+
 
 static int do_listen(mam_context_t *ctx, evutil_socket_t listener, struct sockaddr *sin, size_t sin_z)
 {
@@ -395,6 +442,29 @@ static int cleanup_policy_module(mam_context_t *ctx) {
 	
 	ctx->policy = NULL;
 	return(ret);
+}
+
+/** create fifo for applying dynamic config changes
+ */
+static void configure_fifo()
+{
+	struct stat st;
+	struct event *listener_event;
+
+	int fd;
+	if (stat(fifo_path, &st) != 0)
+        mkfifo(fifo_path, 0666);
+
+    // we need also write rights, because linux is broken - according to the internet
+    fd = open(fifo_path, O_RDWR|O_NONBLOCK, 0);
+
+    listener_event = event_new(global_mctx->ev_base, fd, EV_READ|EV_PERSIST, do_read_fifo, NULL);
+    event_add(listener_event, NULL);
+}
+
+static void cleanup_fifo()
+{
+	unlink(fifo_path);
 }
 
 
@@ -526,6 +596,11 @@ main(int c, char **v)
 	/* apply config and read policy */
 	configure_mamma();
 
+    /* configure netlink socket to communicate with MPTCP pathmanager kernel module */
+    configure_netlink();
+
+    configure_fifo();
+
 	/* pmeasure event */
 	pmeasure_setup();
 	struct event *pmeasure_event;
@@ -564,6 +639,11 @@ main(int c, char **v)
 	pmeasure_cleanup();
 	mam_release_context(global_mctx);
 	lt_dlexit();
+	
+	shutdown_netlink();
+
+	cleanup_fifo();
+	
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "exiting\n");
 
 
