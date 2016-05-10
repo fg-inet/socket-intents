@@ -17,6 +17,11 @@
 
 #include "muacc.h"
 
+/** helper that logs to a file
+ *
+ */
+void _muacc_logtofile (const char *filename, const char *format, ...);
+
 /** helper to copy a cstring
  *
  */

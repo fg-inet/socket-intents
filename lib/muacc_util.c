@@ -23,6 +23,29 @@
 #define MUACC_UTIL_NOISY_DEBUG 0
 #endif
 
+void _muacc_logtofile (const char *filename, const char *format, ...)
+{
+	if (filename == NULL)
+	{
+		DLOG(MUACC_UTIL_NOISY_DEBUG, "No log file given!\n");
+		return;
+	}
+	va_list args;
+	va_start (args, format);
+	FILE *fp = fopen(filename, "a");
+	if (fp == NULL)
+	{
+		DLOG(MUACC_UTIL_NOISY_DEBUG, "Could not open log file %s\n", filename);
+	}
+	else
+	{
+		char *str;
+		vasprintf(&str, format, args);
+		fprintf(fp, "%s", str);
+	}
+	va_end(args);
+	fclose(fp);
+}
 
 struct sockaddr *_muacc_clone_sockaddr(const struct sockaddr *src, size_t src_len)
 {
