@@ -22,6 +22,8 @@ __Supported platforms:__ Linux (we use mainly Debian and Ubuntu), OS X
 
 __Prerequisites:__ cmake, pkg-config, bison, flex, libltdl-dev, libevent-dev, libglib2.0-dev, libargtable2-dev, uuid-dev, libnl-3-dev libnl-3-genl-dev
 
+_(different naming on Ubuntu):_ libbison-dev, libfl-dev
+
 To build and install:
 
 ```sh
