@@ -1,7 +1,8 @@
 /** \file mam_netlink.h
  *	Netlink functions
  */
-#ifndef __MAM_NETLINK_H__
+
+#if !defined(__MAM_NETLINK_H__) && defined(HAVE_LIBNL)
 #define __MAM_NETLINK_H__
 
 #include "mptcp_netlink_parser.h"

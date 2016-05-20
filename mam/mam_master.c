@@ -596,9 +596,16 @@ main(int c, char **v)
 	/* apply config and read policy */
 	configure_mamma();
 
-    /* configure netlink socket to communicate with MPTCP pathmanager kernel module */
+    /* configure netlink socket to communicate with MPTCP pathmanager kernel module 
+       if netlink is available.
+    */
+    #ifdef HAVE_LIBNL
     configure_netlink();
-
+    #endif
+    
+    /* configure the fifo that is used to dynamically change prefix configs 
+       using the "on_config_request" call
+    */
     configure_fifo();
 
 	/* pmeasure event */
@@ -640,7 +647,9 @@ main(int c, char **v)
 	mam_release_context(global_mctx);
 	lt_dlexit();
 	
+    #ifdef HAVE_LIBNL
 	shutdown_netlink();
+    #endif
 
 	cleanup_fifo();
 	

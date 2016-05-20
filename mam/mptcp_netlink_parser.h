@@ -1,7 +1,8 @@
 /** \file mptcp_mam_netlink.h
  *	Netlink helpers / family data structures
  */
-#ifndef __MPTCP_NETLINK_PARSER_H__
+
+#if !defined( __MPTCP_NETLINK_PARSER_H__ ) && defined( HAVE_LIBNL )
 #define __MPTCP_NETLINK_PARSER_H__
 
 #include <netlink/netlink.h>

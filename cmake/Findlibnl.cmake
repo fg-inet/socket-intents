@@ -8,7 +8,7 @@ find_library (LIBNL_LIBRARY nl-3)
 find_library (LIBNL_GENERIC_LIBRARY nl-genl-3)
 
 if ( ${LIBNL_LIBRARY} MATCHES "LIBNL_LIBRARY-NOTFOUND" OR  ${LIBNL_GENERIC_LIBRARY} MATCHES "LIBNL_GENERIC_LIBRARY-NOTFOUND" )
-	message( STATUS "Compiling without libnl - Not Found." )
+	message( STATUS "Compiling without libnl - Library not Found." )
 	SET (LIBNL_GENERIC_LIBRARY "")
 	SET (LIBNL_INCLUDE_DIR "")
 	SET (LIBNL_LIBRARY "")

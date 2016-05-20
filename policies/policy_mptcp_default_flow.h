@@ -1,6 +1,6 @@
 #include "policy.h"
 #include "policy_util.h"
-#include "../lib/muacc.h"
+#include "../clib/muacc.h"
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <stdio.h>
