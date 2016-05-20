@@ -20,7 +20,7 @@ Building and Installing the Socket Intents Framework
 
 __Supported platforms:__ Linux (we use mainly Debian and Ubuntu), OS X
 
-__Prerequisites:__ cmake, pkg-config, bison, flex, libltdl-dev, libevent-dev, libglib2.0-dev, libargtable2-dev, uuid-dev, libnl-3-dev libnl-3-genl-dev
+__Prerequisites:__ cmake, pkg-config, bison, flex, libltdl-dev, libevent-dev, libglib2.0-dev, libargtable2-dev, uuid-dev, libnl-3-dev libnl-3-genl-dev, (liburiparser-dev)
 
 To build and install:
 
