@@ -145,7 +145,6 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 				(*rctx)->sockets = NULL;
 				(*rctx)->mctx = global_mctx;
 				(*rctx)->ctx = _muacc_create_ctx();
-				printf("in read cb\n");
     			uuid_copy((*rctx)->ctx->ctxid, old);
 
 				if (global_mctx->clients)
@@ -154,9 +153,11 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 			
 					if (client_list)
 					{
-
+                    
+#if MAM_MASTER_NOISY_DEBUG2 == 1
 						printf("client inode: %u:%u\n", (uint32_t)((crctx->ctx->ctxino) >> 32),
  										   		(uint32_t)((crctx->ctx->ctxino) & 0xFFFFFFFF));
+#endif
 
 						((client_list_t*)client_list->data)->inode = crctx->ctx->ctxino;
 						((client_list_t*)client_list->data)->flow_table = g_hash_table_new(NULL, NULL);
@@ -283,7 +284,6 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
         bufferevent_setcb(bev, mamsock_readcb, NULL, mamsock_errorcb, (void *) ctx);
         bufferevent_setwatermark(bev, EV_READ, MIN_BUF, MAX_BUF);
         bufferevent_enable(bev, EV_READ|EV_WRITE);
-		printf("do_accept done\n");
     }
 }
 
