@@ -304,7 +304,7 @@ void _muacc_print_socket_option_list(const struct socketopt *opts)
 
 	strbuf_init(&sb);
 	_muacc_print_socket_options(&sb, opts);
-	printf("%s\n", strbuf_export(&sb));
+	dprintf(muacc_debug_fd, "%s\n", strbuf_export(&sb));
 	strbuf_release(&sb);
 }
 
@@ -348,7 +348,7 @@ void _muacc_print_socket_addr(const struct sockaddr *addr, size_t addr_len)
     strbuf_t sb;
     strbuf_init(&sb);
     _muacc_print_sockaddr(&sb, addr, addr_len);
-    printf("%s", strbuf_export(&sb));
+    dprintf(muacc_debug_fd, "%s", strbuf_export(&sb));
     strbuf_release(&sb);
 }
 

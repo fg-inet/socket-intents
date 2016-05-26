@@ -86,17 +86,17 @@ void muacc_print_context(struct muacc_context *ctx)
 
 	if (ctx == NULL)
 	{
-		printf("ctx = NULL\n");
+		dprintf(muacc_debug_fd, "ctx = NULL\n");
 	}
 	else if (ctx->ctx == NULL)
 	{
-		printf("ctx->ctx = NULL\n");
+		dprintf(muacc_debug_fd, "ctx->ctx = NULL\n");
 	}
 	else
 	{
 		strbuf_init(&sb);
 		_muacc_print_ctx(&sb, ctx->ctx);
-		printf("/**************************************/\n%s\n/**************************************/\n", strbuf_export(&sb));
+		dprintf(muacc_debug_fd, "/**************************************/\n%s\n/**************************************/\n", strbuf_export(&sb));
 		strbuf_release(&sb);
 	}
 }
@@ -421,15 +421,15 @@ void muacc_print_socketsetlist(struct socketset *list_of_sets)
 {
 	pthread_rwlock_rdlock(&socketsetlist_lock);
 	DLOG(CLIB_IF_LOCKS, "LOCK: Printing socketsetlist - Getting global lock\n");
-	printf("\n\t\tList of Socketsets:\n{ ");
+	dprintf(muacc_debug_fd, "\n\t\tList of Socketsets:\n{ ");
 	while (list_of_sets != NULL)
 	{
 		muacc_print_socketset(list_of_sets);
-		printf("} <next socket set...>\n");
+		dprintf(muacc_debug_fd, "} <next socket set...>\n");
 
 		list_of_sets = list_of_sets->next;
 	}
-	printf("}\n\n");
+	dprintf(muacc_debug_fd, "}\n\n");
 	pthread_rwlock_unlock(&socketsetlist_lock);
 	DLOG(CLIB_IF_LOCKS, "LOCK: Printed socketsetlist - Released global lock\n");
 }
@@ -438,26 +438,26 @@ void muacc_print_socketset(struct socketset *set)
 {
 	DLOG(CLIB_IF_LOCKS, "LOCK: Printing socket set - Locking %p\n", (void *) set);
 	pthread_rwlock_rdlock(&(set->lock));
-	printf("{ ");
-	printf("host = %s\n", (set->host == NULL ? "(null)" : set->host));
-	printf("serv = %s\n", (set->serv == NULL ? "(null)" : set->serv));
-	printf("type = %d\n", set->type);
-	printf("use_count = %d\n", set->use_count);
+	dprintf(muacc_debug_fd, "{ ");
+	dprintf(muacc_debug_fd, "host = %s\n", (set->host == NULL ? "(null)" : set->host));
+	dprintf(muacc_debug_fd, "serv = %s\n", (set->serv == NULL ? "(null)" : set->serv));
+	dprintf(muacc_debug_fd, "type = %d\n", set->type);
+	dprintf(muacc_debug_fd, "use_count = %d\n", set->use_count);
 	struct socketlist *list = set->sockets;
 	while (list != NULL)
 	{
 		strbuf_t sb;
 		strbuf_init(&sb);
 
-		printf("{ file = %d\n", list->file);
-		printf("flags = %d\n", list->flags);
-		printf("ctx = ");
+		dprintf(muacc_debug_fd, "{ file = %d\n", list->file);
+		dprintf(muacc_debug_fd, "flags = %d\n", list->flags);
+		dprintf(muacc_debug_fd, "ctx = ");
 		_muacc_print_ctx(&sb, list->ctx);
-		printf("%s", strbuf_export(&sb));
+		dprintf(muacc_debug_fd, "%s", strbuf_export(&sb));
 		strbuf_release(&sb);
 
 		list = list->next;
-		printf("} ");
+		dprintf(muacc_debug_fd, "} ");
 	}
 	pthread_rwlock_unlock(&(set->lock));
 	DLOG(CLIB_IF_LOCKS, "LOCK: Finished printing - Unlocked %p\n", (void *) set);
