@@ -15,6 +15,7 @@
 #include <string.h>
 #include <errno.h>
 #include <assert.h>
+#include <sys/stat.h>
 
 #include <event2/event.h>
 #include <event2/buffer.h>
@@ -29,6 +30,8 @@
 #include "clib/muacc.h"
 #include "clib/muacc_client.h"
 #include "config.h"
+
+#include "mptcp_netlink_parser.h"
 
 /** Context of an incoming request to the MAM */
 typedef struct request_context {
@@ -90,13 +93,14 @@ typedef struct iface_list {
 
 /** Context of the MAM */
 typedef struct mam_context {
-	int						usage;			/**< Reference counter */
-	GSList					*prefixes;		/**< Possible source prefixes on this system */
-	lt_dlhandle				policy;			/**< Handle of policy module */
+	int						usage;				/**< Reference counter */
+	GSList					*prefixes;			/**< Possible source prefixes on this system */
+	lt_dlhandle				policy;				/**< Handle of policy module */
 	struct event_base 		*ev_base;			/**< Libevent Event Base */
-	struct evdns_base 		*evdns_default_base; /**< DNS base to do look ups if all other fails */
-	GHashTable 				*policy_set_dict; /**< dictionary for policy configuration */
-	GSList					*clients;  /**< list of all applications that are connected to the MAM */
+	struct evdns_base 		*evdns_default_base;/**< DNS base to do look ups if all other fails */
+	GHashTable 				*policy_set_dict; 	/**< dictionary for policy configuration */
+	GSList					*clients; 	 		/**< list of all applications that are connected to the MAM */
+	GHashTable				*state; 			/** global mam state */
 } mam_context_t;
 
 /** List of clients connected to the MAM */
@@ -104,12 +108,14 @@ typedef struct _client_list {
 	int						client_sk;
 	uuid_t					id;
 	GSList					*sockets;
+	uint64_t				inode;
+	GHashTable				*flow_table;
 	void (*callback_function)(GSList*);
 } client_list_t;
 
 /** List of sockets opened by a client application */
 typedef struct _socket_list {
-	int sk;
+	int 					sk;
 } socket_list_t;
 
 /** Model that describes a prefix, used for lookup in the list */

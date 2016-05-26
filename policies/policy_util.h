@@ -10,6 +10,8 @@
 #include "lib/muacc_ctx.h"
 #include "policy.h"
 
+#define test_if_in6_is_equal(a, b) (memcmp(&(a), &(b), sizeof(struct in6_addr)) == 0)
+
 /** Look up a socket option in a list of socketopts, copy its value into optval
  *  If optval is NULL, only look up if the option exists, but do not copy its value
  *
@@ -35,6 +37,7 @@ void make_v4v6_enabled_lists (GSList *baselist, GSList **v4list, GSList **v6list
  *  to the first address of the chosen prefix
  */
 void set_bind_sa(request_context_t *rctx, struct src_prefix_list *chosen, strbuf_t *sb);
+void _set_bind_sa(request_context_t *rctx, struct sockaddr *addr, strbuf_t *sb);
 
 /** Helper that prints the addresses returned by getaddrinfo */
 void print_addrinfo_response (struct addrinfo *res);
