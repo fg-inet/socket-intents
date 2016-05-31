@@ -649,7 +649,7 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 	DLOG(CLIB_IF_NOISY_DEBUG2, "Setting suggested socket options\n");
 	if (CLIB_IF_NOISY_DEBUG2)
 	{
-		printf("Socket options:\n");
+		dprintf(muacc_debug_fd, "Socket options:\n");
 		_muacc_print_socket_option_list(ctx->ctx->sockopts_suggested);
 	}
 
@@ -680,7 +680,7 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 		DLOG(CLIB_IF_NOISY_DEBUG2, "Attempting to bind socket %d\n", *s);
 		if (CLIB_IF_NOISY_DEBUG2)
 		{
-			printf("Local address:\n");
+			dprintf(muacc_debug_fd, "Local address:\n");
 			_muacc_print_socket_addr(ctx->ctx->bind_sa_suggested, ctx->ctx->bind_sa_suggested_len);
 			printf("\n");
 		}
