@@ -24,7 +24,7 @@
 #endif
 
 #ifndef MAM_NETLINK_NOISY_DEBUG2
-#define MAM_NETLINK_NOISY_DEBUG2 1
+#define MAM_NETLINK_NOISY_DEBUG2 0
 #endif
 
 extern struct mam_context *global_mctx;

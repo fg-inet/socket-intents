@@ -20,7 +20,7 @@
 #endif
 
 #ifndef NETLINK_PARSER_NOISY_DEBUG2
-#define NETLINK_PARSER_NOISY_DEBUG2 1
+#define NETLINK_PARSER_NOISY_DEBUG2 0
 #endif
 
 
@@ -37,7 +37,10 @@ void parse_message(struct nlmsghdr *nlh, int type, struct nlattr **attrs, struct
 {
 	if (genlmsg_hdr(nlh)->cmd == type)
 	{
+#if (NETLINK_PARSER_NOISY_DEBUG2 == 1)
 		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "New Message. Type: %s\n", commands[type]);
+#endif
+        
 	}
 	else
 	{
