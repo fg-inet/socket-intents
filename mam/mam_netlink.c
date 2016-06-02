@@ -173,7 +173,7 @@ int create_new_flow(struct mptcp_flow_info *flow)
 	{	
 		if (nla_put(msg_out, MAM_MPTCP_A_IPV6_LOC, sizeof(struct in6_addr), &((struct sockaddr_in6*)&flow->loc_addr)->sin6_addr) < 0)
 			perror("Could not add IPV6_LOC to new flow response message\n");
-		printf("is v6 - loc\n");
+		DLOG(MAM_NETLINK_NOISY_DEBUG2, "is v6 - loc\n");
 	}
 	else
 	{
@@ -192,7 +192,7 @@ int create_new_flow(struct mptcp_flow_info *flow)
 		if (nla_put(msg_out, MAM_MPTCP_A_IPV6_REM, sizeof(struct in6_addr), &((struct sockaddr_in6*)&flow->rem_addr)->sin6_addr) < 0)
 			perror("Could not add IPV6_REM to new flow response message\n");
 
-		printf("is v6 - rem\n");
+		DLOG(MAM_NETLINK_NOISY_DEBUG2, "is v6 - rem\n");
 	}
 	else
 	{
@@ -222,7 +222,7 @@ int create_new_flow(struct mptcp_flow_info *flow)
 	if((err = nl_send_auto(netlink_sk, msg_out)) < 0)
 		perror("Could not send netlink message\n");
 	else
-		printf("sent message out\n");
+		DLOG(MAM_NETLINK_NOISY_DEBUG2, "sent message out\n");
 
 error_case:
 	nlmsg_free(msg_out);
