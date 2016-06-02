@@ -51,7 +51,7 @@ void parse_message(struct nlmsghdr *nlh, int type, struct nlattr **attrs, struct
 	if(genlmsg_parse(nlh, 0, attrs, MAM_MPTCP_A_MAX, mam_mptcp_genl_policy) < 0)
 		perror("Could not parse netlink message attributes!\n");
 	else
-		printf("Parsed message attributes\n");
+		DLOG(NETLINK_PARSER_NOISY_DEBUG2, "Parsed message attributes\n");
 }
 
 int new_iface(struct nlmsghdr *nhl, struct in_addr* addr_v4, struct in6_addr* addr_v6)
@@ -87,7 +87,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 	
 	parse_message(nhl, MAM_MPTCP_C_NEWFLOW, attrs, NULL);
 	
-	printf("parsed message!\n");
+	DLOG(NETLINK_PARSER_NOISY_DEBUG2, "parsed message!\n");
 
 	if (flow)
 	{
@@ -100,7 +100,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			}
 			else
 			{
-				printf("no loc6\n");
+				perror("error while parsing new_flow-message: no loc6\n");
 				return -1;
 			}
 
@@ -111,7 +111,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			}
 			else
 			{
-				printf("no rem6\n");
+				perror("error while parsing new_flow-message: no rem6\n");
 				return -1;
 			}
 		}
@@ -124,7 +124,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			}
 			else
 			{
-				printf("no loc\n");
+				perror("error while parsing new_flow-message: no loc\n");
 				return -1;
 			}
 
@@ -135,7 +135,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			}
 			else
 			{
-				printf("no rem\n");
+				perror("error while parsing new_flow-message: no rem\n");
 				return -1;
 			}
 		}
@@ -144,7 +144,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			flow->loc_id = nla_get_u32(attrs[MAM_MPTCP_A_LOC_ID]);
 		else
 		{
-			printf("no loc id\n");
+			perror("error while parsing new_flow-message: no loc id\n");
 			return -1;
 		}
 		
@@ -152,7 +152,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			flow->loc_low_prio = nla_get_u32(attrs[MAM_MPTCP_A_LOC_PRIO]);
 		else
 		{
-			printf("no loc prio \n");
+			perror("error while parsing new_flow-message: no loc prio \n");
 			return -1;
 		}
 			
@@ -160,7 +160,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			flow->rem_id = nla_get_u8(attrs[MAM_MPTCP_A_REM_ID]);
 		else
 		{
-			printf("no rem id\n");
+			perror("error while parsing new_flow-message: no rem id\n");
 			return -1;
 		}
 			
@@ -168,7 +168,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			flow->rem_bitfield = nla_get_u8(attrs[MAM_MPTCP_A_REM_BIT]);
 		else
 		{
-			printf("no rem bit\n");
+			perror("error while parsing new_flow-message: no rem bit\n");
 			return -1;
 		}
 			
@@ -177,7 +177,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			flow->rem_port = nla_get_u16(attrs[MAM_MPTCP_A_REM_PORT]);
 		else
 		{
-			printf("no rem port\n");
+			perror("error while parsing new_flow-message: no rem port\n");
 			return -1;
 		}
 			
@@ -185,7 +185,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			flow->inode = nla_get_u64(attrs[MAM_MPTCP_A_INODE]);
 		else
 		{
-			printf("no inode\n");
+			perror("error while parsing new_flow-message: no inode\n");
 			return -1;
 		}
 		
@@ -193,7 +193,7 @@ int new_flow(struct nlmsghdr *nhl, struct mptcp_flow_info *flow)
 			flow->token = nla_get_u32(attrs[MAM_MPTCP_A_TOKEN]);
 		else
 		{
-			printf("no token \n");
+			perror("error while parsing new_flow-message: no token \n");
 			return -1;
 		}
 	}
