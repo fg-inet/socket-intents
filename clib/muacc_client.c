@@ -706,7 +706,7 @@ int _muacc_socketconnect_create(muacc_context_t *ctx, int *s)
 		DLOG(CLIB_IF_NOISY_DEBUG2, "Attempting to connect socket %d\n", *s);
 		if (CLIB_IF_NOISY_DEBUG2)
 		{
-			printf("Remote address:\n");
+			dprintf(muacc_debug_fd, "Remote address:\n");
 			_muacc_print_socket_addr(ctx->ctx->remote_sa, ctx->ctx->remote_sa_len);
 			printf("\n");
 		}
