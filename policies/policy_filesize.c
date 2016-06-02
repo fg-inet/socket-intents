@@ -81,8 +81,9 @@ static void set_sa_for_filesize(request_context_t *rctx, int filesize, strbuf_t 
 			set_bind_sa(rctx, spl, &sb);
 			strbuf_printf(&sb, " for filesize %d", filesize);
 			/* copy evdns base of spl */
-			if(spl->evdns_base != NULL)
-				rctx->evdns_base = spl->evdns_base;
+			rctx->evdns_base = ( spl->evdns_base != NULL ?
+				spl->evdns_base :
+			       	rctx->mctx->evdns_default_base );
 				
 			break;
 		}
@@ -90,7 +91,9 @@ static void set_sa_for_filesize(request_context_t *rctx, int filesize, strbuf_t 
 		{
 			/* This prefix is default. Store it for eventual fallback. */
 			defaultaddr = spl;
-			defaultevdns_base = spl->evdns_base;
+			defaultevdns_base = ( spl->evdns_base != NULL ?
+				spl->evdns_base :
+			       	rctx->mctx->evdns_default_base );
 		}
 		elem = elem->next;
 	}
@@ -190,13 +193,14 @@ int on_resolve_request(request_context_t *rctx, struct event_base *base)
 	}
 
 	/* Try to resolve this request using asynchronous lookup */
-    req = evdns_getaddrinfo(
-    		rctx->evdns_base!=NULL?rctx->evdns_base:rctx->mctx->evdns_default_base, 
-			rctx->ctx->remote_hostname,
-			rctx->ctx->remote_service,
-            rctx->ctx->remote_addrinfo_hint,
-			&resolve_request_result,
-			rctx);
+	assert(rctx->evdns_base!=NULL);
+	req = evdns_getaddrinfo(
+		rctx->evdns_base,
+		rctx->ctx->remote_hostname,
+		rctx->ctx->remote_service,
+		rctx->ctx->remote_addrinfo_hint,
+		&resolve_request_result,
+		rctx);
 	strbuf_printf(&sb, " - Sending request to default nameserver\n");
     if (req == NULL) {
 		/* returned immediately  */
@@ -321,14 +325,16 @@ int _on_socketconnect_or_choose_new(request_context_t *rctx, struct event_base *
 	}
 	
 	/* Try to resolve this request using asynchronous lookup */
-    req = evdns_getaddrinfo(
-    		rctx->evdns_base!=NULL?rctx->evdns_base:rctx->mctx->evdns_default_base, 
-			rctx->ctx->remote_hostname,
-			rctx->ctx->remote_service,
-            rctx->ctx->remote_addrinfo_hint,
-			&resolve_request_result_connect,
-			rctx);
-    if (req == NULL) {
+	assert(rctx->evdns_base!=NULL);
+
+    	req = evdns_getaddrinfo(
+		rctx->evdns_base,
+		rctx->ctx->remote_hostname,
+		rctx->ctx->remote_service,
+		rctx->ctx->remote_addrinfo_hint,
+		&resolve_request_result_connect,
+		rctx);
+	if (req == NULL) {
 		/* returned immediately */
 		strbuf_printf(&sb, "\tRequest failed.\n");
 	}
