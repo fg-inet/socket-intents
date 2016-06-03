@@ -155,9 +155,10 @@ void cleanup(void *argtable, struct socketopt *options)
 int main(int argc, char *argv[])
 {
     /* Set up command line arguments table */
-    struct arg_int *arg_protocol, *arg_filesize;
+    struct arg_int *arg_protocol, *arg_filesize, *arg_ipversion;
     arg_protocol = arg_int0(NULL, "protocol", "<n>", "Explicitly set \"protocol\" for socket creation");
     arg_filesize = arg_int0("F", "filesize", "<n>", "Set INTENT Filesize to this value");
+    arg_ipversion = arg_int0(NULL, "ipversion", "4|6", "Set IP version (default: unspecified)");
 
     struct arg_str *arg_url, *arg_hostname, *arg_service, *arg_transport, *arg_category;
     arg_url = arg_str0("u", "url", "<url>", "Remote URL to connect to");
@@ -179,7 +180,7 @@ int main(int argc, char *argv[])
 
     struct arg_end *end = arg_end(10);
 
-    void *argtable[] = {arg_verbose, arg_quiet, arg_times, arg_threads, arg_clearsocket, arg_url, arg_hostname, arg_service, arg_protocol, arg_transport, arg_filesize, arg_category, end};
+    void *argtable[] = {arg_verbose, arg_quiet, arg_times, arg_threads, arg_clearsocket, arg_url, arg_hostname, arg_service, arg_protocol, arg_ipversion, arg_transport, arg_filesize, arg_category, end};
 
     /* Check arguments table for errors */
     if (arg_nullcheck(argtable) != 0)
@@ -193,6 +194,7 @@ int main(int argc, char *argv[])
 		arg_times->ival[0] = 4;
     arg_threads->ival[0] = 4;
     arg_protocol->ival[0] = 0;
+    arg_ipversion->ival[0] = 0;
 		
 	*arg_hostname->sval = NULL;
 	*arg_service->sval = NULL;
@@ -230,6 +232,11 @@ int main(int argc, char *argv[])
 
     int family = AF_UNSPEC;
     int socktype = SOCK_STREAM;
+
+    if (*arg_ipversion->ival == 6)
+        family = AF_INET6;
+    else if (*arg_ipversion->ival == 4)
+        family = AF_INET;
 
     if (strncmp(*arg_transport->sval, "UDP", 4) == 0)
         socktype = SOCK_DGRAM;
