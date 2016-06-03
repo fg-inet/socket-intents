@@ -77,6 +77,7 @@ void set_bind_sa(request_context_t *rctx, struct src_prefix_list *chosen, strbuf
 	
 	rctx->ctx->bind_sa_suggested = _muacc_clone_sockaddr(chosen->if_addrs->addr, chosen->if_addrs->addr_len);
 	rctx->ctx->bind_sa_suggested_len = chosen->if_addrs->addr_len;
+	rctx->ctx->domain = chosen->family;
 }
 
 void _set_bind_sa(request_context_t *rctx, struct sockaddr *addr, strbuf_t *sb)
