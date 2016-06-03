@@ -4,11 +4,14 @@
  *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  *
- *  Policy_info: Whether interface has been specified as default in the config file
+ *  Policy_info: Data structure for each prefix
+ *               In this policy: Has this prefix been specified as default in the config file?
  *               (e.g. set default = 1 in the prefix statement)
  *  Behavior:
- *  Getaddrinfo - Resolve names using the default dns_base from the MAM context
- *  Connect     - Choose the default interface if available
+ *  Resolve Request - Resolve names using the default dns_base from the MAM context
+ *  Connect         - Choose the default prefix if available
+ *  Socketconnect   - Choose the default prefix if available, resolve name on its dns_base if available
+ *  Socketchoose    - From list of available sockets, choose first one, else do same as socketconnect
  */
 
 #include "policy.h"
@@ -23,8 +26,11 @@ struct sample_info {
 GSList *in4_enabled = NULL;
 GSList *in6_enabled = NULL;
 
+struct src_prefix_list *get_default_prefix(request_context_t *rctx, strbuf_t *sb);
+int resolve_name(request_context_t *rctx);
+
 /** Helper to set the policy information for each prefix
- *  Here, check if this prefix has been configured as default
+ *  Here, set is_default if prefix has been set as default in the config file
  */
 void set_policy_info(gpointer elem, gpointer data)
 {
@@ -33,6 +39,7 @@ void set_policy_info(gpointer elem, gpointer data)
 	struct sample_info *new = malloc(sizeof(struct sample_info));
 	new->is_default = 0;
 
+	// Query the config dictionary for this prefix
 	if (spl->policy_set_dict != NULL)
 	{
 		gpointer value = NULL;
@@ -42,7 +49,7 @@ void set_policy_info(gpointer elem, gpointer data)
 	spl->policy_info = new;
 }
 
-/** Helper to print additional information given to the policy
+/** Helper to print policy info
  */
 void print_policy_info(void *policy_info)
 {
@@ -51,6 +58,7 @@ void print_policy_info(void *policy_info)
 		printf(" (default)");
 }
 
+/** Helper to free policy info at cleanup time */
 void freepolicyinfo(gpointer elem, gpointer data)
 {
 	struct src_prefix_list *spl = elem;
@@ -61,33 +69,42 @@ void freepolicyinfo(gpointer elem, gpointer data)
 	spl->policy_info = NULL;
 }
 
-/** Helper to set the source address to the default interface,
- *  if any exists for the requested address family
+/** Helper function
+ *  Returns the default prefix, if any exists, otherwise NULL
  */
-static void set_sa_if_default(request_context_t *rctx, strbuf_t sb)
+struct src_prefix_list *get_default_prefix(request_context_t *rctx, strbuf_t *sb)
 {
 	GSList *spl = NULL;
 	struct src_prefix_list *cur = NULL;
 	struct sample_info *info = NULL;
 
+	// If address family is specified, only look in its list, else look in both (v4 first)
 	if (rctx->ctx->domain == AF_INET)
 		spl = in4_enabled;
 	else if (rctx->ctx->domain == AF_INET6)
 		spl = in6_enabled;
+	else
+		spl = g_slist_concat(in4_enabled, in6_enabled);
 
+	// Go through list of src prefixes
 	while (spl != NULL)
 	{
+		// Look at per-prefix policy information
 		cur = spl->data;
 		info = (struct sample_info *)cur->policy_info;
 		if (info != NULL && info->is_default)
 		{
-			/* This prefix is configured as default. Set source address */
-			set_bind_sa(rctx, cur, &sb);
-			strbuf_printf(&sb, " (default)");
-			break;
+			/* This prefix is configured as default. Return it */
+			strbuf_printf(sb, "\tFound default prefix ");
+	        _muacc_print_sockaddr(sb, cur->if_addrs->addr, cur->if_addrs->addr_len);
+			strbuf_printf(sb, "\n");
+			return cur;
 		}
 		spl = spl->next;
 	}
+	strbuf_printf(sb, "\tDid not find a default prefix %s%s\n", (rctx->ctx->domain == AF_INET) ? "for IPv4" : "", (rctx->ctx->domain == AF_INET6) ? "for IPv6" : "");
+
+	return NULL;
 }
 
 /** Initializer function (mandatory)
@@ -120,33 +137,116 @@ int cleanup(mam_context_t *mctx)
 	return 0;
 }
 
-/** Asynchronous callback function for resolve request
+/** Asynchronous callback function for resolve_name
  *  Invoked once a response to the resolver query has been received
  *  Sends back a reply to the client with the received answer
  */
 static void resolve_request_result(int errcode, struct evutil_addrinfo *addr, void *ptr)
 {
-	
 	request_context_t *rctx = ptr;
 
+	strbuf_t sb;
+	strbuf_init(&sb);
+
 	if (errcode) {
-	    printf("\n\tError resolving: %s -> %s\n", rctx->ctx->remote_hostname, evutil_gai_strerror(errcode));
+	    strbuf_printf(&sb, "\tError resolving: %s -> %s\n", rctx->ctx->remote_hostname, evutil_gai_strerror(errcode));
+		rctx->action = muacc_error_resolve;
 	}
 	else
 	{
-		printf("\n\tGot resolver response for %s: %s\n",
+		// Successfully resolved name
+		strbuf_printf(&sb, "\tGot resolver response for %s %s\n",
 			rctx->ctx->remote_hostname,
 			addr->ai_canonname ? addr->ai_canonname : "");
 		
+		strbuf_printf(&sb, "\t");
+		_muacc_print_addrinfo(&sb, addr);
+		strbuf_printf(&sb, "\n");
+
+		// Clone result into the request context
 		assert(addr != NULL);  
 		assert(rctx->ctx->remote_addrinfo_res == NULL);
 		rctx->ctx->remote_addrinfo_res = _muacc_clone_addrinfo(addr);
+
+		// Choose first result as the remote address
+		rctx->ctx->domain = addr->ai_family;
+		rctx->ctx->type = addr->ai_socktype;
+		rctx->ctx->protocol = addr->ai_protocol;
+		rctx->ctx->remote_sa_len = addr->ai_addrlen;
+		rctx->ctx->remote_sa = _muacc_clone_sockaddr(addr->ai_addr, addr->ai_addrlen);
+
+		// Print remote address
+		strbuf_printf(&sb, "\n\tSet remote address =");
+		_muacc_print_sockaddr(&sb, rctx->ctx->remote_sa, rctx->ctx->remote_sa_len);
+		strbuf_printf(&sb, "\n");
+
 		evutil_freeaddrinfo(addr);
-		print_addrinfo_response (rctx->ctx->remote_addrinfo_res);
 	}
 
-	// send reply
-	_muacc_send_ctx_event(rctx, muacc_act_getaddrinfo_resolve_resp);
+	// send reply to client
+	strbuf_printf(&sb, "\n\tSending reply");
+	_muacc_send_ctx_event(rctx, rctx->action);
+
+    printf("%s\n\n", strbuf_export(&sb));
+    strbuf_release(&sb);
+}
+
+/* Helper function that issues a DNS request
+   and registers the callback resolve_request_result */
+int resolve_name(request_context_t *rctx)
+{
+	strbuf_t sb;
+	strbuf_init(&sb);
+
+    struct evdns_getaddrinfo_request *req;
+
+	struct evdns_base *evdns_base = rctx->evdns_base;
+
+	// If no dns base is given for the chosen source prefix, use default dns base
+	if (evdns_base == NULL) {
+		evdns_base = rctx->mctx->evdns_default_base;
+	}
+
+	// Set hints to resolve name for our chosen address family
+	if (rctx->ctx->remote_addrinfo_hint != NULL) {
+		rctx->ctx->remote_addrinfo_hint->ai_family = rctx->ctx->domain;
+	}
+	else
+	{
+		// Initialize hints for address resolution
+		rctx->ctx->remote_addrinfo_hint = malloc(sizeof(struct addrinfo));
+		memset(rctx->ctx->remote_addrinfo_hint, 0, sizeof(struct addrinfo));
+		rctx->ctx->remote_addrinfo_hint->ai_family = rctx->ctx->domain;
+		rctx->ctx->remote_addrinfo_hint->ai_socktype = rctx->ctx->type;
+		rctx->ctx->remote_addrinfo_hint->ai_protocol = rctx->ctx->protocol;
+	}
+
+	strbuf_printf(&sb, "\tResolving: %s:%s with hint: ", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+	_muacc_print_addrinfo(&sb, rctx->ctx->remote_addrinfo_hint);
+	strbuf_printf(&sb, "\n");
+
+	/* Try to resolve this request using asynchronous lookup */
+	assert(evdns_base != NULL);
+    req = evdns_getaddrinfo(
+    		evdns_base,
+			rctx->ctx->remote_hostname,
+			rctx->ctx->remote_service,
+            rctx->ctx->remote_addrinfo_hint,
+			&resolve_request_result,
+			rctx);
+
+    printf("%s\n", strbuf_export(&sb));
+    strbuf_release(&sb);
+
+	/* If function returned immediately, request failed */
+    if (req == NULL) {
+		printf("\tRequest failed. Sending reply.\n");
+		_muacc_send_ctx_event(rctx, muacc_error_resolve);
+		return -1;
+	}
+	else {
+		return 0;
+	}
 }
 
 /** Resolve request function (mandatory)
@@ -155,24 +255,11 @@ static void resolve_request_result(int errcode, struct evutil_addrinfo *addr, vo
  */
 int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
-    struct evdns_getaddrinfo_request *req;
-	
-	printf("\tResolve request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+	printf("\n\tResolve request: %s:%s\n\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 
-	/* Try to resolve this request using asynchronous lookup */
-    req = evdns_getaddrinfo(
-    		rctx->mctx->evdns_default_base, 
-			rctx->ctx->remote_hostname,
-			rctx->ctx->remote_service,
-            rctx->ctx->remote_addrinfo_hint,
-			&resolve_request_result,
-			rctx);
-	printf(" - Sending request to default nameserver\n");
-    if (req == NULL) {
-		/* returned immediately  */
-		printf("\tRequest failed.\n");
-	}
-	return 0;
+	rctx->action = muacc_act_getaddrinfo_resolve_resp;
+
+	return resolve_name(rctx);
 }
 
 /** Connect request function (mandatory)
@@ -186,141 +273,91 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	strbuf_printf(&sb, "\tConnect request: dest=");
 	_muacc_print_sockaddr(&sb, rctx->ctx->remote_sa, rctx->ctx->remote_sa_len);
 
+	// Check if client has already chosen a source address to bind to
 	if(rctx->ctx->bind_sa_req != NULL)
 	{	// already bound
 		strbuf_printf(&sb, "\tAlready bound to src=");
 		_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
+		rctx->ctx->domain = rctx->ctx->bind_sa_req->sa_family;
 	}
 	else
 	{
-		// search address to bind to
-		set_sa_if_default(rctx, sb);
+		// search default address, and set it as bind_sa in the request context if found
+		struct src_prefix_list *bind_pfx = get_default_prefix(rctx, &sb);
+		if (bind_pfx != NULL) {
+			set_bind_sa(rctx, bind_pfx, &sb);
+		}
 	}
 
 	// send response back
-
+	strbuf_printf(&sb, "\n\tSending reply");
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
+
     printf("%s\n\n", strbuf_export(&sb));
     strbuf_release(&sb);
 
 	return 0;
-}
-
-/** Asynchronous callback function for socketconnect request after resolve
- *  Invoked once a response to the resolver query has been received
- *  Sends back a reply to the client with the received answer
- */
-static void resolve_request_result_connect(int errcode, struct evutil_addrinfo *addr, void *ptr)
-{	
-	strbuf_t sb;
-	strbuf_init(&sb);
-
-	request_context_t *rctx = ptr;
-	muacc_mam_action_t action = muacc_act_socketconnect_resp;
-	if (rctx->action == muacc_act_socketchoose_req)
-	{
-		action = muacc_act_socketchoose_resp_new;
-	}
-
-	if (errcode) {
-	    printf("\n\tError resolving: %s:%s -> %s\n", rctx->ctx->remote_hostname, rctx->ctx->remote_service, evutil_gai_strerror(errcode));
-		action = muacc_error_resolve;
-	}
-	else
-	{
-		printf("\n\tGot resolver response for %s: %s\n",
-			rctx->ctx->remote_hostname,
-			addr->ai_canonname ? addr->ai_canonname : "");
-	 
-		assert(addr != NULL);   
-		assert(rctx->ctx->remote_addrinfo_res == NULL);
-		rctx->ctx->remote_addrinfo_res = _muacc_clone_addrinfo(addr);
-		print_addrinfo_response (rctx->ctx->remote_addrinfo_res);
-
-		// Choose first result as the remote address
-		rctx->ctx->domain = addr->ai_family;
-		rctx->ctx->type = addr->ai_socktype;
-		rctx->ctx->protocol = addr->ai_protocol;
-		rctx->ctx->remote_sa_len = addr->ai_addrlen;
-		rctx->ctx->remote_sa = _muacc_clone_sockaddr(addr->ai_addr, addr->ai_addrlen);
-
-		// free libevent addrinfo
-		evutil_freeaddrinfo(addr);
-
-		// Find local address for destination
-		strbuf_printf(&sb, "\tDestination address =");
-		_muacc_print_sockaddr(&sb, rctx->ctx->remote_sa, rctx->ctx->remote_sa_len);
-		strbuf_printf(&sb, "\n");
-
-		if(rctx->ctx->bind_sa_req != NULL)
-		{	// already bound
-			strbuf_printf(&sb, "\tAlready bound to src=");
-			_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
-			strbuf_printf(&sb, "\n");
-		}
-		else
-		{
-			set_sa_if_default(rctx, sb);
-
-			// search address to bind to
-			if(rctx->ctx->bind_sa_suggested != NULL)
-			{
-				strbuf_printf(&sb, "\tSuggested address: ");
-				_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_suggested, rctx->ctx->bind_sa_suggested_len);
-				strbuf_printf(&sb, "\n");
-			}	 
-			else
-				strbuf_printf(&sb, "\tNo default address available!\n");
-		}
-	}
-
-	strbuf_printf(&sb, "\tSending reply\n");
-	_muacc_send_ctx_event(rctx, action);
-
-    printf("%s\n\n", strbuf_export(&sb));
-    strbuf_release(&sb);
 }
 
 /** Socketconnect request function
  *  Is called upon each socketconnect request from a client
- *  Performs name resolution and then chooses a local address
+ *  Chooses a source prefix/address and then resolves the name
  *  Must send a reply back using _muacc_sent_ctx_event or register a callback that does so
  */
 int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 {
-    struct evdns_getaddrinfo_request *req;
-	
-	printf("\tSocketconnect request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
-	printf(" - Sending request to default nameserver\n");
+	strbuf_t sb;
+	strbuf_init(&sb);
 
-	/* Try to resolve this request using asynchronous lookup */
-    req = evdns_getaddrinfo(
-    		rctx->mctx->evdns_default_base, 
-			rctx->ctx->remote_hostname,
-			rctx->ctx->remote_service,
-            rctx->ctx->remote_addrinfo_hint,
-			&resolve_request_result_connect,
-			rctx);
-    if (req == NULL) {
-		/* returned immediately */
-		printf("\tRequest failed.\n");
+	printf("\n\tSocketconnect request: %s:%s\n\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+
+	// Check if client has already chosen a source address to bind to
+	if(rctx->ctx->bind_sa_req != NULL)
+	{	// already bound
+		strbuf_printf(&sb, "\tAlready bound to src=");
+		_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
+		rctx->ctx->domain = rctx->ctx->bind_sa_req->sa_family;
 	}
-	return 0;
+	else
+	{
+		// search default address, and set it as bind_sa in the request context if found
+		struct src_prefix_list *bind_pfx = get_default_prefix(rctx, &sb);
+		if (bind_pfx != NULL) {
+			set_bind_sa(rctx, bind_pfx, &sb);
+
+			// Set this prefix' evdns base for name resolution
+			rctx->evdns_base = bind_pfx->evdns_base;
+		}
+		else
+		{
+			rctx->evdns_base = NULL;
+		}
+	}
+
+    printf("%s\n\n", strbuf_export(&sb));
+	strbuf_release(&sb);
+
+	rctx->action = muacc_act_socketconnect_resp;
+
+	return resolve_name(rctx);
 }
 
 /** Socketchoose request function
  *  Is called upon each socketchoose request from a client
- *  Chooses from a set of existing sockets
+ *  Chooses from a set of existing sockets, or if none exists, does the same as socketconnect
  *  Must send a reply back using _muacc_sent_ctx_event or register a callback that does so
  */
 int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 {
-    struct evdns_getaddrinfo_request *req;
-	
-	printf("\tSocketchoose request: %s:%s", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+	strbuf_t sb;
+	strbuf_init(&sb);
 
+	printf("\n\tSocketchoose request: %s:%s\n\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+
+	// Check if a set of existing sockets was supplied in the request
 	if (rctx->sockets != NULL)
 	{
+		// First socket of set will be chosen
 		printf("\tSuggest using socket %d\n", rctx->sockets->file);
 
 		/* Provide the information to open a new similar socket, in case the suggested socket cannot be used */
@@ -329,26 +366,44 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 		rctx->ctx = _muacc_clone_ctx(rctx->sockets->ctx);
 		__uuid_copy(rctx->ctx->ctxid, context_id);
 
+		strbuf_printf(&sb, "\n\tSending reply");
 		_muacc_send_ctx_event(rctx, muacc_act_socketchoose_resp_existing);
+
+		printf("%s\n\n", strbuf_export(&sb));
+		strbuf_release(&sb);
+
+		return 0;
 	}
 	else
 	{
-		printf("\tSocketchoose with empty set - trying to create new socket, resolving %s\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname));
+		printf("\tSocketchoose with empty set - trying to create new socket\n");
 
-		/* Try to resolve this request using asynchronous lookup */
-		req = evdns_getaddrinfo(
-    		rctx->mctx->evdns_default_base, 
-			rctx->ctx->remote_hostname,
-			rctx->ctx->remote_service,
-            rctx->ctx->remote_addrinfo_hint,
-			&resolve_request_result_connect,
-			rctx);
-		printf(" - Sending request to default nameserver\n");
-		if (req == NULL) {
-			/* returned immediately  */
-			printf("\tRequest failed.\n");
+		if(rctx->ctx->bind_sa_req != NULL)
+		{	// already bound
+			strbuf_printf(&sb, "\tAlready bound to src=");
+			_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
 		}
-	}
+		else
+		{
+			// search default address, and set it as bind_sa in the request context if found
+			struct src_prefix_list *bind_pfx = get_default_prefix(rctx, &sb);
+			if (bind_pfx != NULL) {
+				set_bind_sa(rctx, bind_pfx, &sb);
 
-	return 0;
+				// Set this prefix' evdns base for name resolution
+				rctx->evdns_base = bind_pfx->evdns_base;
+			}
+			else
+			{
+				rctx->evdns_base = NULL;
+			}
+		}
+
+		printf("%s\n\n", strbuf_export(&sb));
+		strbuf_release(&sb);
+
+		rctx->action = muacc_act_socketconnect_resp;
+
+		return resolve_name(rctx);
+	}
 }
