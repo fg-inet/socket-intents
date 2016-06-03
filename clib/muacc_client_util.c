@@ -563,6 +563,11 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 				*socket = -1;
 				returnvalue = 1;
 			}
+			else if (*(muacc_mam_action_t *) data == muacc_error_resolve)
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error: Name resolution failed.\n");
+				return -1;
+			}
 			else if (*(muacc_mam_action_t *) data == muacc_error_unknown_request)
 			{
 				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error: MAM sent error code \"Unknown Request\" -- Aborting.\n");
@@ -570,7 +575,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 			}
 			else
 			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error: Unknown MAM Response Action Type\n");
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error: Unknown MAM Response Action Type %d\n", *(muacc_mam_action_t *) data);
 				return -1;
 			}
 		}
