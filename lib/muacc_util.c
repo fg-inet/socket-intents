@@ -20,7 +20,7 @@
 #include "intents.h"
 
 #ifndef MUACC_UTIL_NOISY_DEBUG
-#define MUACC_UTIL_NOISY_DEBUG 1
+#define MUACC_UTIL_NOISY_DEBUG 0
 #endif
 
 

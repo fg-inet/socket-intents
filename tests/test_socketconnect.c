@@ -42,15 +42,15 @@
 #include "test_util.h"
 
 #ifndef TEST_POLICY_NOISY_DEBUG0
-#define TEST_POLICY_NOISY_DEBUG0 1
+#define TEST_POLICY_NOISY_DEBUG0 0
 #endif
 
 #ifndef TEST_POLICY_NOISY_DEBUG1
-#define TEST_POLICY_NOISY_DEBUG1 1
+#define TEST_POLICY_NOISY_DEBUG1 0
 #endif
 
 #ifndef TEST_POLICY_NOISY_DEBUG2
-#define TEST_POLICY_NOISY_DEBUG2 1
+#define TEST_POLICY_NOISY_DEBUG2 0
 #endif
 
 int verbose = 1;

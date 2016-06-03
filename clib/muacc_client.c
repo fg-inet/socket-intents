@@ -19,7 +19,7 @@
 #include "muacc_client_util.h"
 
 #ifndef CLIB_IF_NOISY_DEBUG0
-#define CLIB_IF_NOISY_DEBUG0 1
+#define CLIB_IF_NOISY_DEBUG0 0
 #endif
 
 #ifndef CLIB_IF_NOISY_DEBUG1
@@ -27,7 +27,7 @@
 #endif
 
 #ifndef CLIB_IF_NOISY_DEBUG2
-#define CLIB_IF_NOISY_DEBUG2 1
+#define CLIB_IF_NOISY_DEBUG2 0
 #endif
 
 struct socketset *socketsetlist = NULL;
