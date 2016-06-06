@@ -461,4 +461,66 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
 
 }
 
+/** check whether two ipv4 addresses are in the same subnet */
+int _cmp_in_addr_with_mask(
+	struct in_addr *a,		
+	struct in_addr *b,
+	struct in_addr *mask	/**< the subnet mask */
+){
+	return( (a->s_addr ^ b->s_addr) & mask->s_addr );	
+}
 
+/** check whether two ipv6 addresses are in the same subnet */
+int _cmp_in6_addr_with_mask(
+	struct in6_addr *a,		
+	struct in6_addr *b,
+	struct in6_addr *mask	/**< the subnet mask */
+){
+	for(int i=0; i<16; i++)
+	{
+		if( (((a->s6_addr)[i] ^ (b->s6_addr)[i]) & (mask->s6_addr)[i]) != 0 )
+			return (i+1);
+	}
+	return(0);	
+}
+
+int is_addr_in_prefix(struct sockaddr *addr, struct src_prefix_list *pfx)
+{
+	if (addr == NULL || pfx == NULL)
+		return -1;
+
+	if (addr->sa_family == AF_INET)
+	{
+		// check if two IPv4 addresses are in same subnet
+		if (_cmp_in_addr_with_mask(
+			&(((struct sockaddr_in *)addr)->sin_addr),
+			&(((struct sockaddr_in *)pfx->if_addrs->addr)->sin_addr),
+			&(((struct sockaddr_in *)pfx->if_netmask)->sin_addr)) == 0)
+		{
+			return 0;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else if (addr->sa_family == AF_INET6)
+	{
+		// check if two IPv6 addresses are in same subnet
+		if (_cmp_in6_addr_with_mask(
+		&(((struct sockaddr_in6 *)addr)->sin6_addr),
+		&(((struct sockaddr_in6 *)pfx->if_addrs->addr)->sin6_addr),
+		&(((struct sockaddr_in6 *)pfx->if_netmask)->sin6_addr)) == 0)
+		{
+			return 0;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else
+	{
+		return -1;
+	}
+}

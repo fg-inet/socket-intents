@@ -63,4 +63,26 @@ void _mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags);
  */
 int _mam_callback_or_fail(request_context_t *ctx, const char *function, unsigned int calls_performed_flag, muacc_mam_action_t action_if_fail);
 
+/** check whether two ipv4 addresses are in the same subnet 
+ *
+ * Returns 0 if they are in the same subnet 
+ */
+int _cmp_in_addr_with_mask(
+	struct in_addr *a,		
+	struct in_addr *b,
+	struct in_addr *mask	/**< the subnet mask */
+);
+
+/** check whether two ipv6 addresses are in the same subnet
+ *
+ * Returns 0 if they are in the same subnet 
+ */
+int _cmp_in6_addr_with_mask(
+	struct in6_addr *a,		
+	struct in6_addr *b,
+	struct in6_addr *mask	/**< the subnet mask */
+);
+
+/* Check if a sockaddr in in the same subnet as a given prefix) */
+int is_addr_in_prefix(struct sockaddr *addr, struct src_prefix_list *pfx);
 #endif /* __MAM_UTIL_H__ */

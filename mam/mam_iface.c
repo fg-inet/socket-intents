@@ -48,29 +48,6 @@
 #endif
 
 
-/** check whether two ipv4 addresses are in the same subnet */
-static int _cmp_in_addr_with_mask(
-	struct in_addr *a,		
-	struct in_addr *b,
-	struct in_addr *mask	/**< the subnet mask */
-){
-	return( (a->s_addr ^ b->s_addr) & mask->s_addr );	
-}
-
-/** check whether two ipv6 addresses are in the same subnet */
-static int _cmp_in6_addr_with_mask(
-	struct in6_addr *a,		
-	struct in6_addr *b,
-	struct in6_addr *mask	/**< the subnet mask */
-){
-	for(int i=0; i<16; i++)
-	{
-		if( (((a->s6_addr)[i] ^ (b->s6_addr)[i]) & (mask->s6_addr)[i]) != 0 )
-			return (i+1);
-	}
-	return(0);	
-}
-
 /** Compare a src_prefix_list struct with a src_prefix_model
  *  Return 0 if they are equal, 1 if not, -1 on error */
 int compare_src_prefix (gconstpointer listelement, gconstpointer model)
