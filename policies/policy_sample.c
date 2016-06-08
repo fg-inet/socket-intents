@@ -403,7 +403,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 		printf("%s\n\n", strbuf_export(&sb));
 		strbuf_release(&sb);
 
-		rctx->action = muacc_act_socketconnect_resp;
+		rctx->action = muacc_act_socketchoose_resp_new;
 
 		return resolve_name(rctx);
 	}
