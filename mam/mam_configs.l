@@ -35,6 +35,7 @@ set                		return SETTOK;
 enabled					return ENABLETOK;
 
 resolvconf              return RESOLVCONFTOK;
+nameserver              return NAMESERVERTOK;
 
 \{                      return OBRACE;
 \}                      return CBRACE;
