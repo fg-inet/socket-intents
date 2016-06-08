@@ -523,6 +523,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 
 	struct socketlist *list = set->sockets;
     struct socketlist *prev = NULL;
+	struct socketlist *list_next = NULL;
 
 	if ( _muacc_connect_ctx_to_mam(ctx) != 0 )
 	{
@@ -565,9 +566,13 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
                     goto unlock_set;
                 }
             }
+			prev = list;
+			list = list->next;
         }
         else
         {
+			list_next = list->next;
+
             /* Close remotely closed socket */
             DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Closing remotely closed socket = %d\n", list->file);
             if (1 == _muacc_free_socket(set, list, prev))
@@ -575,10 +580,8 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Socket set is empty now!\n");
 				set->sockets = NULL;
 			}
+			list = list_next;
         }
-        
-        prev = list;
-        list = list->next;
         
 	}
 	if( 0 > _muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) )
@@ -671,7 +674,11 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
                     
                     if (!_is_socket_open(list->file))
                     {
-                        _muacc_free_socket(set, list, prev);
+                        if(1 == _muacc_free_socket(set, list, prev))
+						{
+							DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Socket set is empty now!\n");
+							set->sockets = NULL;
+						}
                         DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Socket closed on remote side - closed it! socket = %d", list->file);
                         continue;
                     }
