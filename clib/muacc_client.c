@@ -793,6 +793,8 @@ int socketclose(int socket)
 
 int socketrelease(int socket)
 {
+    struct socketlist *prev = NULL;
+    
 	DLOG(CLIB_IF_NOISY_DEBUG0, "Releasing socket %d and marking it as free for reuse\n", socket);
 	pthread_rwlock_wrlock(&socketsetlist_lock);
 	DLOG(CLIB_IF_LOCKS, "LOCK: Releasing socket - Got global lock\n");
@@ -811,6 +813,7 @@ int socketrelease(int socket)
 		struct socketlist *slist = set_to_release->sockets;
 		while (slist->file != socket && slist != NULL)
 		{
+            prev = slist;
 			slist = slist->next;
 		}
 		if (slist == NULL)
@@ -828,6 +831,13 @@ int socketrelease(int socket)
 			set_to_release->use_count -= 1;
 			DLOG(CLIB_IF_NOISY_DEBUG2, "Socket set of %d: use count = %d\n", socket, set_to_release->use_count);
 
+            if (!_is_socket_open(socket))
+            {
+                DLOG(CLIB_IF_NOISY_DEBUG2, "Remote side wanted to close the socket - closing it now.");
+                _muacc_free_socket(set_to_release, slist, prev);
+                DLOG(CLIB_IF_NOISY_DEBUG1, "Removed remotly closed socket = %d", socket);
+            }
+            
 			pthread_rwlock_unlock(&(set_to_release->lock));
 			DLOG(CLIB_IF_LOCKS, "LOCK: Marked socket as free - Releasing set %p\n", (void *) set_to_release);
 

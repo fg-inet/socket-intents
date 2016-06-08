@@ -51,6 +51,15 @@ int _lock_ctx (muacc_context_t *ctx);
  */
 int _unlock_ctx (muacc_context_t *ctx);
 
+/** Helper to check if a socket was closed from the remote side
+ *
+ * Tries to recv a byte from the socket (with MSG_PEEK so
+ * it can be re-read by the next recv())
+ * If it returns 0 we know the remote side has send FIN,ACK
+ * so it wants to close the socket.
+ */
+int _is_socket_open(int sockfd);
+
 /** make a deep copy of a muacc_context
  *
  * @return 0 on success, -1 otherwise
@@ -163,7 +172,7 @@ int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostl
  *
  *  @return 0 on success (set still has sockets), 1 on success (set is empty now), -1 otherwise
  */
-int _muacc_free_socket(struct socketset *set_to_delete, struct socketlist *list_to_delete, struct socketlist *prevlist);
+int _muacc_free_socket(struct socketset *set_to_delete, struct socketlist *socket_to_delete, struct socketlist *prevlist);
 
 /** Clean up unused sockets from a socket set
  *

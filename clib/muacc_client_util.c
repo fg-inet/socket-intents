@@ -60,6 +60,12 @@ muacc_ctxino_t _muacc_get_ctxino(int sockfd)
     return s.st_ino;
 }
 
+int _is_socket_open(int sockfd)
+{
+    char dummy;
+    return recv(sockfd, &dummy, 1, MSG_PEEK);
+}
+
 int _lock_ctx (muacc_context_t *ctx)
 {
     return( -(ctx->locks++) );
@@ -478,52 +484,67 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 	muacc_mam_action_t reason = muacc_act_socketchoose_req;
 
 	struct socketlist *list = set->sockets;
+    struct socketlist *prev = NULL;
 
 	if ( _muacc_connect_ctx_to_mam(ctx) != 0 )
 	{
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "WARNING: failed to contact MAM\n");
-		return -1;
+        goto unlock_set;
 	}
 
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Serializing MAM context\n");
 	if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), action, &reason, sizeof(muacc_mam_action_t)) )
 	{
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing label\n");
-		return -1;
+		goto unlock_set;
 	}
 
 	/* Pack context from request */
 	if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), ctx->ctx) )
 	{
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error serializing socket context \n");
-		return -1;
+		goto unlock_set;
 	}
 
 	/* Pack sockets from socketset */
 	while (list != NULL)
 	{
-		// Suggest all sockets that are currently not in use to MAM
-		if ((list->flags & MUACC_SOCKET_IN_USE) == 0)
-		{
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Pushing socket %d\n", list->file);
-			if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), socketset_file, &(list->file), sizeof(int)) )
-			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing socket with file descriptor %d\n", list->file);
-				return -1;
-			}
-			if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), list->ctx) )
-			{
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing socket context of %d\n", list->file);
-				return -1;
-			}
-		}
-		list = list->next;
+        /* Only consider sockets that are not remotly closed (FIN,ACK received) */
+        if (_is_socket_open(list->file))
+        {
+            /* Suggest all sockets that are currently not in use to MAM */
+            if ((list->flags & MUACC_SOCKET_IN_USE) == 0)
+            {
+                DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Pushing socket %d\n", list->file);
+                if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), socketset_file, &(list->file), sizeof(int)) )
+                {
+                    DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing socket with file descriptor %d\n", list->file);
+                    goto unlock_set;
+                }
+                if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), list->ctx) )
+                {
+                    DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing socket context of %d\n", list->file);
+                    goto unlock_set;
+                }
+            }
+        }
+        else
+        {
+            /* Close remotely closed socket */
+            _muacc_free_socket(set, list, prev);
+            DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Closing remotely closed socket = %d\n", list->file);
+        }
+        
+        prev = list;
+        list = list->next;
+        
 	}
 	if( 0 > _muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) )
 	{
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing eof\n");
-		return -1;
+		goto unlock_set;
 	}
+    
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Pushing request done\n");
 	DLOG(CLIB_IF_LOCKS, "LOCK: Pushed socket set - Unlocking %p\n", (void *)set);
 	pthread_rwlock_unlock(&(set->lock));
@@ -583,9 +604,11 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 		{
 			if (set_in_use)
 			{
+                prev = NULL;
 				list = set->sockets;
 				while (list != NULL && list->file != *(int *) data)
 				{
+                    prev = list;
 					list = list->next;
 				}
 
@@ -603,6 +626,13 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Use socket %d - use count of set is now %d\n", *socket, set->use_count);
 					memcpy(socket, (int *)data, data_len);
 					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG0, "Use socket %d from set - mark it as \"in use\" and returning\n", *socket);
+                    
+                    if (!_is_socket_open(list->file))
+                    {
+                        _muacc_free_socket(set, list, prev);
+                        DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Socket closed on remote side - closed it! socket = %d", list->file);
+                        continue;
+                    }
 
 					DLOG(CLIB_IF_LOCKS, "LOCK: Found socket to use - Unlocking socketset lock\n");
 					pthread_rwlock_unlock(&(set->lock));
@@ -646,6 +676,8 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 
 	if (set_in_use)
 	{
+    
+unlock_set:
 		DLOG(CLIB_IF_LOCKS, "LOCK: End of socketchoose - Unlocking set %p\n", (void *)set);
 		pthread_rwlock_unlock(&(set->lock));
 	}
@@ -871,43 +903,43 @@ int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostl
 	return 0;
 }
 
-int _muacc_free_socket(struct socketset *set_to_delete, struct socketlist *list_to_delete, struct socketlist *prevlist)
+int _muacc_free_socket(struct socketset *set_to_delete, struct socketlist *socket_to_delete, struct socketlist *prevlist)
 {
 	int returnvalue = -1;
-	int socketfd = list_to_delete->file;
+	int socketfd = socket_to_delete->file;
 
 	// Free context if no other file descriptor needs it
-	if (_muacc_socketset_find_dup(list_to_delete) == NULL)
+	if (_muacc_socketset_find_dup(socket_to_delete) == NULL)
 	{
 		// No duplicate (i.e., no other file descriptor shares this socket/context)
-		_muacc_free_ctx(list_to_delete->ctx);
+		_muacc_free_ctx(socket_to_delete->ctx);
 	}
 
 	// Re-adjust pointers
 	if (prevlist != NULL)
 	{
 		// This is not the first socket of the set
-		prevlist->next = list_to_delete->next;
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Readjusted set pointers\n", list_to_delete->file);
+		prevlist->next = socket_to_delete->next;
+		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: Readjusted set pointers\n", socket_to_delete->file);
 		returnvalue = 0;
 	}
 	else
 	{
 		// This IS the first socket of the set
-		if (list_to_delete->next != NULL)
+		if (socket_to_delete->next != NULL)
 		{
 			// There are more sockets in the set
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: This is the first socket in the set - readjusting pointer\n", list_to_delete->file);
-			set_to_delete->sockets = list_to_delete->next;
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: This is the first socket in the set - readjusting pointer\n", socket_to_delete->file);
+			set_to_delete->sockets = socket_to_delete->next;
 			returnvalue = 0;
 		}
 		else
 		{
 			// This was the only socket in the set - clear this set
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: This is the ONLY socket in the set - need to free set\n", list_to_delete->file);
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "DEL %d: This is the ONLY socket in the set - need to free set\n", socket_to_delete->file);
 			returnvalue = 1;
 		}
-		free(list_to_delete);
+		free(socket_to_delete);
 	}
 
 	// Close the socket
