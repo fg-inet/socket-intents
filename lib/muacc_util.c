@@ -36,6 +36,7 @@ void _muacc_logtofile (const char *filename, const char *format, ...)
 	if (fp == NULL)
 	{
 		DLOG(MUACC_UTIL_NOISY_DEBUG, "Could not open log file %s\n", filename);
+		return;
 	}
 	else
 	{
@@ -44,7 +45,8 @@ void _muacc_logtofile (const char *filename, const char *format, ...)
 		fprintf(fp, "%s", str);
 	}
 	va_end(args);
-	fclose(fp);
+	if (fp != NULL)
+		fclose(fp);
 }
 
 struct sockaddr *_muacc_clone_sockaddr(const struct sockaddr *src, size_t src_len)
