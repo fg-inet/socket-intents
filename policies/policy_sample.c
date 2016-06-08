@@ -204,6 +204,7 @@ int resolve_name(request_context_t *rctx)
 
 	// If no dns base is given for the chosen source prefix, use default dns base
 	if (evdns_base == NULL) {
+		strbuf_printf(&sb, "\tNo prefix-specific DNS base found - using default DNS base\n");
 		evdns_base = rctx->mctx->evdns_default_base;
 	}
 
