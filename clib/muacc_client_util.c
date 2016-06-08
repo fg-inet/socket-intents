@@ -350,35 +350,57 @@ struct socketset* _muacc_add_socket_to_set(struct socketset **list_of_sets, int 
 		pthread_rwlock_wrlock(&(set->lock));
 		DLOG(CLIB_IF_LOCKS, "LOCK: Adding new socket to set - Locking %p\n", (void *) set);
 
-		struct socketlist *slist = set->sockets;
-
-		/* Add socket to existing socket set */
-		while (slist->next != NULL)
+		if (set->sockets != NULL)
 		{
-			if (slist->file == socket)
+			/* Add socket to existing socket set */
+			struct socketlist *slist = set->sockets;
+
+			while (slist->next != NULL)
 			{
-				// This socket already exists in the set!
-				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d already exists in the set -- aborting!\n", socket);
-				DLOG(CLIB_IF_LOCKS, "LOCK: Finished trying to add - Releasing set %p\n", (void *) set);
-				pthread_rwlock_unlock(&(set->lock));
-				return set;
+				if (slist->file == socket)
+				{
+					// This socket already exists in the set!
+					DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket %d already exists in the set -- aborting!\n", socket);
+					DLOG(CLIB_IF_LOCKS, "LOCK: Finished trying to add - Releasing set %p\n", (void *) set);
+					pthread_rwlock_unlock(&(set->lock));
+					return set;
+				}
+				slist = slist->next;
 			}
-			slist = slist->next;
-		}
-		slist->next = malloc(sizeof(struct socketset));
-		if (slist->next == NULL)
-		{
-			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Could not allocate memory for set of socket %d!\n", socket);
-			return NULL;
-		}
-		slist->next->next = NULL;
-		slist->next->file = socket;
-		slist->next->flags = 0;
-		slist->next->flags |= MUACC_SOCKET_IN_USE;
-		set->use_count += 1;
-		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Added %d - Use count of socket set is now %d\n", socket, set->use_count);
-		slist->next->ctx = _muacc_clone_ctx(ctx);
 
+			slist->next = malloc(sizeof(struct socketset));
+			if (slist->next == NULL)
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Could not allocate memory for set of socket %d!\n", socket);
+				return NULL;
+			}
+			slist->next->next = NULL;
+			slist->next->file = socket;
+			slist->next->flags = 0;
+			slist->next->flags |= MUACC_SOCKET_IN_USE;
+			set->use_count += 1;
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Added %d - Use count of socket set is now %d\n", socket, set->use_count);
+			slist->next->ctx = _muacc_clone_ctx(ctx);
+		}
+		else
+		{
+			/* Add socket to empty socket set */
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Socket set was empty - adding %d to it\n", socket);
+
+			set->sockets = malloc(sizeof(struct socketset));
+			if (set->sockets == NULL)
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Could not allocate memory for set of socket %d!\n", socket);
+				return NULL;
+			}
+			set->sockets->next = NULL;
+			set->sockets->file = socket;
+			set->sockets->flags = 0;
+			set->sockets->flags |= MUACC_SOCKET_IN_USE;
+			set->use_count += 1;
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Added %d - Use count of socket set is now %d\n", socket, set->use_count);
+			set->sockets->ctx = _muacc_clone_ctx(ctx);
+		}
 		DLOG(CLIB_IF_LOCKS, "LOCK: Finished trying to add - Releasing set %p\n", (void *) set);
 		pthread_rwlock_unlock(&(set->lock));
 		return set;
@@ -531,8 +553,12 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
         else
         {
             /* Close remotely closed socket */
-            _muacc_free_socket(set, list, prev);
             DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Closing remotely closed socket = %d\n", list->file);
+            if (1 == _muacc_free_socket(set, list, prev))
+			{
+				DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Socket set is empty now!\n");
+				set->sockets = NULL;
+			}
         }
         
         prev = list;
@@ -748,6 +774,11 @@ int _muacc_remove_socket_from_list (struct socketset **list_of_sets, int socket)
 
 		// Go through list of sockets
 		currentlist = currentset->sockets;
+		if (currentlist == NULL)
+		{
+			DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "DEL %d: Socketset is already empty!\n", socket);
+			return -1;
+		}
 
 		if (currentlist->file == socket)
 		{

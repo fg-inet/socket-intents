@@ -560,19 +560,30 @@ int socketconnect(int *s, const char *host, size_t hostlen, const char *serv, si
 			pthread_rwlock_unlock(&socketsetlist_lock);
 			if (_muacc_host_serv_to_ctx(&ctx, host, hostlen, serv, servlen) != 0)
 			{
-				DLOG(CLIB_IF_NOISY_DEBUG2, "No hostname and service given this time - taking the one from the set: %s\n", set->sockets->ctx->remote_hostname);
-				ctx.ctx->remote_hostname = _muacc_clone_string(set->sockets->ctx->remote_hostname);
-				ctx.ctx->remote_service = _muacc_clone_string(set->sockets->ctx->remote_service);
+				if (set->sockets == NULL)
+				{
+					DLOG(CLIB_IF_NOISY_DEBUG2, "No hostname and service given this time and no sockets in set -- cannot continue\n");
+					pthread_rwlock_unlock(&set->destroylock);
+					pthread_rwlock_unlock(&set->lock);
+					muacc_release_context(&ctx);
+					return -1;
+				}
+				else
+				{
+					DLOG(CLIB_IF_NOISY_DEBUG2, "No hostname and service given this time - taking the one from the set: %s\n", set->sockets->ctx->remote_hostname);
+					ctx.ctx->remote_hostname = _muacc_clone_string(set->sockets->ctx->remote_hostname);
+					ctx.ctx->remote_service = _muacc_clone_string(set->sockets->ctx->remote_service);
+				}
 			}
 		}
 		else
 		{
 			DLOG(CLIB_IF_LOCKS, "LOCK: Set not found - Unlocking global lock\n");
 			pthread_rwlock_unlock(&socketsetlist_lock);
-			DLOG(CLIB_IF_NOISY_DEBUG1, "Socket not in set - creating new one.\n");
+			DLOG(CLIB_IF_NOISY_DEBUG1, "Socket %d not found in any socketset - sending socketconnect.\n", *s);
 			if ((ret = _socketconnect_request(&ctx, s, host, hostlen, serv, servlen)) == -1)
 			{
-				DLOG(CLIB_IF_NOISY_DEBUG1, "Error creating a new socket!\n");
+				DLOG(CLIB_IF_NOISY_DEBUG1, "Socketconnect failed!\n");
 				muacc_release_context(&ctx);
 				return -1;
 			}
@@ -833,9 +844,13 @@ int socketrelease(int socket)
 
             if (!_is_socket_open(socket))
             {
-                DLOG(CLIB_IF_NOISY_DEBUG2, "Remote side wanted to close the socket - closing it now.");
-                _muacc_free_socket(set_to_release, slist, prev);
-                DLOG(CLIB_IF_NOISY_DEBUG1, "Removed remotly closed socket = %d", socket);
+                DLOG(CLIB_IF_NOISY_DEBUG2, "Remote side wanted to close the socket - closing it now.\n");
+                if (1 == _muacc_free_socket(set_to_release, slist, prev))
+				{
+					DLOG(CLIB_IF_NOISY_DEBUG2, "Socket set is empty now!\n");
+					set_to_release->sockets = NULL;
+				}
+                DLOG(CLIB_IF_NOISY_DEBUG1, "Removed remotely closed socket = %d\n", socket);
             }
             
 			pthread_rwlock_unlock(&(set_to_release->lock));
