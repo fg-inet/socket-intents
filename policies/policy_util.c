@@ -45,6 +45,9 @@ int mampol_get_socketopt(struct socketopt *list, int level, int optname, socklen
 
 void print_pfx_addr (gpointer element, gpointer data)
 {
+	if (!element)
+		return;
+
 	struct src_prefix_list *pfx = element;
 	char addr_str[INET6_ADDRSTRLEN+1]; /** String for debug / error printing */
 

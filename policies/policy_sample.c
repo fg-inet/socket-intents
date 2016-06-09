@@ -133,6 +133,9 @@ int cleanup(mam_context_t *mctx)
 	g_slist_free(in6_enabled);
 	g_slist_foreach(mctx->prefixes, &freepolicyinfo, NULL);
 
+	in4_enabled = NULL;
+	in6_enabled = NULL;
+
 	printf("Policy sample library cleaned up.\n");
 	return 0;
 }

@@ -37,6 +37,7 @@
 
 struct mam_context *global_mctx = NULL;
 const char fifo_path[] = "/tmp/mam_config_fifo";
+char configfile_path[255]; 
 int config_fd = -1;
 
 void clean_client_state(GSList *client);
@@ -520,7 +521,39 @@ static void do_graceful_shutdown(evutil_socket_t _, short what, void* evctx) {
  */
 static void do_reconfigure(evutil_socket_t _, short what, void* evctx) {
 	DLOG(MAM_MASTER_NOISY_DEBUG0, "got hangup signal - reconfigureing\n");
-	configure_mamma();
+	char *policy_filename = NULL;
+		
+	if ( (config_fd = open(configfile_path, O_RDONLY)) == -1 )
+    {
+	 	DLOG(1, "opening config file %s failed: %s\n", configfile_path, strerror(errno));
+		return;
+	}
+
+	/* clean up old policy module of present */
+	if(global_mctx->policy != NULL)
+	{
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "unloading old policy module\n");
+		cleanup_policy_module(global_mctx);
+	}
+	
+	/* load policy module if we have command line arguments */
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "parsing config file\n");	
+	mam_read_config(config_fd, &policy_filename, global_mctx);
+
+	if (MAM_MASTER_NOISY_DEBUG2) mam_print_context(global_mctx);
+	
+	/* initialize dynamic loader and load policy module */
+	if(policy_filename != NULL)
+	{
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "loading policy module\n");
+		setup_policy_module(global_mctx, policy_filename);
+	}
+	else
+	{
+		DLOG(1, "no policy module given - mamma is useless...\n");
+	}
+	
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "(re)configuration done\n");
 }
 
 /** signal handler the libevent-way 
@@ -594,10 +627,16 @@ main(int c, char **v)
 	{
 		DLOG(1, "opening config file %s failed: %s\n", v[1], strerror(errno));
 		exit(1);
-	} 
+	}
+	else
+	{
+		strncpy(configfile_path, v[1], 255);
+	}
 	
 	/* apply config and read policy */
 	configure_mamma();
+
+	close(config_fd);
 
     /* configure netlink socket to communicate with MPTCP pathmanager kernel module 
        if netlink is available.
