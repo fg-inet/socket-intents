@@ -514,6 +514,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 
 	char buf[MUACC_TLV_MAXLEN];
 	ssize_t pos = 0;
+	ssize_t prevpos = 0;
 	ssize_t ret = 0;
 	muacc_tlv_t tag;
     void *data;
@@ -554,16 +555,25 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
             /* Suggest all sockets that are currently not in use to MAM */
             if ((list->flags & MUACC_SOCKET_IN_USE) == 0)
             {
-                DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Pushing socket %d\n", list->file);
+                // Store current position in buffer, in case adding this socket fails
+                prevpos = pos;
+
+                DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Pushing socket %d to buf %p pos %li\n", list->file, buf, pos);
                 if ( 0 > _muacc_push_tlv(buf, &pos, sizeof(buf), socketset_file, &(list->file), sizeof(int)) )
                 {
                     DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing socket with file descriptor %d\n", list->file);
-                    goto unlock_set;
+                    // Abort adding this socket to the request, just add eof and send it
+                    DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Resetting pos to %li and trying to push eof\n", prevpos);
+                    pos = prevpos;
+                    goto push_eof;
                 }
                 if( 0 > _muacc_pack_ctx(buf, &pos, sizeof(buf), list->ctx) )
                 {
                     DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing socket context of %d\n", list->file);
-                    goto unlock_set;
+                    // Abort adding this socket to the request, just add eof and send it
+                    DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Resetting pos to %li and trying to push eof\n", prevpos);
+                    pos = prevpos;
+                    goto push_eof;
                 }
             }
 			prev = list;
@@ -584,6 +594,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
         }
         
 	}
+push_eof:
 	if( 0 > _muacc_push_tlv_tag(buf, &pos, sizeof(buf), eof) )
 	{
 		DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Error pushing eof\n");
@@ -679,7 +690,7 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
 							DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Socket set is empty now!\n");
 							set->sockets = NULL;
 						}
-                        DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Socket closed on remote side - closed it! socket = %d", list->file);
+                        DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG2, "Socket closed on remote side - closed it! socket = %d\n", list->file);
                         continue;
                     }
 
