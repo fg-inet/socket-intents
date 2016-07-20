@@ -443,7 +443,14 @@ void compute_link_usage(void *pfx, void *lookup)
                 //fetch the previous maximal smoothed rate (0.0 for the first sample period)
                 prev_MSrate = g_hash_table_lookup(prefix->measure_dict,"upload_max_srate");
                 //determine the newest smoothed maximam data rate.
-                curr_MSrate = SMOOTH_FACTOR_M*(*prev_Mrate) + (1-SMOOTH_FACTOR_M)*(*prev_MSrate);
+                if (*prev_MSrate == 0)
+                {
+                    curr_MSrate = *prev_Mrate;
+                }
+                else
+                {
+                    curr_MSrate = SMOOTH_FACTOR_M*(*prev_Mrate) + (1-SMOOTH_FACTOR_M)*(*prev_MSrate);
+                }
                 *prev_MSrate = curr_MSrate;
 
                 DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"The Max. upload rate of this sample period: %.3fbps\n",*prev_Mrate);
@@ -541,7 +548,14 @@ void compute_link_usage(void *pfx, void *lookup)
                 //fetch the previous maximal smoothed rate (0.0 for the first sample period)
                 prev_MSrate = g_hash_table_lookup(prefix->measure_dict,"download_max_srate");
                 //determine the newest smoothed maximam data rate.
-                curr_MSrate = SMOOTH_FACTOR_M*(*prev_Mrate) + (1-SMOOTH_FACTOR_M)*(*prev_MSrate);
+                if (*prev_MSrate == 0)
+                {
+                    curr_MSrate = *prev_Mrate;
+                }
+                else
+                {
+                    curr_MSrate = SMOOTH_FACTOR_M*(*prev_Mrate) + (1-SMOOTH_FACTOR_M)*(*prev_MSrate);
+                }
                 *prev_MSrate = curr_MSrate;
 
                 DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"The Max. download rate of this sample period: %.3fbps\n",*prev_Mrate);
