@@ -1,7 +1,7 @@
 /** \file test_util.h
  *	\brief Set of helpers for various test programs
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 

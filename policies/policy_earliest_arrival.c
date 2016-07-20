@@ -1,7 +1,7 @@
 /** \file policy_earliest_arrival.c
  *  \brief Policy that calculates the predicted completion time for an object on all prefixes and selects the fastest
  *
- *  \copyright Copyright 2013-2016 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2016 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  *
  *  Behavior:

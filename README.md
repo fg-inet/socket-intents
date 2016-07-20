@@ -10,7 +10,7 @@ The actual decision-making is implemented within the __Multi Access Mananger__, 
 Copyright
 -----
 Copyright (c) 2013-2015, Internet Network Architectures Group, Berlin Institute of Technology,
-Philipp Schmidt and Theresa Enghardt and Mirko Palmer.  
+Philipp S. Tiesel and Theresa Enghardt and Mirko Palmer.  
 All rights reserved.  
 This project has been licensed under the New BSD License.
 

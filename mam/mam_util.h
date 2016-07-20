@@ -1,7 +1,7 @@
 /** \file mam_util.h
  *	Utilities for handling mam contexts and other data structures
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 #ifndef __MAM_UTIL_H__

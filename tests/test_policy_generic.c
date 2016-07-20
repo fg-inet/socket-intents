@@ -1,7 +1,7 @@
 /** \file test_policy_generic.c
  *  \brief Test utility for MAM with generic policy
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  *
  *  This test utility opens a connection with the given parameters using the muacc socket library

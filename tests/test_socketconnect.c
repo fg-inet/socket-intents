@@ -1,7 +1,7 @@
 /** \file test_socketconnect.c
  *  \brief Test utility for high-level socketconnect API and its policies
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  *
  *	This test utility requests a new socket via the socketconnect call, which results in a
