@@ -13,6 +13,7 @@
 #include <getopt.h>
 #include <arpa/inet.h>
 #include <math.h>
+#include <time.h>
 
 #include <glib.h>
 #include "mam.h"
@@ -103,7 +104,7 @@ long read_stats(char *path);
 #define MAM_PMEASURE_THRUPUT_DEBUG 0
 #endif
 
-void compute_link_usage(void *pfx, void *lookup);
+void compute_link_usage(void *ifc, void *lookup);
 
 // Alpha Value for Smoothed RTT Calculation
 double alpha = 0.9;
@@ -362,10 +363,10 @@ long read_stats(char *path)
  with the keys "upload_max_rate" and "download_max_rate"
  Finally, The smoothed maximal data rate is calulated(from periodic maximal rates and previous smoothed maximal data rate)
  */
-void compute_link_usage(void *pfx, void *lookup)
+void compute_link_usage(void *ifc, void *lookup)
 {
 	#ifdef IS_LINUX
-    struct src_prefix_list *prefix = pfx;
+    struct iface_list *iface = ifc;
     char path[100];
 
     long curr_bytes;
@@ -380,29 +381,28 @@ void compute_link_usage(void *pfx, void *lookup)
 
     int *prev_sample;
 
-    if (prefix == NULL){
+    if (iface == NULL){
         return;
     }
 
-    if(strcmp(prefix->if_name,"lo"))
+    if(strcmp(iface->if_name,"lo"))
     {
-        DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"\n\n==========\tINTERFACE\t==========\n");
+        DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"\n\n==========\tINTERFACE %s\t==========\n", iface->if_name);
 
         /******************************************************************************
          ****************    Upload Activity
          ******************************************************************************/
         //creating path for tx_bytes starts
-        sprintf(path,"%s%s%s%s",path1,prefix->if_name,path2,"tx_bytes");
+        sprintf(path,"%s%s%s%s",path1,iface->if_name,path2,"tx_bytes");
         //creating path for tx_bytes ends
-        DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Interface: %s\n",prefix->if_name);
         DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"=========\tUPLOAD STATS\t=========\n");
 
         //reading last counter from dictionary starts
-        prev_bytes = g_hash_table_lookup(prefix->measure_dict, "upload_counter");
-        prev_rate = g_hash_table_lookup(prefix->measure_dict, "upload_rate");
-        prev_srate = g_hash_table_lookup(prefix->measure_dict, "upload_srate");
-        prev_Mrate = g_hash_table_lookup(prefix->measure_dict,"upload_max_rate");
-        prev_sample = g_hash_table_lookup(prefix->measure_dict,"sample");
+        prev_bytes = g_hash_table_lookup(iface->measure_dict, "upload_counter");
+        prev_rate = g_hash_table_lookup(iface->measure_dict, "upload_rate");
+        prev_srate = g_hash_table_lookup(iface->measure_dict, "upload_srate");
+        prev_Mrate = g_hash_table_lookup(iface->measure_dict,"upload_max_rate");
+        prev_sample = g_hash_table_lookup(iface->measure_dict,"sample");
         //reading last counter from dictionary ends
 
         //reading interface counter starts
@@ -441,16 +441,16 @@ void compute_link_usage(void *pfx, void *lookup)
                 DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"End of Sample duration\n");
 
                 //fetch the previous maximal smoothed rate (0.0 for the first sample period)
-                prev_MSrate = g_hash_table_lookup(prefix->measure_dict,"upload_max_srate");
+                prev_MSrate = g_hash_table_lookup(iface->measure_dict,"upload_max_srate");
                 //determine the newest smoothed maximam data rate.
-                if (*prev_MSrate == 0)
-                {
-                    curr_MSrate = *prev_Mrate;
-                }
-                else
-                {
-                    curr_MSrate = SMOOTH_FACTOR_M*(*prev_Mrate) + (1-SMOOTH_FACTOR_M)*(*prev_MSrate);
-                }
+				if (*prev_MSrate == 0)
+				{
+					curr_MSrate = *prev_Mrate;
+				}
+				else
+				{
+					curr_MSrate = SMOOTH_FACTOR_M*(*prev_Mrate) + (1-SMOOTH_FACTOR_M)*(*prev_MSrate);
+				}
                 *prev_MSrate = curr_MSrate;
 
                 DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"The Max. upload rate of this sample period: %.3fbps\n",*prev_Mrate);
@@ -468,6 +468,7 @@ void compute_link_usage(void *pfx, void *lookup)
             double *s_up_rate = malloc(sizeof(double));
             double *period_up_rate_max = malloc(sizeof(double));
             double *period_up_rate_smooth = malloc(sizeof(double));
+            double *callback_duration_rate = malloc(sizeof(double));
 
             *sample = 0;
             *t_bytes = curr_bytes;
@@ -475,17 +476,19 @@ void compute_link_usage(void *pfx, void *lookup)
             *s_up_rate = 0.0;
             *period_up_rate_max = 0.0;
             *period_up_rate_smooth = 0.0;
+            *callback_duration_rate = CALLBACK_DURATION;
 
             prev_sample = sample;
 
             DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Sample Number: %d\n",*sample);
             DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Inserting to the dictionary\n");
-            g_hash_table_insert(prefix->measure_dict, "sample",sample);
-            g_hash_table_insert(prefix->measure_dict, "upload_counter",t_bytes);
-            g_hash_table_insert(prefix->measure_dict, "upload_rate",upload_rate);
-            g_hash_table_insert(prefix->measure_dict, "upload_max_rate",period_up_rate_max);
-            g_hash_table_insert(prefix->measure_dict, "upload_srate",s_up_rate);
-            g_hash_table_insert(prefix->measure_dict, "upload_max_srate",period_up_rate_smooth);
+            g_hash_table_insert(iface->measure_dict, "sample",sample);
+            g_hash_table_insert(iface->measure_dict, "upload_counter",t_bytes);
+            g_hash_table_insert(iface->measure_dict, "upload_rate",upload_rate);
+            g_hash_table_insert(iface->measure_dict, "upload_max_rate",period_up_rate_max);
+            g_hash_table_insert(iface->measure_dict, "upload_srate",s_up_rate);
+            g_hash_table_insert(iface->measure_dict, "upload_max_srate",period_up_rate_smooth);
+            g_hash_table_insert(iface->measure_dict, "callback_duration_rate",callback_duration_rate);
 
             DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Current Counter Value: %ld Bytes\n",*t_bytes);
             DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Upload Link Usage: %f Bps\n",*upload_rate);
@@ -500,15 +503,15 @@ void compute_link_usage(void *pfx, void *lookup)
          ****************    Download Activity
          ******************************************************************************/
         //creating path for rx_bytes starts
-        sprintf(path,"%s%s%s%s",path1,prefix->if_name,path2,"rx_bytes");
+        sprintf(path,"%s%s%s%s",path1,iface->if_name,path2,"rx_bytes");
         //creating path for rx_bytes ends
 
         DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"=========\tDOWNLOAD STATS\t=========\n");
         //reading last counter from dictionary starts
-        prev_bytes = g_hash_table_lookup(prefix->measure_dict, "download_counter");
-        prev_rate = g_hash_table_lookup(prefix->measure_dict, "download_rate");
-        prev_srate = g_hash_table_lookup(prefix->measure_dict, "download_srate");
-        prev_Mrate = g_hash_table_lookup(prefix->measure_dict,"download_max_rate");
+        prev_bytes = g_hash_table_lookup(iface->measure_dict, "download_counter");
+        prev_rate = g_hash_table_lookup(iface->measure_dict, "download_rate");
+        prev_srate = g_hash_table_lookup(iface->measure_dict, "download_srate");
+        prev_Mrate = g_hash_table_lookup(iface->measure_dict,"download_max_rate");
         //reading last counter from dictionary ends
 
         //reading interface counter starts
@@ -546,16 +549,16 @@ void compute_link_usage(void *pfx, void *lookup)
                 *prev_sample = 0;
                 DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"End of Sample duration\n");
                 //fetch the previous maximal smoothed rate (0.0 for the first sample period)
-                prev_MSrate = g_hash_table_lookup(prefix->measure_dict,"download_max_srate");
+                prev_MSrate = g_hash_table_lookup(iface->measure_dict,"download_max_srate");
                 //determine the newest smoothed maximam data rate.
-                if (*prev_MSrate == 0)
-                {
-                    curr_MSrate = *prev_Mrate;
-                }
-                else
-                {
-                    curr_MSrate = SMOOTH_FACTOR_M*(*prev_Mrate) + (1-SMOOTH_FACTOR_M)*(*prev_MSrate);
-                }
+				if (*prev_MSrate == 0)
+				{
+					curr_MSrate = *prev_Mrate;
+				}
+				else
+				{
+					curr_MSrate = SMOOTH_FACTOR_M*(*prev_Mrate) + (1-SMOOTH_FACTOR_M)*(*prev_MSrate);
+				}
                 *prev_MSrate = curr_MSrate;
 
                 DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"The Max. download rate of this sample period: %.3fbps\n",*prev_Mrate);
@@ -580,16 +583,41 @@ void compute_link_usage(void *pfx, void *lookup)
 
             DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Sample Number: %d\n",*prev_sample);
             DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Inserting to the dictionary\n");
-            g_hash_table_insert(prefix->measure_dict, "download_counter",r_bytes);
-            g_hash_table_insert(prefix->measure_dict, "download_rate",download_rate);
-            g_hash_table_insert(prefix->measure_dict, "download_max_rate",period_down_rate_max);
-            g_hash_table_insert(prefix->measure_dict, "download_srate",s_download_rate);
-            g_hash_table_insert(prefix->measure_dict, "download_max_srate",period_down_rate_smooth);
+            g_hash_table_insert(iface->measure_dict, "download_counter",r_bytes);
+            g_hash_table_insert(iface->measure_dict, "download_rate",download_rate);
+            g_hash_table_insert(iface->measure_dict, "download_max_rate",period_down_rate_max);
+            g_hash_table_insert(iface->measure_dict, "download_srate",s_download_rate);
+            g_hash_table_insert(iface->measure_dict, "download_max_srate",period_down_rate_smooth);
 
             DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Current Counter Value: %ld Bytes\n",*r_bytes);
             DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Upload Link Usage: %f Bps\n",*download_rate);
         }
 
+		// Get timestamp and log it
+		struct timeval current_time;
+		gettimeofday(&current_time, NULL);
+		double *measurement_timestamp_sec = g_hash_table_lookup(iface->measure_dict,"rate_timestamp_sec");
+		double *measurement_timestamp_usec = g_hash_table_lookup(iface->measure_dict,"rate_timestamp_usec");
+
+		if (measurement_timestamp_sec == NULL || measurement_timestamp_usec == NULL)
+		{
+			measurement_timestamp_sec = malloc(sizeof(double));
+			memset(measurement_timestamp_sec, 0, sizeof(double));
+			g_hash_table_insert(iface->measure_dict, "rate_timestamp_sec", measurement_timestamp_sec);
+			*measurement_timestamp_sec = current_time.tv_sec;
+
+			measurement_timestamp_usec = malloc(sizeof(double));
+			memset(measurement_timestamp_usec, 0, sizeof(double));
+			g_hash_table_insert(iface->measure_dict, "rate_timestamp_usec", measurement_timestamp_usec);
+			*measurement_timestamp_usec = current_time.tv_usec;
+			DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Logged new timestamp %f.%f\n",*measurement_timestamp_sec, *measurement_timestamp_usec);
+		}
+		else
+		{
+			*measurement_timestamp_usec = current_time.tv_usec;
+			*measurement_timestamp_sec = current_time.tv_sec;
+			DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Logged timestamp %f.%f\n",*measurement_timestamp_sec, *measurement_timestamp_usec);
+		}
     }
 	#endif
 return;
@@ -977,7 +1005,7 @@ void pmeasure_callback(evutil_socket_t fd, short what, void *arg)
     g_slist_foreach(ctx->prefixes, &get_stats, NULL);
 
     DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Computing Link Usage\n");
-    g_slist_foreach(ctx->prefixes, &compute_link_usage, NULL);
+    g_slist_foreach(ctx->ifaces, &compute_link_usage, NULL);
 
 	if (MAM_PMEASURE_NOISY_DEBUG2)
 	{
