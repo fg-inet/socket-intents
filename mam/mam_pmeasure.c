@@ -73,7 +73,7 @@ void insert_errors(GHashTable *pTable, struct rtnl_link *pLink);
 
 // The interval in which the computation of the values happens, i.e. the time between two computations (in seconds)
 #ifndef CALLBACK_DURATION
-static const double CALLBACK_DURATION=10.0;
+static const double CALLBACK_DURATION=0.1;
 #endif
 
 // The number of samples that are collected before a maximum rate is computed

@@ -654,9 +654,9 @@ main(int c, char **v)
     #ifdef HAVE_LIBNL
 	pmeasure_setup(global_mctx);
 	struct event *pmeasure_event;
-	struct timeval ten_seconds = {10, 0};
+	struct timeval hundred_milliseconds = {0, 100000};
 	pmeasure_event = event_new(global_mctx->ev_base, -1, EV_PERSIST, pmeasure_callback, global_mctx);
-	evtimer_add(pmeasure_event, &ten_seconds);
+	evtimer_add(pmeasure_event, &hundred_milliseconds);
     #endif
 
 	/* set mam socket */
