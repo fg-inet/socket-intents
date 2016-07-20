@@ -13,3 +13,6 @@ void pmeasure_cleanup();
 
 void pmeasure_print_prefix_summary(void *pfx, void *data);
 void pmeasure_print_iface_summary(void *ifc, void *data);
+
+void pmeasure_log_prefix_summary(void *pfx, void *data);
+void pmeasure_log_iface_summary(void *ifc, void *data);

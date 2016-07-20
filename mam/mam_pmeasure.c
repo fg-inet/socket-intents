@@ -22,6 +22,10 @@
 #include "clib/muacc_util.h"
 #include "clib/dlog.h"
 
+#ifndef MAM_PMEASURE_LOGPREFIX
+#define MAM_PMEASURE_LOGPREFIX "/tmp/metrics"
+#endif
+
 #ifdef HAVE_LIBNL
 #include <netlink/netlink.h>
 #include <netlink/socket.h>
@@ -676,6 +680,147 @@ void pmeasure_print_iface_summary(void *ifc, void *data)
 	printf("\n");
 }
 
+/** Log the available measurement data for each prefix, with timestamp and first prefix address
+    Destination: MAM_PMEASURE_LOGPREFIX-prefix.log
+ */
+void pmeasure_log_prefix_summary(void *pfx, void *data)
+{
+    struct src_prefix_list *prefix = pfx;
+
+    if (prefix == NULL || prefix->measure_dict == NULL)
+        return;
+
+    // Put together logfile name
+    char *logfile;
+    asprintf(&logfile, "%s-prefix.log", MAM_PMEASURE_LOGPREFIX);
+
+    // Log timestamp
+    if (data != NULL)
+        _muacc_logtofile(logfile, "%d,", *(int *)data);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+    // Construct string to print the first address of this prefix into
+    char addr_str[INET6_ADDRSTRLEN+1];
+
+    // Print first address of the prefix to the string, then print string to logfile
+    if (prefix->family == AF_INET)
+    {
+        inet_ntop(AF_INET, &( ((struct sockaddr_in *) (prefix->if_addrs->addr))->sin_addr ), addr_str, sizeof(addr_str));
+    }
+    else if (prefix->family == AF_INET6)
+    {
+        inet_ntop(AF_INET6, &( ((struct sockaddr_in6 *) (prefix->if_addrs->addr))->sin6_addr ), addr_str, sizeof(addr_str));
+    }
+    _muacc_logtofile(logfile,"%s,", addr_str);
+
+    // Log interface name that this prefix belongs to
+    _muacc_logtofile(logfile, "%s,", prefix->if_name);
+
+    double *meanvalue = g_hash_table_lookup(prefix->measure_dict, "srtt_mean");
+    if (meanvalue != NULL)
+        _muacc_logtofile(logfile, "%f,", *meanvalue);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+    double *medianvalue = g_hash_table_lookup(prefix->measure_dict, "srtt_median");
+    if (medianvalue != NULL)
+        _muacc_logtofile(logfile, "%f,", *medianvalue);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+	double *minimumvalue = g_hash_table_lookup(prefix->measure_dict, "srtt_minimum");
+	if (minimumvalue != NULL)
+		_muacc_logtofile(logfile, "%f,", *minimumvalue);
+	else
+		_muacc_logtofile(logfile, "NA,");
+
+    uint64_t  *rx_errors = g_hash_table_lookup(prefix->measure_dict, "rx_errors");
+    if (rx_errors != NULL)
+        _muacc_logtofile(logfile, "%" PRIu64 ",", *rx_errors);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+    uint64_t *tx_errors = g_hash_table_lookup(prefix->measure_dict, "tx_errors");
+    if (medianvalue != NULL)
+        _muacc_logtofile(logfile, "%" PRIu64 "\n", *tx_errors);
+    else
+        _muacc_logtofile(logfile, "NA\n");
+}
+
+
+/** Log the available measurement data for each interface, with timestamp
+    Destination: MAM_PMEASURE_LOGPREFIX-interface.log
+ */
+void pmeasure_log_iface_summary(void *ifc, void *data)
+{
+    struct iface_list *iface = ifc;
+
+    if (iface == NULL || iface->measure_dict == NULL)
+        return;
+
+    // Put together logfile name
+    char *logfile;
+    asprintf(&logfile, "%s-interface.log", MAM_PMEASURE_LOGPREFIX);
+
+    // Log timestamp if available
+    if (data != NULL)
+        _muacc_logtofile(logfile, "%d,", *(int *)data);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+    // Log interface name
+    _muacc_logtofile(logfile, "%s,", iface->if_name);
+
+    double *download_rate = g_hash_table_lookup(iface->measure_dict, "download_rate");
+    if (download_rate != NULL)
+        _muacc_logtofile(logfile, "%f,", *download_rate);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+    double *download_max_rate = g_hash_table_lookup(iface->measure_dict, "download_max_rate");
+    if (download_max_rate != NULL)
+        _muacc_logtofile(logfile, "%f,", *download_max_rate);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+    double *s_download_rate = g_hash_table_lookup(iface->measure_dict, "download_srate");
+    if (s_download_rate != NULL)
+        _muacc_logtofile(logfile, "%f,", *s_download_rate);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+    double *download_max_srate = g_hash_table_lookup(iface->measure_dict, "download_max_srate");
+    if (download_max_srate != NULL)
+        _muacc_logtofile(logfile, "%f,", *download_max_srate);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+    double *upload_rate = g_hash_table_lookup(iface->measure_dict, "upload_rate");
+    if (upload_rate != NULL)
+        _muacc_logtofile(logfile, "%f,", *upload_rate);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+    double *upload_max_rate = g_hash_table_lookup(iface->measure_dict, "upload_max_rate");
+    if (upload_max_rate != NULL)
+        _muacc_logtofile(logfile, "%f,", *upload_max_rate);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+    double *s_upload_rate = g_hash_table_lookup(iface->measure_dict, "upload_srate");
+    if (s_upload_rate != NULL)
+        _muacc_logtofile(logfile, "%f,", *s_upload_rate);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+    double *upload_max_srate = g_hash_table_lookup(iface->measure_dict, "upload_max_srate");
+    if (upload_max_srate != NULL)
+        _muacc_logtofile(logfile, "%f\n", *upload_max_srate);
+    else
+        _muacc_logtofile(logfile, "NA\n");
+}
+
 #ifdef HAVE_LIBNL
 int create_nl_sock()
 {
@@ -1012,6 +1157,12 @@ void pmeasure_callback(evutil_socket_t fd, short what, void *arg)
 		DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Printing summary\n");
 		g_slist_foreach(ctx->prefixes, &pmeasure_print_prefix_summary, NULL);
 		g_slist_foreach(ctx->ifaces, &pmeasure_print_iface_summary, NULL);
+	}
+	if (MAM_PMEASURE_LOGPREFIX)
+	{
+		int timestamp = (int)time(NULL);
+		g_slist_foreach(ctx->prefixes, &pmeasure_log_prefix_summary, &timestamp);
+		g_slist_foreach(ctx->ifaces, &pmeasure_log_iface_summary, &timestamp);
 	}
 
 	DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Callback finished.\n\n");
