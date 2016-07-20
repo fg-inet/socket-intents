@@ -1127,12 +1127,15 @@ void get_stats(void *pfx, void *data)
 }
 #endif
 
-void pmeasure_setup()
+void pmeasure_setup(mam_context_t *ctx)
 {
 	DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Setting up pmeasure \n");
+
+	// Invoke callback explicitly to initialize stats
+	pmeasure_callback(0, 0, ctx);
 }
 
-void pmeasure_cleanup()
+void pmeasure_cleanup(mam_context_t *ctx)
 {
 	DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Cleaning up\n");
 }

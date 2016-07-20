@@ -613,7 +613,7 @@ main(int c, char **v)
 
 	/* pmeasure event */
     #ifdef HAVE_LIBNL
-	pmeasure_setup();
+	pmeasure_setup(global_mctx);
 	struct event *pmeasure_event;
 	struct timeval ten_seconds = {10, 0};
 	pmeasure_event = event_new(global_mctx->ev_base, -1, EV_PERSIST, pmeasure_callback, global_mctx);
@@ -649,7 +649,7 @@ main(int c, char **v)
     unlink(MUACC_SOCKET);
 	cleanup_policy_module(global_mctx);
     #ifdef HAVE_LIBNL
-	pmeasure_cleanup();
+	pmeasure_cleanup(global_mctx);
     #endif
 	mam_release_context(global_mctx);
 	lt_dlexit();
