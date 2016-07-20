@@ -75,6 +75,23 @@ void _mam_print_measure_dict (gpointer key,  gpointer val, gpointer sb)
 	{
 		strbuf_printf((strbuf_t *) sb, " %s -> %" PRIu64, (char *) key, *(uint64_t *) val);
 	}
+	else if (strncmp((const char *) key, "counter", 7) == 0)
+	{
+		strbuf_printf((strbuf_t *) sb, " %s -> %ld", (char *) key, *(long *) val);
+	}
+	else if (strncmp((const char *) key, "sample", 7) == 0)
+	{
+		strbuf_printf((strbuf_t *) sb, " %s -> %d", (char *) key, *(int *) val);
+	}
+	else if (
+        (strncmp((const char *) key, "upload", 6) == 0) ||
+        (strncmp((const char *) key, "download", 8) == 0) ||
+        (strncmp((const char *) key, "s_", 2) == 0) ||
+        (strncmp((const char *) key, "prd_", 4) == 0)
+        )
+	{
+		strbuf_printf((strbuf_t *) sb, " %s -> %f", (char *) key, *(double *) val);
+	}
 	else
 		strbuf_printf((strbuf_t *) sb, " %s -> (unknown format)", (char *) key);
 }

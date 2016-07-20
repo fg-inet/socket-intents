@@ -66,6 +66,44 @@ int recv_nl_msg(int sock, void *pfx, GList **values);
 void insert_errors(GHashTable *pTable, struct rtnl_link *pLink);
 #endif
 
+// The interval in which the computation of the values happens, i.e. the time between two computations (in seconds)
+#ifndef CALLBACK_DURATION
+static const double CALLBACK_DURATION=10.0;
+#endif
+
+// The number of samples that are collected before a maximum rate is computed
+#ifndef MAX_SAMPLE
+static const int MAX_SAMPLE=30;
+#endif
+
+// The smoothing factor for the rates (i.e. the weight of the new value)
+#ifndef SMOOTH_FACTOR
+static const double SMOOTH_FACTOR = 0.125;
+#endif
+
+// The smoothing factor for the maximum rates (i.e. the weight of the new value)
+#ifndef SMOOTH_FACTOR_M
+static const double SMOOTH_FACTOR_M = 0.125;
+#endif
+
+#ifdef IS_LINUX
+//path of statistics file (sans interface) in linux broken into two strings
+#ifndef path1
+static const char path1[] = "/sys/class/net/";
+#endif
+
+#ifndef path2
+static const char path2[] = "/statistics/";
+#endif
+
+long read_stats(char *path);
+#endif
+
+#ifndef MAM_PMEASURE_THRUPUT_DEBUG
+#define MAM_PMEASURE_THRUPUT_DEBUG 0
+#endif
+
+void compute_link_usage(void *pfx, void *lookup);
 
 // Alpha Value for Smoothed RTT Calculation
 double alpha = 0.9;
@@ -263,6 +301,259 @@ void insert_errors(GHashTable *dict, struct rtnl_link *link)
     DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Added %" PRIu64 " as RX_ERRORS\n", *rx_errors);
 }
 #endif
+
+#ifdef IS_LINUX
+/**
+ *This function reads reads the interface counters for each interface called.
+ */
+
+long read_stats(char *path)
+{
+    FILE *fp;
+    long curr_counter = 0;
+
+    fp = fopen((const char *)path,"r");
+
+    if (fp == NULL)
+    {    DLOG(MAM_PMEASURE_THRUPUT_DEBUG, "\nError Reading stats file\n");
+        perror(path);
+    }
+    fscanf(fp,"%ld",&curr_counter);
+    fclose(fp);
+    return curr_counter;
+}
+#endif
+
+/**
+ *This function computes the link usage for each interface. Many key values are stored in the dictonary of each interface.
+ For the upload and download activity on the interface:
+ The previous counter value with the key "upload_counter" and "download_counter"
+ The data rate in the 10 second duration with the key "upload_rate" and "download_rate"
+ The smoothed data rate which is a function of data rate(prev line) and previously calculated smoothed data rate with keys "upload_srate"
+ and "download_srate"
+ The function also observes the maximum data rate reached on each interface in a partical sample period(currently 5 min) They are stored
+ with the keys "upload_max_rate" and "download_max_rate"
+ Finally, The smoothed maximal data rate is calulated(from periodic maximal rates and previous smoothed maximal data rate)
+ */
+void compute_link_usage(void *pfx, void *lookup)
+{
+	#ifdef IS_LINUX
+    struct src_prefix_list *prefix = pfx;
+    char path[100];
+
+    long curr_bytes;
+    double curr_rate;
+    double curr_srate;
+    double curr_MSrate;
+    long *prev_bytes;
+    double *prev_rate;
+    double *prev_srate;
+    double *prev_Mrate;
+    double *prev_MSrate;
+
+    int *prev_sample;
+
+    if (prefix == NULL){
+        return;
+    }
+
+    if(strcmp(prefix->if_name,"lo"))
+    {
+        DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"\n\n==========\tINTERFACE\t==========\n");
+
+        /******************************************************************************
+         ****************    Upload Activity
+         ******************************************************************************/
+        //creating path for tx_bytes starts
+        sprintf(path,"%s%s%s%s",path1,prefix->if_name,path2,"tx_bytes");
+        //creating path for tx_bytes ends
+        DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Interface: %s\n",prefix->if_name);
+        DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"=========\tUPLOAD STATS\t=========\n");
+
+        //reading last counter from dictionary starts
+        prev_bytes = g_hash_table_lookup(prefix->measure_dict, "upload_counter");
+        prev_rate = g_hash_table_lookup(prefix->measure_dict, "upload_rate");
+        prev_srate = g_hash_table_lookup(prefix->measure_dict, "upload_srate");
+        prev_Mrate = g_hash_table_lookup(prefix->measure_dict,"upload_max_rate");
+        prev_sample = g_hash_table_lookup(prefix->measure_dict,"sample");
+        //reading last counter from dictionary ends
+
+        //reading interface counter starts
+        curr_bytes = read_stats(path);
+        //reading interface counter ends
+        if(prev_bytes){
+            (*prev_sample)++;
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Sample Number: %d\n",*prev_sample);
+            curr_rate = (curr_bytes - *prev_bytes)/CALLBACK_DURATION;
+
+            //calculating smooth upload rate starts
+            curr_srate = SMOOTH_FACTOR*(curr_rate) + (1-SMOOTH_FACTOR)*(*prev_srate);
+            //calculating smooth upload rate ends
+
+            *prev_rate = curr_rate;
+            *prev_srate = curr_srate;
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Updating the dictionary\n");
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Current Counter Value: %ld Bytes\n",curr_bytes);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Previous Counter Value: %ld Bytes\n",*prev_bytes);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Activity: %ld Bytes\n",(curr_bytes - *prev_bytes));
+            *prev_bytes = curr_bytes;
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Upload Link Usage: %f Bps\n",*prev_rate);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Smoothed Upload Link Usage: %f Bps\n",*prev_srate);
+
+            //Periodic Maximal Data rate determination starts
+
+            //Check if a new maximum data rate has been achieved in the sample period.
+            if (curr_rate > *prev_Mrate){
+                *prev_Mrate = curr_rate;
+                DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"New Max. upload rate reached: %.3fbps\n",*prev_Mrate);
+            }
+
+            //Check if the end of the sample period has been reached.
+            if (*prev_sample == MAX_SAMPLE){
+
+                DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"End of Sample duration\n");
+
+                //fetch the previous maximal smoothed rate (0.0 for the first sample period)
+                prev_MSrate = g_hash_table_lookup(prefix->measure_dict,"upload_max_srate");
+                //determine the newest smoothed maximam data rate.
+                curr_MSrate = SMOOTH_FACTOR_M*(*prev_Mrate) + (1-SMOOTH_FACTOR_M)*(*prev_MSrate);
+                *prev_MSrate = curr_MSrate;
+
+                DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"The Max. upload rate of this sample period: %.3fbps\n",*prev_Mrate);
+                DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"The new smooth Max. upload rate: %.3fbps\n",*prev_MSrate);
+                *prev_Mrate = curr_rate;
+            }
+            //periodic maximal ends
+        }
+        else {
+            //initialization during the first run for a particular interface
+            int *sample = malloc(sizeof(int));
+
+            long *t_bytes = malloc(sizeof(long));
+            double *upload_rate = malloc(sizeof(double));
+            double *s_up_rate = malloc(sizeof(double));
+            double *period_up_rate_max = malloc(sizeof(double));
+            double *period_up_rate_smooth = malloc(sizeof(double));
+
+            *sample = 0;
+            *t_bytes = curr_bytes;
+            *upload_rate = 0.0;
+            *s_up_rate = 0.0;
+            *period_up_rate_max = 0.0;
+            *period_up_rate_smooth = 0.0;
+
+            prev_sample = sample;
+
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Sample Number: %d\n",*sample);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Inserting to the dictionary\n");
+            g_hash_table_insert(prefix->measure_dict, "sample",sample);
+            g_hash_table_insert(prefix->measure_dict, "upload_counter",t_bytes);
+            g_hash_table_insert(prefix->measure_dict, "upload_rate",upload_rate);
+            g_hash_table_insert(prefix->measure_dict, "upload_max_rate",period_up_rate_max);
+            g_hash_table_insert(prefix->measure_dict, "upload_srate",s_up_rate);
+            g_hash_table_insert(prefix->measure_dict, "upload_max_srate",period_up_rate_smooth);
+
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Current Counter Value: %ld Bytes\n",*t_bytes);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Upload Link Usage: %f Bps\n",*upload_rate);
+        }
+
+        prev_bytes = NULL;
+        prev_rate = NULL;
+        prev_srate = NULL;
+        prev_Mrate = NULL;
+
+        /******************************************************************************
+         ****************    Download Activity
+         ******************************************************************************/
+        //creating path for rx_bytes starts
+        sprintf(path,"%s%s%s%s",path1,prefix->if_name,path2,"rx_bytes");
+        //creating path for rx_bytes ends
+
+        DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"=========\tDOWNLOAD STATS\t=========\n");
+        //reading last counter from dictionary starts
+        prev_bytes = g_hash_table_lookup(prefix->measure_dict, "download_counter");
+        prev_rate = g_hash_table_lookup(prefix->measure_dict, "download_rate");
+        prev_srate = g_hash_table_lookup(prefix->measure_dict, "download_srate");
+        prev_Mrate = g_hash_table_lookup(prefix->measure_dict,"download_max_rate");
+        //reading last counter from dictionary ends
+
+        //reading interface counter starts
+        curr_bytes = read_stats(path);
+        //reading interface counter ends
+        if(prev_bytes){
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Sample Number: %d\n",*prev_sample);
+            curr_rate = (curr_bytes - *prev_bytes)/CALLBACK_DURATION;
+
+            //calculating smooth download rate starts
+            curr_srate = SMOOTH_FACTOR*(curr_rate) + (1-SMOOTH_FACTOR)*(*prev_srate);
+            //calculating smooth download rate ends
+
+            *prev_rate = curr_rate;
+            *prev_srate = curr_srate;
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Updating the dictionary\n");
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Current Counter Value: %ld Bytes\n",curr_bytes);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Previous Counter Value: %ld Bytes\n",*prev_bytes);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Activity: %ld Bytes\n",(curr_bytes - *prev_bytes));
+            *prev_bytes = curr_bytes;
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Download Link Usage: %f Bps\n",*prev_rate);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Smoothed Download Link Usage: %f Bps\n",*prev_srate);
+
+            //Periodic Maximal Data rate determination starts
+
+            //Check if a new maximum data rate has been achieved in the sample period.
+            if (curr_rate > *prev_Mrate){
+                *prev_Mrate = curr_rate;
+                DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"New Max. download rate reached: %.3fbps\n",*prev_Mrate);
+            }
+
+            //Check if the end of the sample period has been reached.
+            if (*prev_sample == MAX_SAMPLE){
+
+                *prev_sample = 0;
+                DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"End of Sample duration\n");
+                //fetch the previous maximal smoothed rate (0.0 for the first sample period)
+                prev_MSrate = g_hash_table_lookup(prefix->measure_dict,"download_max_srate");
+                //determine the newest smoothed maximam data rate.
+                curr_MSrate = SMOOTH_FACTOR_M*(*prev_Mrate) + (1-SMOOTH_FACTOR_M)*(*prev_MSrate);
+                *prev_MSrate = curr_MSrate;
+
+                DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"The Max. download rate of this sample period: %.3fbps\n",*prev_Mrate);
+                DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"The new smooth Max. download rate: %.3fbps\n",*prev_MSrate);
+                *prev_Mrate = curr_rate;
+            }
+            //periodic maximal ends
+        }
+        else {
+            //initialization during the first run for a particular interface
+            long *r_bytes = malloc(sizeof(long));
+            double *download_rate = malloc(sizeof(double));
+            double *s_download_rate = malloc(sizeof(double));
+            double *period_down_rate_max = malloc(sizeof(double));
+            double *period_down_rate_smooth = malloc(sizeof(double));
+
+            *r_bytes = curr_bytes;
+            *download_rate = 0.0;
+            *s_download_rate = 0.0;
+            *period_down_rate_max = 0.0;
+            *period_down_rate_smooth = 0.0;
+
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Sample Number: %d\n",*prev_sample);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Inserting to the dictionary\n");
+            g_hash_table_insert(prefix->measure_dict, "download_counter",r_bytes);
+            g_hash_table_insert(prefix->measure_dict, "download_rate",download_rate);
+            g_hash_table_insert(prefix->measure_dict, "download_max_rate",period_down_rate_max);
+            g_hash_table_insert(prefix->measure_dict, "download_srate",s_download_rate);
+            g_hash_table_insert(prefix->measure_dict, "download_max_srate",period_down_rate_smooth);
+
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Current Counter Value: %ld Bytes\n",*r_bytes);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Upload Link Usage: %f Bps\n",*download_rate);
+        }
+
+    }
+	#endif
+return;
+}
+
 
 /** Print the available measurement data for each prefix */
 void pmeasure_print_prefix_summary(void *pfx, void *data)
@@ -642,6 +933,10 @@ void pmeasure_callback(evutil_socket_t fd, short what, void *arg)
 
 	g_slist_foreach(ctx->prefixes, &compute_srtt, NULL);
     g_slist_foreach(ctx->prefixes, &get_stats, NULL);
+
+    DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Computing Link Usage\n");
+    g_slist_foreach(ctx->prefixes, &compute_link_usage, NULL);
+
 	if (MAM_PMEASURE_NOISY_DEBUG2)
 	{
 		DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Printing summary\n");
