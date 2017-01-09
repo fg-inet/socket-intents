@@ -20,7 +20,7 @@ Building and Installing the Socket Intents Framework
 
 __Supported platforms:__ Linux (we use mainly Debian and Ubuntu), OS X
 
-__Prerequisites:__ cmake, pkg-config, bison, flex, libltdl-dev, libevent-dev, libglib2.0-dev, libargtable2-dev, uuid-dev, libnl-3-dev libnl-3-genl-dev, (liburiparser-dev)
+__Prerequisites:__ cmake, pkg-config, bison, flex, libltdl-dev, libevent-dev, libglib2.0-dev, libargtable2-dev, uuid-dev, libnl-3-dev libnl-3-genl-dev, libnl-idiag-3-dev, libnl-route-3-dev, (liburiparser-dev)
 
 To build and install:
 
@@ -44,23 +44,27 @@ Testing the Socket Intents Framework
 
 First, you need to run the __Multi Access Manager (MAM)__ with a policy.
 
-1. Pick a policy from the policies subdirectory of the source tree, e.g., policy_sample, and adjust its configuration file, e.g. *policy_sample.conf*:
+1. Pick a policy from the policies subdirectory of the source tree, e.g., policy_sample, and create or adjust its configuration file, e.g. *policy_sample.conf*:
   * Adjust the "prefix" statements to contain the current IP prefixes of the interfaces you want the MAM to manage. Make sure they are "enabled". You have to set separate prefixes for IPv4 and IPv6 addresses.
-Example:
+  * Example:
 ```
+policy "policy_sample.so" {
+};
 prefix 192.168.0.0/24 {
 	enabled 1;
 }
 ```
   * Depending on the policy, you may want to add additional parameters or options to the prefix statements, e.g. for *policy_sample.conf* to make one of them the default interface:
 ```
+policy "policy_sample.so" {
+};
 prefix 192.168.0.0/24 {
 	enabled 1;
 	set default = 1;
 }
 ```
 2. Run the MAM executable *mamma* (MAM Master) with your policy configuration file:
-```sh
+```
 $ mamma policy_sample.conf
 ```
   If it works correctly, you should see output from the policy, e.g.:
