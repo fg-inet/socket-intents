@@ -39,6 +39,11 @@ This will install:
 * The Socks Daemon binary *muacsocksd*
 * The header files to let you use the client library and/or write your own policies
 
+After installing and before running the Multi Access Manager, you may have to update the shared library cache using
+```sh
+ldconfig
+```
+
 Testing the Socket Intents Framework
 ------------------------------------
 
