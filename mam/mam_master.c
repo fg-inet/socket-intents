@@ -144,6 +144,8 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 				 
 				 *rctx = malloc(sizeof(struct request_context));
 				(*rctx)->sockets = NULL;
+				(*rctx)->evdns_base = NULL;
+				(*rctx)->policy_context = NULL;
 				(*rctx)->mctx = global_mctx;
 				(*rctx)->ctx = _muacc_create_ctx();
     			uuid_copy((*rctx)->ctx->ctxid, old);
