@@ -143,9 +143,7 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 				uuid_copy(old, crctx->ctx->ctxid);
 				 
 				 *rctx = malloc(sizeof(struct request_context));
-				(*rctx)->sockets = NULL;
-				(*rctx)->evdns_base = NULL;
-				(*rctx)->policy_context = NULL;
+				 memset(*rctx, 0, sizeof(struct request_context));
 				(*rctx)->mctx = global_mctx;
 				(*rctx)->ctx = _muacc_create_ctx();
     			uuid_copy((*rctx)->ctx->ctxid, old);
@@ -267,6 +265,7 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
 		/* initialize request context to back up communication */
 		ctx = malloc(sizeof(struct request_context *));		
 		*ctx = malloc(sizeof(struct request_context));
+		memset(*ctx, 0, sizeof(struct request_context));
 		(*ctx)->ctx = _muacc_create_ctx();
 		(*ctx)->mctx = mctx;
 				
@@ -277,9 +276,6 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
 		client_list->callback_function = &clean_client_state;
 		client_list->sockets = NULL;
 		global_mctx->clients = g_slist_append(global_mctx->clients, client_list);
-						
-		(*ctx)->sockets = NULL;
-		(*ctx)->policy_calls_performed = 0;
 
     	/* set up bufferevent magic */
         evutil_make_socket_nonblocking(fd);
