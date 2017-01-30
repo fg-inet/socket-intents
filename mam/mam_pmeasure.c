@@ -769,8 +769,16 @@ void pmeasure_log_iface_summary(void *ifc, void *data)
     else
         _muacc_logtofile(logfile, "NA,");
 
-    // Log interface name
-    _muacc_logtofile(logfile, "%s,", iface->if_name);
+	double *measurement_timestamp_sec = g_hash_table_lookup(iface->measure_dict,"rate_timestamp_sec");
+	double *measurement_timestamp_usec = g_hash_table_lookup(iface->measure_dict,"rate_timestamp_usec");
+
+	if (measurement_timestamp_sec != NULL && measurement_timestamp_usec != NULL)
+		_muacc_logtofile(logfile, "%.0f.%.0f,", *measurement_timestamp_sec, *measurement_timestamp_usec);
+	else
+		_muacc_logtofile(logfile, "NA,");
+
+	// Log interface name
+	_muacc_logtofile(logfile, "%s,", iface->if_name);
 
     double *download_rate = g_hash_table_lookup(iface->measure_dict, "download_rate");
     if (download_rate != NULL)
