@@ -261,6 +261,19 @@ int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
 	printf("\n\tResolve request: %s:%s\n\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 
+	if(rctx->ctx->bind_sa_req != NULL)
+	{	// already bound
+		printf("Bind interface already specified\n");
+		rctx->ctx->domain = rctx->ctx->bind_sa_req->sa_family;
+
+		struct src_prefix_list *bind_pfx = get_pfx_with_addr(rctx, rctx->ctx->bind_sa_req);
+		if (bind_pfx != NULL) {
+			// Set DNS base to this prefix's
+			rctx->evdns_base = bind_pfx->evdns_base;
+			printf("Set DNS base\n");
+		}
+	}
+
 	rctx->action = muacc_act_getaddrinfo_resolve_resp;
 
 	return resolve_name(rctx);
@@ -321,6 +334,12 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 		strbuf_printf(&sb, "\tAlready bound to src=");
 		_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
 		rctx->ctx->domain = rctx->ctx->bind_sa_req->sa_family;
+		struct src_prefix_list *bind_pfx = get_pfx_with_addr(rctx, rctx->ctx->bind_sa_req);
+		if (bind_pfx != NULL) {
+			// Set DNS base to this prefix's
+			rctx->evdns_base = bind_pfx->evdns_base;
+			strbuf_printf(&sb, ", set DNS base. ");
+		}
 	}
 	else
 	{
@@ -386,6 +405,13 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 		{	// already bound
 			strbuf_printf(&sb, "\tAlready bound to src=");
 			_muacc_print_sockaddr(&sb, rctx->ctx->bind_sa_req, rctx->ctx->bind_sa_req_len);
+
+			struct src_prefix_list *bind_pfx = get_pfx_with_addr(rctx, rctx->ctx->bind_sa_req);
+			if (bind_pfx != NULL) {
+				// Set DNS base to this prefix's
+				rctx->evdns_base = bind_pfx->evdns_base;
+				strbuf_printf(&sb, ", set DNS base. ");
+			}
 		}
 		else
 		{
@@ -396,6 +422,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 
 				// Set this prefix' evdns base for name resolution
 				rctx->evdns_base = bind_pfx->evdns_base;
+				strbuf_printf(&sb, ", set DNS base. ");
 			}
 			else
 			{
