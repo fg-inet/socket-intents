@@ -342,14 +342,13 @@ int muacc_bind(muacc_context_t *ctx, int socket, const struct sockaddr *address,
 		goto muacc_bind_fallback;
 	}
 
-	ctx->ctx->calls_performed |= MUACC_BIND_CALLED;
+	ctx->ctx->bind_sa_req = _muacc_clone_sockaddr(address, address_len);
+	ctx->ctx->bind_sa_req_len = address_len;
+
 	ret = bind(socket, address, address_len);
 
-	if (ret == 0)
-	{
-		ctx->ctx->bind_sa_req = _muacc_clone_sockaddr(address, address_len);
-		ctx->ctx->bind_sa_req_len = address_len;
-	}
+	ctx->ctx->calls_performed |= MUACC_BIND_CALLED;
+
 	_unlock_ctx(ctx);
 	return ret;
 
