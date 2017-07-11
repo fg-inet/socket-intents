@@ -1,6 +1,6 @@
 #include "policy.h"
 #include "policy_util.h"
-#include "../clib/muacc.h"
+#include "muacc.h"
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <stdio.h>
@@ -8,8 +8,8 @@
 #include <string.h>
 #include <errno.h>
 
-#include "../mam/mptcp_netlink_parser.h"
-#include "../mam/mam_netlink.h"
+#include "mam/mptcp_netlink_parser.h"
+#include "mam/mam_netlink.h"
 
 /** Policy-specific per-prefix data structure that contains additional information */
 struct default_flow_info {

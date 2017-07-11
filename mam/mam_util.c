@@ -10,11 +10,11 @@
 #include <assert.h>
 #include <inttypes.h>
 
-#include "clib/muacc_util.h"
-#include "lib/muacc_tlv.h"
-#include "lib/muacc_ctx.h"
-#include "clib/dlog.h"
-#include "clib/strbuf.h"
+#include "muacc_util.h"
+#include "muacc_tlv.h"
+#include "muacc_ctx.h"
+#include "dlog.h"
+#include "strbuf.h"
 
 #include "mam_util.h"
 #include "mam_pmeasure.h"

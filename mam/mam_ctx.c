@@ -7,10 +7,10 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "clib/dlog.h"
-#include "clib/strbuf.h"
-#include "clib/muacc_util.h"
-#include "lib/muacc_ctx.h"
+#include "dlog.h"
+#include "strbuf.h"
+#include "muacc_util.h"
+#include "muacc_ctx.h"
 
 #include "mam.h"
 #include "mam_util.h"

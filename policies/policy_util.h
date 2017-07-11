@@ -6,7 +6,7 @@
  */
 
 #include "mam/mam.h"
-#include "clib/muacc_util.h"
+#include "lib/muacc_util.h"
 #include "lib/muacc_ctx.h"
 #include "policy.h"
 

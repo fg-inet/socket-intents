@@ -8,9 +8,9 @@
 #include <sys/un.h>
 #include <sys/stat.h>
 
-#include "clib/muacc.h"
-#include "lib/muacc_ctx.h"
-#include "lib/muacc_tlv.h"
+#include "muacc.h"
+#include "muacc_ctx.h"
+#include "muacc_tlv.h"
 
 #include "mam_pmeasure.h"
 

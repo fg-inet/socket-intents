@@ -5,9 +5,9 @@
  */
 
 #include "policy_util.h"
-#include "../mam/mam_util.h"
+#include "mam/mam_util.h"
 
-#include "clib/dlog.h"
+#include "dlog.h"
 
 #ifndef MAM_POLICY_UTIL_NOISY_DEBUG0
 #define MAM_POLICY_UTIL_NOISY_DEBUG0 0

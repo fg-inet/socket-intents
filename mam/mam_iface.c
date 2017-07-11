@@ -29,8 +29,8 @@
 #include <net/route.h>
 #include <netinet/if_ether.h>
 
-#include "clib/dlog.h"
-#include "clib/muacc_util.h"
+#include "dlog.h"
+#include "muacc_util.h"
 
 #include "mam.h"
 #include "mam_util.h"

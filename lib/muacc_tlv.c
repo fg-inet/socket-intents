@@ -14,9 +14,9 @@
 #include <assert.h>
 
 #include "muacc_tlv.h"
-#include "clib/muacc_util.h"
+#include "muacc_util.h"
 
-#include "clib/dlog.h"
+#include "dlog.h"
 
 #ifndef MUACC_TLV_NOISY_DEBUG0
 #define MUACC_TLV_NOISY_DEBUG0 1

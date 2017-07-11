@@ -19,8 +19,8 @@
 #include "mam.h"
 #include "mam_pmeasure.h"
 
-#include "clib/muacc_util.h"
-#include "clib/dlog.h"
+#include "muacc_util.h"
+#include "dlog.h"
 
 #ifndef MAM_PMEASURE_LOGPREFIX
 #define MAM_PMEASURE_LOGPREFIX "/tmp/metrics"

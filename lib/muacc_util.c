@@ -13,10 +13,9 @@
 #include <sys/un.h>
 #include <netdb.h>
 
-#include "clib/muacc.h"
-#include "clib/muacc_util.h"
 #include "clib/muacc_client.h"
-
+#include "muacc.h"
+#include "muacc_util.h"
 #include "intents.h"
 
 #ifndef MUACC_UTIL_NOISY_DEBUG
