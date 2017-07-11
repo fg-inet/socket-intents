@@ -27,8 +27,8 @@
 #include <ltdl.h>
 #include <glib.h>
 
-#include "clib/muacc_client.h"
 #include "muacc.h"
+#include "socketset.h"
 #include "config.h"
 
 #include "mptcp_netlink_parser.h"

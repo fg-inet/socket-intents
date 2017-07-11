@@ -96,10 +96,4 @@ void __uuid_unparse_lower(const uuid_t uuid, char* dst);
  */
 int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const void *optval, socklen_t optlen, int flags);
 
-/** Find the socketset struct from a given file descriptor
- *
- * @return The corresponding socketset
- */
-struct socketlist *_muacc_socketlist_find_file (struct socketlist *slist, int socket);
-
 #endif /* __MUACC_UTIL_H__ */

@@ -16,14 +16,14 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 
-#include "clib/muacc.h"
-#include "lib/muacc_ctx.h"
-#include "lib/muacc_tlv.h"
+#include "muacc.h"
+#include "muacc_ctx.h"
+#include "muacc_tlv.h"
 
-#include "lib/intents.h"
-#include "clib/dlog.h"
+#include "intents.h"
+#include "dlog.h"
 
-#include "clib/muacc_client_util.h"
+#include "client_util.h"
 
 #include "test_util.h"
 

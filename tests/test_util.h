@@ -8,8 +8,8 @@
 #ifndef __TEST_UTIL_H__
 #define __TEST_UTIL_H__
 
-#include "clib/muacc.h"
-#include "lib/intents.h"
+#include "muacc.h"
+#include "intents.h"
 
 #ifndef memset_pattern4
 void memset_pattern4 (void *dst, const void *pat, size_t len);

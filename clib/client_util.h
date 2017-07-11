@@ -1,12 +1,12 @@
 /** \file  muacc_client_util.h
  *  \brief Helper functions used by the muacc client
  *
- *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2017 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
-#ifndef __MUACC_CLIENT_UTIL_H__
-#define __MUACC_CLIENT_UTIL_H__
+#ifndef MUACC_CLIENT_UTIL_H
+#define MUACC_CLIENT_UTIL_H
 
 #include <unistd.h>
 #include <string.h>
@@ -15,15 +15,18 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#include "muacc_client.h"
+#include "socketset.h"
 
-/* socketlist lock */
-#ifndef CLIB_IF_LOCKS
-#define CLIB_IF_LOCKS 0
-#endif
+#include "muacc.h"
 
-extern struct socketset *socketsetlist;
-extern pthread_rwlock_t socketsetlist_lock;
+/** Context of a socket on the client side */
+typedef struct muacc_context
+{
+    int     usage;              /**< reference counter */
+    uint8_t locks;              /**< lock to avoid multiple concurrent requests */
+    int     mamsock;            /**< socket to talk to MAM */
+    struct _muacc_ctx *ctx;     /**< internal struct with relevant socket context data */
+} muacc_context_t;
 
 /** initialize background structures for muacc_context
  *
@@ -92,6 +95,13 @@ int _muacc_contact_mam (
 	muacc_context_t *ctx		/**< [in]	context to be updated */
 );
 
+/** Process a socketconnect response, create a new socket, bind and connect it. Append it to set list my_socksetlist and use my_socksetlist_lock for that, if not NULL.
+ *
+ *  @return 1 if successful, -1 if fail
+ */
+int _muacc_socketconnect_create(muacc_context_t *ctx, int *s, struct socketset **my_socketsetlist, pthread_rwlock_t *my_socketsetlist_lock, int create_nonblock_socket);
+
+
 /** make the TLV client ready by establishing a connection to MAM
  *
  * @return 0 on success, a negative number otherwise
@@ -110,57 +120,11 @@ int muacc_set_intent(socketopt_t **opts, int optname, const void *optval, sockle
  */
 int muacc_free_socket_option_list(socketopt_t *opts);
 
-/** Add socket to a socketset
- *
- * @return 0 on success, a negative number otherwise
- */
-struct socketset* _muacc_add_socket_to_set(struct socketset **list_of_sets, int socket, struct _muacc_ctx *ctx);
-
-/** Find the socket set that contains the socket with the given file descriptor, if any
- *
- * @return Pointer to the socket set that contains the socket, if found, or NULL
- */
-struct socketset *_muacc_find_socketset(struct socketset *list_of_sets, int socket);
-
-/** Find a socket set that matches the socket context
- *
- * @return Pointer to the socket set if found, or NULL
- */
-struct socketset *_muacc_find_set_for_socket(struct socketset *list_of_sets, struct _muacc_ctx *ctx);
-
-/** Print the list of socket sets
- *
- */
-void muacc_print_socketsetlist(struct socketset *list_of_sets);
-
-/** Print a socket set
- *
- */
-void muacc_print_socketset(struct socketset *set);
-
 /** Send socketchoose request and process response
  *
  * @return 0 for choosing existing socket, 1 for opening new socket, -1 otherwise
  */
 int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketset *set);
-
-/** Find socketset that is a duplicate of the given one (i.e. has different file descriptor but same context)
- * 
- *  @return next duplicate socket set, or NULL if none exists
- */
-struct socketlist *_muacc_socketset_find_dup (struct socketlist *slist);
-
-/** Find the previous socket set in the list
- *
- * @return Pointer to the previous socket set (or NULL, if this is the first set in the list)
- */
-struct socketset *_muacc_find_prev_socketset(struct socketset **list_of_sets, struct socketset *set);
-
-/** Remove socket from set, and clean up socketset if set is now empty
- *
- * @return 0 on success, -1 otherwise
- */
-int _muacc_remove_socket_from_list (struct socketset **list_of_sets, int socket);
 
 /** Copy a host name to the context, and resolve its service name to a port number
  *
@@ -168,16 +132,4 @@ int _muacc_remove_socket_from_list (struct socketset **list_of_sets, int socket)
  */
 int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostlen, const char *serv, size_t servlen);
 
-/** Free a socket from a socket set, and close its file descriptor.
- *
- *  @return 0 on success (set still has sockets), 1 on success (set is empty now), -1 otherwise
- */
-int _muacc_free_socket(struct socketset *set_to_delete, struct socketlist *socket_to_delete, struct socketlist *prevlist);
-
-/** Clean up unused sockets from a socket set
- *
- * @return 0 on success, -1 otherwise
- */
-int _muacc_cleanup_sockets(struct socketset **set);
-
-#endif /* __MUACC_CLIENT_UTIL_H__ */
+#endif

@@ -6,7 +6,7 @@
 
 #include "policy.h"
 #include "policy_util.h"
-#include "clib/muacc_client_util.h"
+#include "socketset.h"
 
 GSList *in4_enabled = NULL;
 GSList *in6_enabled = NULL;
