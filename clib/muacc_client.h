@@ -19,6 +19,8 @@
 
 #include "client_util.h"
 #include "socketset.h"
+#include "client_socketapi.h"
+#include "client_socketconnect.h"
 
 
 /** wrapper for socket, initializes an uninitialized context
