@@ -115,6 +115,11 @@ int muacc_sa_getaddrinfo(muacc_context_t *ctx,
 		free(ctx->ctx->remote_hostname);
 	ctx->ctx->remote_hostname = _muacc_clone_string(hostname);
 
+	/* save service */
+	if(ctx->ctx->remote_service != NULL)
+		free(ctx->ctx->remote_service);
+	ctx->ctx->remote_service = _muacc_clone_string(servname);
+
 	/* save hint */
 	if(ctx->ctx->remote_addrinfo_hint != NULL)
 		freeaddrinfo(ctx->ctx->remote_addrinfo_hint);
