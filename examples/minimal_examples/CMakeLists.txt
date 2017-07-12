@@ -1,0 +1,2 @@
+ADD_EXECUTABLE(minimal_examples EXCLUDE_FROM_ALL minimal_examples.c)
+TARGET_LINK_LIBRARIES(minimal_examples muacc-client)

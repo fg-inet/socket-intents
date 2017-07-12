@@ -1,5 +1,6 @@
 ADD_SUBDIRECTORY(addrinfo_demo)
 ADD_SUBDIRECTORY(muacsocks)
+ADD_SUBDIRECTORY(minimal_examples)
 
 ADD_SUBDIRECTORY(socketconnect_async_demo)
 ADD_SUBDIRECTORY(synchr_socketconnect_demo)
