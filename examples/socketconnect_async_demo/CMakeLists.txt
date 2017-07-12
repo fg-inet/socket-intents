@@ -1,0 +1,2 @@
+ADD_EXECUTABLE(socketconnect_async_demo socketconnect_async_demo.c)
+TARGET_LINK_LIBRARIES(socketconnect_async_demo muacc-client)

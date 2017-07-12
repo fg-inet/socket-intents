@@ -1,0 +1,2 @@
+ADD_EXECUTABLE(addrinfo_demo addrinfo_demo.c)
+TARGET_LINK_LIBRARIES(addrinfo_demo muacc-client)
