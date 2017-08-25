@@ -5,7 +5,7 @@ __Socket Intents__ augment the socket interface to enable the application to exp
 This framework implements a prototype of Socket Intents and enables applications to use them.
 Note that Socket Intents *do not provide any guarantee* of any specific kind of service. They are strictly best-effort.
 
-The actual decision-making is implemented within the __Multi Access Mananger__, a daemon that manages the various network interfaces on a host. The __policy__ is loaded as a shared library within the Multi Access Manager.
+The actual decision-making is implemented within the __Multi Access Manager__, a daemon that manages the various network interfaces on a host. The __policy__ is loaded as a shared library within the Multi Access Manager.
 
 Copyright
 -----
