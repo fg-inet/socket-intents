@@ -1,0 +1,2 @@
+ADD_EXECUTABLE(synchr_socketconnect_demo synchr_socketconnect_demo.c)
+TARGET_LINK_LIBRARIES(synchr_socketconnect_demo muacc-client)

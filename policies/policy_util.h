@@ -1,12 +1,12 @@
 /** \file policy_util.h
  *  \brief Utilities for writing MAM policies
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
 #include "mam/mam.h"
-#include "clib/muacc_util.h"
+#include "lib/muacc_util.h"
 #include "lib/muacc_ctx.h"
 #include "policy.h"
 
@@ -41,3 +41,17 @@ void _set_bind_sa(request_context_t *rctx, struct sockaddr *addr, strbuf_t *sb);
 
 /** Helper that prints the addresses returned by getaddrinfo */
 void print_addrinfo_response (struct addrinfo *res);
+
+/** Helper that searches for information for a prefix in various dictionaries */
+void *lookup_prefix_info(struct src_prefix_list *prefix, const void *key);
+
+/** Helper that looks if the socketlist contains a socket on a particular prefix
+ *	Returns 0 if no socket is found, 1 if at least one socket is found
+  */
+  int is_there_a_socket_on_prefix(struct socketlist *list, struct src_prefix_list *pfx);
+
+/** Helper that filters a socket list for a particular prefix */
+void pick_sockets_on_prefix(request_context_t *rctx, struct src_prefix_list *bind_pfx);
+
+/** Helper that returns the prefix with a given socket address */
+struct src_prefix_list *get_pfx_with_addr(request_context_t *rctx, struct sockaddr *addr);

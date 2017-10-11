@@ -1,6 +1,6 @@
 /** \file strbuf.c
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
@@ -8,8 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "clib/dlog.h"
-#include "clib/strbuf.h"
+#include "dlog.h"
+#include "strbuf.h"
 
 #define STRBUF_NOISY_DEBUG 0
 #define STRBUF_DEFAULT_CHUNKSIZE	512	

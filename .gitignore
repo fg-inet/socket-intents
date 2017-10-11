@@ -70,3 +70,4 @@ mptcp_nlmon
 
 #ignore osx file-info fallback files
 ._*
+.idea/

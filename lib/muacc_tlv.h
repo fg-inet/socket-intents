@@ -1,7 +1,7 @@
 /** \file  muacc_tlv.h
  *  \brief Functions for reading/writing tags and structs from/to TLV buffers
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
@@ -12,7 +12,7 @@
 #include <sys/socket.h>
 
 #include <netdb.h>
-#include "clib/muacc.h"
+#include "muacc.h"
 
 #define MUACC_TLV_MAXLEN 4096
 

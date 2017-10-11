@@ -1,6 +1,6 @@
 /** \file mam_iface.c
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
@@ -29,8 +29,8 @@
 #include <net/route.h>
 #include <netinet/if_ether.h>
 
-#include "clib/dlog.h"
-#include "clib/muacc_util.h"
+#include "dlog.h"
+#include "muacc_util.h"
 
 #include "mam.h"
 #include "mam_util.h"
@@ -40,36 +40,16 @@
 #endif
 
 #ifndef MAM_IF_NOISY_DEBUG1
-#define MAM_IF_NOISY_DEBUG1 0
+#define MAM_IF_NOISY_DEBUG1 1
 #endif
 
 #ifndef MAM_IF_NOISY_DEBUG2
 #define MAM_IF_NOISY_DEBUG2 0
 #endif
 
+/* Function declaration: Add a new interface to list */
+struct iface_list *_add_iface_to_list (GSList **ifacel, char *if_name);
 
-/** check whether two ipv4 addresses are in the same subnet */
-static int _cmp_in_addr_with_mask(
-	struct in_addr *a,		
-	struct in_addr *b,
-	struct in_addr *mask	/**< the subnet mask */
-){
-	return( (a->s_addr ^ b->s_addr) & mask->s_addr );	
-}
-
-/** check whether two ipv6 addresses are in the same subnet */
-static int _cmp_in6_addr_with_mask(
-	struct in6_addr *a,		
-	struct in6_addr *b,
-	struct in6_addr *mask	/**< the subnet mask */
-){
-	for(int i=0; i<16; i++)
-	{
-		if( (((a->s6_addr)[i] ^ (b->s6_addr)[i]) & (mask->s6_addr)[i]) != 0 )
-			return (i+1);
-	}
-	return(0);	
-}
 
 /** Compare a src_prefix_list struct with a src_prefix_model
  *  Return 0 if they are equal, 1 if not, -1 on error */
@@ -162,12 +142,89 @@ static int _append_sockaddr_list (
 	return(0);
 }
 
+/** Helper function that matches interface names.
+ *  Returns 0 if the given ifname matches the given listelement's interface name
+ */
+int compare_if_name (gconstpointer listelement, gconstpointer ifname)
+{
+	struct iface_list *cur = (struct iface_list *) listelement;
+	char *match_name = (char *) ifname;
+
+	if (cur == NULL || match_name == NULL)
+	{
+		DLOG(MAM_IF_NOISY_DEBUG1, "WARNING: called with NULL argument\n");
+		return -1;
+	}
+
+	if (cur->if_name != NULL && strcmp(cur->if_name, match_name) == 0)
+	{
+		// Interface names match
+		return 0;
+	}
+	else
+	{
+		return 1;
+	}
+
+}
+
+/** Add an interface to the interface list, if it does not exist there yet
+ *  In any case, return a pointer to the interface list item
+ */
+struct iface_list *_add_iface_to_list (
+	GSList **ifacel,
+	char *if_name)
+{
+	if (if_name == NULL)
+	{
+		DLOG(MAM_IF_NOISY_DEBUG1, "Cannot add interface \"NULL\"!\n");
+		return NULL;
+	}
+	GSList *ifacelistitem = NULL;
+
+	/* Lookup this interface name in the interface list */
+	ifacelistitem = g_slist_find_custom(*ifacel, (gconstpointer) if_name, &compare_if_name);
+
+	if (ifacelistitem != NULL)
+	{
+		/* Interface name already found in list: Return this interface list item */
+		DLOG(MAM_IF_NOISY_DEBUG2, "Interface %s already in list\n", if_name);
+		return ifacelistitem->data;
+	}
+	else
+	{
+		DLOG(MAM_IF_NOISY_DEBUG2, "Adding interface %s to list\n", if_name);
+
+		/* Interface name not found in list: Add it */
+		struct iface_list *new = NULL;
+		new = malloc(sizeof(struct iface_list));
+		if (new == NULL)
+		{
+			DLOG(MAM_IF_NOISY_DEBUG1, "malloc for interface list element failed!\n");
+			return NULL;
+		}
+		else
+		{
+			/* Create new interface list item */
+			memset(new, 0, sizeof(struct iface_list));
+			new->if_name = _muacc_clone_string(if_name);
+			new->measure_dict = g_hash_table_new(g_str_hash, g_str_equal);
+
+			/* Append to list */
+			*ifacel = g_slist_append(*ifacel, (gpointer) new);
+
+			return new;
+		}
+	}
+}
+
 /** Incorporate an address into the source prefix list:
  *  If a matching prefix exists, add it to this prefix' addr_list
  *  If no matching prefix exists yet, create one
  */
 static void _scan_update_prefix (
 	GSList **spfxl,
+	struct iface_list *iflistentry,
 	char *if_name, unsigned int if_flags,
 	int family,
 	struct sockaddr *addr,
@@ -211,6 +268,9 @@ static void _scan_update_prefix (
 	new->if_netmask = _muacc_clone_sockaddr(mask, family_size);
 	new->if_netmask_len = family_size;
 
+	/* add pointer to the interface list item of the interface that this prefix belongs to */
+	new->iface = iflistentry;
+
 	new->measure_dict = g_hash_table_new(g_str_hash, g_str_equal);
 	
 	/* append to list */
@@ -220,11 +280,13 @@ static void _scan_update_prefix (
 }
 
 /** Scan for interfaces/addresses available on the host
- *  Create a new src_prefix_list and add all active interfaces/addresses to it
+ *  Create a new src_prefix_list and add all active interfaces, prefixes and addresses to it
  */
 int update_src_prefix_list (mam_context_t *ctx )
 {
 	GSList **spfxl = &ctx->prefixes;
+	GSList **ifacel = &ctx->ifaces;
+
     struct ifaddrs *ifaddr, *ifa;
     int family;
 
@@ -236,7 +298,14 @@ int update_src_prefix_list (mam_context_t *ctx )
     }
 	
 	if(*spfxl != NULL) 
+	{
 		g_slist_free_full(*spfxl, &_free_src_prefix_list);
+	}
+
+	if(*ifacel != NULL)
+	{
+		g_slist_free_full(*ifacel, &_free_iface_list);
+	}
 
     /* Walk through linked list, maintaining head pointer so we
        can free list later */
@@ -279,9 +348,12 @@ int update_src_prefix_list (mam_context_t *ctx )
 					 addr, mask);
 			}
 			#endif
+
+			/* add to interface list if it does not exist yet */
+			struct iface_list *iflistentry = _add_iface_to_list( ifacel, ifa->ifa_name);
 				 
-			/* add to our structure */
-			_scan_update_prefix( spfxl,
+			/* add to source prefix list */
+			_scan_update_prefix( spfxl, iflistentry,
 				ifa->ifa_name, ifa->ifa_flags,
 				family, ifa->ifa_addr, ifa->ifa_netmask );
 		}
@@ -289,6 +361,25 @@ int update_src_prefix_list (mam_context_t *ctx )
 
     freeifaddrs(ifaddr);
     return(0);
+}
+
+/** Tear down a interface list structure */
+void _free_iface_list (gpointer data)
+{
+	struct iface_list *element = (struct iface_list *) data;
+
+	if (element->if_name != NULL)
+		free(element->if_name);
+
+	if(element->policy_set_dict != NULL)
+		g_hash_table_destroy(element->policy_set_dict);
+
+	if(element->measure_dict != NULL)
+		g_hash_table_destroy(element->measure_dict);
+
+	free(element);
+
+	return;
 }
 
 /** Tear down a source prefix list structure */

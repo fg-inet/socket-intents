@@ -1,6 +1,6 @@
 /** \file muacc_tlv.h
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
@@ -14,9 +14,9 @@
 #include <assert.h>
 
 #include "muacc_tlv.h"
-#include "clib/muacc_util.h"
+#include "muacc_util.h"
 
-#include "clib/dlog.h"
+#include "dlog.h"
 
 #ifndef MUACC_TLV_NOISY_DEBUG0
 #define MUACC_TLV_NOISY_DEBUG0 1

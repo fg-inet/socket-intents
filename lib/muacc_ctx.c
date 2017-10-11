@@ -1,6 +1,6 @@
 /** \file muacc_ctx.c
  *
- *  \copyright  Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright  Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
@@ -12,11 +12,11 @@
 #include <sys/un.h>
 #include <arpa/inet.h>
 
-#include "clib/dlog.h"
+#include "dlog.h"
 
 #include "muacc_ctx.h"
 #include "muacc_tlv.h"
-#include "clib/muacc_util.h"
+#include "muacc_util.h"
 
 #ifndef MUACC_CTX_NOISY_DEBUG0
 #define MUACC_CTX_NOISY_DEBUG0 1

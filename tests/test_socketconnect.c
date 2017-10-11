@@ -1,7 +1,7 @@
 /** \file test_socketconnect.c
  *  \brief Test utility for high-level socketconnect API and its policies
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  *
  *	This test utility requests a new socket via the socketconnect call, which results in a
@@ -30,14 +30,13 @@
 #include "argtable2.h"
 #include "uriparser/Uri.h"
 
-#include "clib/muacc.h"
-#include "clib/muacc_util.h"
-#include "lib/muacc_ctx.h"
-#include "lib/muacc_tlv.h"
+#include "muacc_client.h"
+#include "muacc.h"
+#include "muacc_util.h"
+#include "muacc_ctx.h"
+#include "muacc_tlv.h"
 
-#include "clib/dlog.h"
-
-#include "clib/muacc_client_util.h"
+#include "dlog.h"
 
 #include "test_util.h"
 

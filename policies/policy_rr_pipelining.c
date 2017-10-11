@@ -1,12 +1,12 @@
 /** \file policy_rr_pipelining.c
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
 #include "policy.h"
 #include "policy_util.h"
-#include "clib/muacc_client_util.h"
+#include "socketset.h"
 
 GSList *in4_enabled = NULL;
 GSList *in6_enabled = NULL;

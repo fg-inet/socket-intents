@@ -1,6 +1,6 @@
 /** \file mam_util.c
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
@@ -8,12 +8,13 @@
 #include <stdlib.h>
 #include <ltdl.h>
 #include <assert.h>
+#include <inttypes.h>
 
-#include "clib/muacc_util.h"
-#include "lib/muacc_tlv.h"
-#include "lib/muacc_ctx.h"
-#include "clib/dlog.h"
-#include "clib/strbuf.h"
+#include "muacc_util.h"
+#include "muacc_tlv.h"
+#include "muacc_ctx.h"
+#include "dlog.h"
+#include "strbuf.h"
 
 #include "mam_util.h"
 #include "mam_pmeasure.h"
@@ -70,8 +71,63 @@ void _mam_print_measure_dict (gpointer key,  gpointer val, gpointer sb)
 	{
 		strbuf_printf((strbuf_t *) sb, " %s -> %f", (char *) key, *(double *) val);
 	}
+	else if (strncmp((const char*)key+2, "_errors", 11) == 0)
+	{
+		strbuf_printf((strbuf_t *) sb, " %s -> %" PRIu64, (char *) key, *(uint64_t *) val);
+	}
+	else if (strncmp((const char *) key, "counter", 7) == 0)
+	{
+		strbuf_printf((strbuf_t *) sb, " %s -> %ld", (char *) key, *(long *) val);
+	}
+	else if (strncmp((const char *) key, "sample", 7) == 0)
+	{
+		strbuf_printf((strbuf_t *) sb, " %s -> %d", (char *) key, *(int *) val);
+	}
+	else if (
+        (strncmp((const char *) key, "upload", 6) == 0) ||
+        (strncmp((const char *) key, "download", 8) == 0) ||
+        (strncmp((const char *) key, "s_", 2) == 0) ||
+        (strncmp((const char *) key, "prd_", 4) == 0)
+        )
+	{
+		strbuf_printf((strbuf_t *) sb, " %s -> %f", (char *) key, *(double *) val);
+	}
 	else
 		strbuf_printf((strbuf_t *) sb, " %s -> (unknown format)", (char *) key);
+}
+
+void _mam_print_iface_list(strbuf_t *sb, GSList *ifaces)
+{
+	GSList *i = ifaces;
+	strbuf_printf(sb, "{ ");
+
+	while (i != NULL)
+	{
+		struct iface_list *current = (struct iface_list *) i->data;
+		strbuf_printf(sb, "\n\t");
+		_mam_print_iface(sb, current);
+		i = i->next;
+	}
+	strbuf_printf(sb, "}");
+}
+
+void _mam_print_iface(strbuf_t *sb, struct iface_list *current)
+{
+	strbuf_printf(sb, "{ ");
+	strbuf_printf(sb, " if_name = %s, ", current->if_name);
+	if(current->policy_set_dict != NULL)
+	{
+		strbuf_printf(sb, " policy_set_dict = {");
+		g_hash_table_foreach(current->policy_set_dict, &_mam_print_dict_kv, sb);
+		strbuf_printf(sb, " }");
+	}
+	if(current->measure_dict != NULL)
+	{
+		strbuf_printf(sb, " measure_dict = {");
+		g_hash_table_foreach(current->measure_dict, &_mam_print_measure_dict, sb);
+		strbuf_printf(sb, " }");
+	}
+	strbuf_printf(sb, "}, ");
 }
 
 void _mam_print_prefix_list(strbuf_t *sb, GSList *prefixes)
@@ -87,7 +143,7 @@ void _mam_print_prefix_list(strbuf_t *sb, GSList *prefixes)
 		_mam_print_prefix(sb, current);
 		p = p->next;
 	}
-	strbuf_printf(sb, "NULL }");
+	strbuf_printf(sb, "}");
 
 }
 
@@ -96,6 +152,7 @@ void _mam_print_prefix(strbuf_t *sb, struct src_prefix_list *current)
 {
 	strbuf_printf(sb, "{ ");
 	strbuf_printf(sb, " if_name = %s, ", current->if_name);
+	strbuf_printf(sb, " associated if_name = %s, ", current->iface->if_name);
 	_mam_print_prefix_list_flags(sb, current->pfx_flags);
 	strbuf_printf(sb, " if_flags = %d, ", current->if_flags);
 	strbuf_printf(sb, " if_addrs = ");
@@ -108,6 +165,12 @@ void _mam_print_prefix(strbuf_t *sb, struct src_prefix_list *current)
 		g_hash_table_foreach(current->policy_set_dict, &_mam_print_dict_kv, sb);
 		strbuf_printf(sb, " }");
 	}
+	if(current->measure_dict != NULL)
+	{
+		strbuf_printf(sb, " measure_dict = {");
+		g_hash_table_foreach(current->measure_dict, &_mam_print_measure_dict, sb);
+		strbuf_printf(sb, " }");
+	}
 	strbuf_printf(sb, " }, ");
 }
 
@@ -117,6 +180,9 @@ void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx)
 	strbuf_printf(sb, "\tusage = %d\n", ctx->usage);
 	strbuf_printf(sb, "\tsrc_prefix_list = ");
 	_mam_print_prefix_list(sb, ctx->prefixes);
+	strbuf_printf(sb, "\n");
+	strbuf_printf(sb, "\tiface_list = ");
+	_mam_print_iface_list(sb, ctx->ifaces);
 	strbuf_printf(sb, "\n");
 	if(ctx->policy_set_dict != NULL) 
 	{
@@ -165,7 +231,7 @@ void _free_client_list (gpointer data)
 	
 	char uuid_str[37];
 	uuid_unparse_lower(element->id, uuid_str);
-	printf("cleaning client list %s:\n", uuid_str);
+	DLOG(MAM_UTIL_NOISY_DEBUG2,"cleaning client list %s:\n", uuid_str);
 	
 	if (element->sockets != NULL)
 		g_slist_free_full(element->sockets,  &_free_socket_list);
@@ -181,7 +247,7 @@ void _free_socket_list (gpointer data)
 	
 	socket_list_t *element = (socket_list_t *) data;
 	
-	printf("list had socket: %d\n", element->sk);
+	DLOG(MAM_UTIL_NOISY_DEBUG2,"list had socket: %d\n", element->sk);
 	
 	free(data);
 	return;
@@ -197,6 +263,7 @@ int _mam_free_ctx(struct mam_context *ctx)
 	}
 
 	g_slist_free_full(ctx->prefixes, &_free_src_prefix_list);
+	g_slist_free_full(ctx->ifaces, &_free_iface_list);
 	g_slist_free_full(ctx->clients,  &_free_client_list);
 	g_hash_table_destroy(ctx->state);
 	free(ctx);
@@ -461,4 +528,66 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
 
 }
 
+/** check whether two ipv4 addresses are in the same subnet */
+int _cmp_in_addr_with_mask(
+	struct in_addr *a,		
+	struct in_addr *b,
+	struct in_addr *mask	/**< the subnet mask */
+){
+	return( (a->s_addr ^ b->s_addr) & mask->s_addr );	
+}
 
+/** check whether two ipv6 addresses are in the same subnet */
+int _cmp_in6_addr_with_mask(
+	struct in6_addr *a,		
+	struct in6_addr *b,
+	struct in6_addr *mask	/**< the subnet mask */
+){
+	for(int i=0; i<16; i++)
+	{
+		if( (((a->s6_addr)[i] ^ (b->s6_addr)[i]) & (mask->s6_addr)[i]) != 0 )
+			return (i+1);
+	}
+	return(0);	
+}
+
+int is_addr_in_prefix(struct sockaddr *addr, struct src_prefix_list *pfx)
+{
+	if (addr == NULL || pfx == NULL)
+		return -1;
+
+	if (addr->sa_family == AF_INET)
+	{
+		// check if two IPv4 addresses are in same subnet
+		if (_cmp_in_addr_with_mask(
+			&(((struct sockaddr_in *)addr)->sin_addr),
+			&(((struct sockaddr_in *)pfx->if_addrs->addr)->sin_addr),
+			&(((struct sockaddr_in *)pfx->if_netmask)->sin_addr)) == 0)
+		{
+			return 0;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else if (addr->sa_family == AF_INET6)
+	{
+		// check if two IPv6 addresses are in same subnet
+		if (_cmp_in6_addr_with_mask(
+		&(((struct sockaddr_in6 *)addr)->sin6_addr),
+		&(((struct sockaddr_in6 *)pfx->if_addrs->addr)->sin6_addr),
+		&(((struct sockaddr_in6 *)pfx->if_netmask)->sin6_addr)) == 0)
+		{
+			return 0;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else
+	{
+		return -1;
+	}
+}

@@ -1,7 +1,7 @@
 /** \file mam_util.h
  *	Utilities for handling mam contexts and other data structures
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 #ifndef __MAM_UTIL_H__
@@ -18,6 +18,12 @@ void _mam_print_prefix_list(strbuf_t *sb, GSList *prefixes);
 /** Helper to print a list of prefixes to a string */
 void _mam_print_prefix(strbuf_t *sb, struct src_prefix_list *current);
 
+/** Helper to print a list of interfaces to a string */
+void _mam_print_iface_list(strbuf_t *sb, GSList *ifaces);
+
+/** Helper to print an interface to a string */
+void _mam_print_iface(strbuf_t *sb, struct iface_list *current);
+
 /** Helper to print a mam context to a string */
 void _mam_print_ctx(strbuf_t *sb, const struct mam_context *ctx);
 
@@ -26,6 +32,9 @@ void _mam_print_measure_dict (gpointer key,  gpointer val, gpointer sb);
 
 /** Helper that frees a source prefix list - to be called using g_slist_free_full */
 void _free_src_prefix_list (gpointer data);
+
+/** Helper that frees an iface list item - to be called using g_slist_free_full */
+void _free_iface_list (gpointer data);
 
 void _free_client_list (gpointer data);
 void _free_socket_list (gpointer data);
@@ -63,4 +72,26 @@ void _mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags);
  */
 int _mam_callback_or_fail(request_context_t *ctx, const char *function, unsigned int calls_performed_flag, muacc_mam_action_t action_if_fail);
 
+/** check whether two ipv4 addresses are in the same subnet 
+ *
+ * Returns 0 if they are in the same subnet 
+ */
+int _cmp_in_addr_with_mask(
+	struct in_addr *a,		
+	struct in_addr *b,
+	struct in_addr *mask	/**< the subnet mask */
+);
+
+/** check whether two ipv6 addresses are in the same subnet
+ *
+ * Returns 0 if they are in the same subnet 
+ */
+int _cmp_in6_addr_with_mask(
+	struct in6_addr *a,		
+	struct in6_addr *b,
+	struct in6_addr *mask	/**< the subnet mask */
+);
+
+/* Check if a sockaddr in in the same subnet as a given prefix) */
+int is_addr_in_prefix(struct sockaddr *addr, struct src_prefix_list *pfx);
 #endif /* __MAM_UTIL_H__ */

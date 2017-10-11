@@ -2,12 +2,12 @@
 #define __MUACC_CLIENT_H__
 
 /** \file  muacc_client.h
- *  \brief Alternate Socket API, as it can be used by applications
+ *  \brief Classic BSD-like and Socketconnect API
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2017 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  *
- *	Implements a low-level socket functions with socket context as additional parameter,
+ *	Implements a BSD-like Socket Intents API with socket context as additional parameter,
  *	and a high-level socketconnect function that returns a newly connected socket or a
  *	socket from an already connected set
  */
@@ -17,47 +17,11 @@
 #include <netdb.h>
 #include <pthread.h>
 
-#include "muacc_util.h"
+#include "client_util.h"
+#include "socketset.h"
+#include "client_socketapi.h"
+#include "client_socketconnect.h"
 
-/** Context of a socket on the client side */
-typedef struct muacc_context
-{
-    int     usage;              /**< reference counter */
-    uint8_t locks;              /**< lock to avoid multiple concurrent requests */
-    int     mamsock;            /**< socket to talk to MAM */
-    struct _muacc_ctx *ctx;     /**< internal struct with relevant socket context data */
-} muacc_context_t;
-
-/** List of socketsets that we have
- *  each with its own destination host/port, connection type, status, read/write lock
- *  and list of sockets that belong to the set
- */
-typedef struct socketset
-{
-	pthread_rwlock_t lock;		/**< Read/Write lock for this set */
-	pthread_rwlock_t destroylock;/**< Lock for deleting this set */
-	uint8_t	use_count;			/**< Number of sockets in this set that are in use */
-	char   *host;				/**< Host name for this socket set */
-	size_t  hostlen;			/**< Length of host name in bytes (without \0) */
-	char   *serv;				/**< Destination port or service for this socket set */
-	size_t  servlen;			/**< Length of service in bytes (without \0) */
-	int 	type;				/**< Connection type, e.g. SOCK_STREAM or SOCK_DGRAM */
-	struct  socketlist *sockets;/**< List of sockets within this socket set */
-	struct	socketset *next;
-} socketset_t;
-
-/** List of sockets that are part of a socket set
- *  each with its own file descriptor, context, and status
- */
-typedef struct socketlist
-{
-	int		file;				/**< File descriptor of this socket */
-	int		flags;              /**< Flags indicating the status of this socket, e.g. MUACC_SOCKET_IN_USE */
-	struct	_muacc_ctx *ctx;	/**< Context of this socket */
-	struct socketlist 	*next;
-} socketlist_t;
-
-#define MUACC_SOCKET_IN_USE 0x01
 
 /** wrapper for socket, initializes an uninitialized context
  *
@@ -126,25 +90,19 @@ int socketconnect(
  *
  *  @return 1 if successful, -1 if fail
  */
-int _socketconnect_request(muacc_context_t *ctx, int *s, const char *host, size_t hostlen, const char *serv, size_t servlen);
+int _socketconnect_request_old(muacc_context_t *ctx, int *s, const char *host, size_t hostlen, const char *serv, size_t servlen);
 
 /** Send a socketchoose request to MAM
  *
  *  @return 0 if existing socket was chosen, 1 if new socket was created, -1 if fail
  */
-int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set);
+int _socketchoose_request_old(muacc_context_t *ctx, int *s, struct socketset *set);
 
 /** Process a socketconnect response, create a new socket, bind and connect it
  *
  *  @return 1 if successful, -1 if fail
  */
-int _muacc_socketconnect_create(muacc_context_t *ctx, int *s);
-
-/** Send a socketchoose request or open a new socket
- *
- *  @return 0 if successful, -1 if fail
- */
-int _socketchoose_request(muacc_context_t *ctx, int *s, struct socketset *set);
+int _muacc_socketconnect_create_old(muacc_context_t *ctx, int *s);
 
 /** Close a socket that was supplied by socketconnect, drop it from the socket set
  *

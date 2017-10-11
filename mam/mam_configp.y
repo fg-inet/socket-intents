@@ -1,7 +1,7 @@
 /*
  *  A parser for mammas config file 
  *
- *  Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
@@ -39,7 +39,7 @@
 
 %token SEMICOLON OBRACE CBRACE EQUAL SLASH
 %token POLICYTOK IFACETOK PREFIXTOK 
-%token SETTOK RESOLVCONFTOK ENABLETOK
+%token SETTOK RESOLVCONFTOK ENABLETOK NAMESERVERTOK
 
 %union
 {
@@ -223,11 +223,48 @@ prefix_statement:
 			pfx_flags_values &= PFX_ENABLED^PFX_ENABLED; 
 	}
 	|
-	RESOLVCONFTOK QNAME 
+	RESOLVCONFTOK QNAME
 	{
-		if((l_evdns_base = evdns_base_new(yymctx->ev_base, 0)) != NULL)
+		if(l_evdns_base != NULL || (l_evdns_base = evdns_base_new(yymctx->ev_base, 0)) != NULL)
+		{
 			evdns_base_resolv_conf_parse(l_evdns_base, DNS_OPTIONS_ALL, $2);
+			DLOG(MAM_CONFIGP_NOISY_DEBUG, "Configuring DNS base from %s -> have %d nameserver(s)\n", $2, evdns_base_count_nameservers(l_evdns_base));
+		}
 	}
+	|
+	NAMESERVERTOK QNAME
+	{
+		if(l_evdns_base != NULL || (l_evdns_base = evdns_base_new(yymctx->ev_base, 0)) != NULL)
+		{
+			DLOG(MAM_CONFIGP_NOISY_DEBUG, "Adding name server %s to DNS base\n", $2);
+			evdns_base_nameserver_ip_add(l_evdns_base, $2);
+		}
+	}
+	|
+	NAMESERVERTOK IN4ADDR
+	{
+		struct sockaddr_in *sa = &($2);
+		inet_ntop(AF_INET, &(sa->sin_addr), addr_str, sizeof(addr_str));
+
+		if(l_evdns_base != NULL || (l_evdns_base = evdns_base_new(yymctx->ev_base, 0)) != NULL)
+		{
+			DLOG(MAM_CONFIGP_NOISY_DEBUG, "Adding name server %s to DNS base\n", addr_str);
+			evdns_base_nameserver_ip_add(l_evdns_base, addr_str);
+		}
+	}
+	|
+	NAMESERVERTOK IN6ADDR
+	{
+		struct sockaddr_in6 *sa = &($2);
+		inet_ntop(AF_INET6, &(sa->sin6_addr), addr_str, sizeof(addr_str));
+
+		if(l_evdns_base != NULL || (l_evdns_base = evdns_base_new(yymctx->ev_base, 0)) != NULL)
+		{
+			DLOG(MAM_CONFIGP_NOISY_DEBUG, "Adding name server %s to DNS base\n", addr_str);
+			evdns_base_nameserver_ip_add(l_evdns_base, addr_str);
+		}
+	}
+
 	;
 	
 %%

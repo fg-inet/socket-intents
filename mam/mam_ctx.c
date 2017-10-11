@@ -1,16 +1,16 @@
 /** \file mam_ctx.c
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
 #include <stdio.h>
 #include <errno.h>
 
-#include "clib/dlog.h"
-#include "clib/strbuf.h"
-#include "clib/muacc_util.h"
-#include "lib/muacc_ctx.h"
+#include "dlog.h"
+#include "strbuf.h"
+#include "muacc_util.h"
+#include "muacc_ctx.h"
 
 #include "mam.h"
 #include "mam_util.h"

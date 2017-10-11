@@ -1,6 +1,6 @@
 /** \file mam_configs.l
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
@@ -10,7 +10,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include "mam_configp.h"
-#include "clib/dlog.h"
+#include "dlog.h"
 
 %}
 
@@ -35,6 +35,7 @@ set                		return SETTOK;
 enabled					return ENABLETOK;
 
 resolvconf              return RESOLVCONFTOK;
+nameserver              return NAMESERVERTOK;
 
 \{                      return OBRACE;
 \}                      return CBRACE;

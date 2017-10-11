@@ -1,6 +1,6 @@
 /** \file muacc_util.c
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2017 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
@@ -13,16 +13,40 @@
 #include <sys/un.h>
 #include <netdb.h>
 
-#include "clib/muacc.h"
-#include "clib/muacc_util.h"
-#include "clib/muacc_client.h"
-
+#include "muacc.h"
+#include "muacc_util.h"
+#include "socketset.h"
 #include "intents.h"
 
 #ifndef MUACC_UTIL_NOISY_DEBUG
 #define MUACC_UTIL_NOISY_DEBUG 0
 #endif
 
+void _muacc_logtofile (const char *filename, const char *format, ...)
+{
+	if (filename == NULL)
+	{
+		DLOG(MUACC_UTIL_NOISY_DEBUG, "No log file given!\n");
+		return;
+	}
+	va_list args;
+	va_start (args, format);
+	FILE *fp = fopen(filename, "a");
+	if (fp == NULL)
+	{
+		DLOG(MUACC_UTIL_NOISY_DEBUG, "Could not open log file %s\n", filename);
+		return;
+	}
+	else
+	{
+		char *str;
+		vasprintf(&str, format, args);
+		fprintf(fp, "%s", str);
+	}
+	va_end(args);
+	if (fp != NULL)
+		fclose(fp);
+}
 
 struct sockaddr *_muacc_clone_sockaddr(const struct sockaddr *src, size_t src_len)
 {
@@ -451,15 +475,4 @@ int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const
 	}
 
 	return retval;
-}
-
-struct socketlist *_muacc_socketlist_find_file (struct socketlist *slist, int socket)
-{
-       while (slist != NULL)
-       {
-               if (slist->file == socket)
-                       return slist;
-               slist = slist->next;
-       }
-       return NULL;
 }

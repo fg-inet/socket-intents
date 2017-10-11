@@ -1,7 +1,7 @@
 /** \file  muacc_util.h
  *  \brief Helper functions used by the muacc library that do not manipulate the muacc ctx directly
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
@@ -16,6 +16,11 @@
 #include <netdb.h>
 
 #include "muacc.h"
+
+/** helper that logs to a file
+ *
+ */
+void _muacc_logtofile (const char *filename, const char *format, ...);
 
 /** helper to copy a cstring
  *
@@ -90,11 +95,5 @@ void __uuid_unparse_lower(const uuid_t uuid, char* dst);
  *
  */
 int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const void *optval, socklen_t optlen, int flags);
-
-/** Find the socketset struct from a given file descriptor
- *
- * @return The corresponding socketset
- */
-struct socketlist *_muacc_socketlist_find_file (struct socketlist *slist, int socket);
 
 #endif /* __MUACC_UTIL_H__ */

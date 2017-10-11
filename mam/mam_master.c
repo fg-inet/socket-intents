@@ -1,6 +1,6 @@
 /** \file mam_master.c
  *
- *  \copyright Copyright 2013-2015 Philipp Schmidt, Theresa Enghardt, and Mirko Palmer.
+ *  \copyright Copyright 2013-2015 Philipp S. Tiesel, Theresa Enghardt, and Mirko Palmer.
  *  All rights reserved. This project is released under the New BSD License.
  */
 
@@ -8,9 +8,9 @@
 #include <sys/un.h>
 #include <sys/stat.h>
 
-#include "clib/muacc.h"
-#include "lib/muacc_ctx.h"
-#include "lib/muacc_tlv.h"
+#include "muacc.h"
+#include "muacc_ctx.h"
+#include "muacc_tlv.h"
 
 #include "mam_pmeasure.h"
 
@@ -37,6 +37,7 @@
 
 struct mam_context *global_mctx = NULL;
 const char fifo_path[] = "/tmp/mam_config_fifo";
+char configfile_path[255]; 
 int config_fd = -1;
 
 void clean_client_state(GSList *client);
@@ -142,7 +143,7 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 				uuid_copy(old, crctx->ctx->ctxid);
 				 
 				 *rctx = malloc(sizeof(struct request_context));
-				(*rctx)->sockets = NULL;
+				 memset(*rctx, 0, sizeof(struct request_context));
 				(*rctx)->mctx = global_mctx;
 				(*rctx)->ctx = _muacc_create_ctx();
     			uuid_copy((*rctx)->ctx->ctxid, old);
@@ -264,6 +265,7 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
 		/* initialize request context to back up communication */
 		ctx = malloc(sizeof(struct request_context *));		
 		*ctx = malloc(sizeof(struct request_context));
+		memset(*ctx, 0, sizeof(struct request_context));
 		(*ctx)->ctx = _muacc_create_ctx();
 		(*ctx)->mctx = mctx;
 				
@@ -274,9 +276,6 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
 		client_list->callback_function = &clean_client_state;
 		client_list->sockets = NULL;
 		global_mctx->clients = g_slist_append(global_mctx->clients, client_list);
-						
-		(*ctx)->sockets = NULL;
-		(*ctx)->policy_calls_performed = 0;
 
     	/* set up bufferevent magic */
         evutil_make_socket_nonblocking(fd);
@@ -520,7 +519,39 @@ static void do_graceful_shutdown(evutil_socket_t _, short what, void* evctx) {
  */
 static void do_reconfigure(evutil_socket_t _, short what, void* evctx) {
 	DLOG(MAM_MASTER_NOISY_DEBUG0, "got hangup signal - reconfigureing\n");
-	configure_mamma();
+	char *policy_filename = NULL;
+		
+	if ( (config_fd = open(configfile_path, O_RDONLY)) == -1 )
+    {
+	 	DLOG(1, "opening config file %s failed: %s\n", configfile_path, strerror(errno));
+		return;
+	}
+
+	/* clean up old policy module of present */
+	if(global_mctx->policy != NULL)
+	{
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "unloading old policy module\n");
+		cleanup_policy_module(global_mctx);
+	}
+	
+	/* load policy module if we have command line arguments */
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "parsing config file\n");	
+	mam_read_config(config_fd, &policy_filename, global_mctx);
+
+	if (MAM_MASTER_NOISY_DEBUG2) mam_print_context(global_mctx);
+	
+	/* initialize dynamic loader and load policy module */
+	if(policy_filename != NULL)
+	{
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "loading policy module\n");
+		setup_policy_module(global_mctx, policy_filename);
+	}
+	else
+	{
+		DLOG(1, "no policy module given - mamma is useless...\n");
+	}
+	
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "(re)configuration done\n");
 }
 
 /** signal handler the libevent-way 
@@ -528,7 +559,10 @@ static void do_reconfigure(evutil_socket_t _, short what, void* evctx) {
 static void do_print_state(evutil_socket_t _, short what, void* evctx) {
 	DLOG(1, "got USR1 signal - dumping state\n");
 	mam_print_context(global_mctx);
-	g_slist_foreach(global_mctx->prefixes, &pmeasure_print_summary, NULL);
+    #ifdef HAVE_LIBNL
+	g_slist_foreach(global_mctx->prefixes, &pmeasure_print_prefix_summary, NULL);
+	g_slist_foreach(global_mctx->ifaces, &pmeasure_print_iface_summary, NULL);
+    #endif
 }
 
 int
@@ -591,10 +625,16 @@ main(int c, char **v)
 	{
 		DLOG(1, "opening config file %s failed: %s\n", v[1], strerror(errno));
 		exit(1);
-	} 
+	}
+	else
+	{
+		strncpy(configfile_path, v[1], 255);
+	}
 	
 	/* apply config and read policy */
 	configure_mamma();
+
+	close(config_fd);
 
     /* configure netlink socket to communicate with MPTCP pathmanager kernel module 
        if netlink is available.
@@ -609,11 +649,13 @@ main(int c, char **v)
     configure_fifo();
 
 	/* pmeasure event */
-	pmeasure_setup();
+    #ifdef HAVE_LIBNL
+	pmeasure_setup(global_mctx);
 	struct event *pmeasure_event;
-	struct timeval ten_seconds = {10, 0};
+	struct timeval hundred_milliseconds = {0, 100000};
 	pmeasure_event = event_new(global_mctx->ev_base, -1, EV_PERSIST, pmeasure_callback, global_mctx);
-	evtimer_add(pmeasure_event, &ten_seconds);
+	evtimer_add(pmeasure_event, &hundred_milliseconds);
+    #endif
 
 	/* set mam socket */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "setting up mamma's socket %s\n", MUACC_SOCKET);
@@ -643,7 +685,9 @@ main(int c, char **v)
     close(listener);
     unlink(MUACC_SOCKET);
 	cleanup_policy_module(global_mctx);
-	pmeasure_cleanup();
+    #ifdef HAVE_LIBNL
+	pmeasure_cleanup(global_mctx);
+    #endif
 	mam_release_context(global_mctx);
 	lt_dlexit();
 	
