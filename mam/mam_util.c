@@ -232,6 +232,7 @@ void _free_client_list (gpointer data)
 	char uuid_str[37];
 	uuid_unparse_lower(element->id, uuid_str);
 	DLOG(MAM_UTIL_NOISY_DEBUG2,"cleaning client list %s:\n", uuid_str);
+	g_hash_table_destroy(element->flow_table);
 	
 	if (element->sockets != NULL)
 		g_slist_free_full(element->sockets,  &_free_socket_list);
@@ -591,4 +592,18 @@ int is_addr_in_prefix(struct sockaddr *addr, struct src_prefix_list *pfx)
 	{
 		return -1;
 	}
+}
+
+void _mam_clear_prefix_flags(void *pfx, void *data)
+{
+    struct src_prefix_list *prefix = pfx;
+    if (prefix == NULL)
+    {
+        return;
+    }
+    else
+    {
+        DLOG(MAM_UTIL_NOISY_DEBUG2,"clearing prefix flags for %s\n", prefix->if_name);
+        prefix->pfx_flags = 0;
+    }
 }

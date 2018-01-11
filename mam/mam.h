@@ -112,7 +112,6 @@ typedef struct _client_list {
 	GSList					*sockets;
 	uint64_t				inode;
 	GHashTable				*flow_table;
-	void (*callback_function)(GSList*);
 } client_list_t;
 
 /** List of sockets opened by a client application */

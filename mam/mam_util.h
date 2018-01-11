@@ -72,6 +72,9 @@ void _mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags);
  */
 int _mam_callback_or_fail(request_context_t *ctx, const char *function, unsigned int calls_performed_flag, muacc_mam_action_t action_if_fail);
 
+/** Helper to clear prefix flags */
+void _mam_clear_prefix_flags(void *pfx, void *data);
+
 /** check whether two ipv4 addresses are in the same subnet 
  *
  * Returns 0 if they are in the same subnet 

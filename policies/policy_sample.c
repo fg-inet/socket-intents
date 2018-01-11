@@ -225,6 +225,11 @@ int resolve_name(request_context_t *rctx)
 	}
 
 	strbuf_printf(&sb, "\tResolving: %s:%s with hint: ", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+	if (evdns_base_set_option(evdns_base, "timeout", "1") < 0)
+	{
+		strbuf_printf(&sb, "Setting DNS timeout failed\n");
+	}
+
 	_muacc_print_addrinfo(&sb, rctx->ctx->remote_addrinfo_hint);
 	strbuf_printf(&sb, "\n");
 

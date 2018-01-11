@@ -40,7 +40,6 @@ const char fifo_path[] = "/tmp/mam_config_fifo";
 char configfile_path[255]; 
 int config_fd = -1;
 
-void clean_client_state(GSList *client);
 int compare_id_in_struct(gconstpointer list_data,  gconstpointer user_data);
 
 static void process_mam_request(struct request_context *ctx)
@@ -156,7 +155,7 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 					{
                     
 #if MAM_MASTER_NOISY_DEBUG2 == 1
-						printf("client inode: %u:%u\n", (uint32_t)((crctx->ctx->ctxino) >> 32),
+						DLOG(MAM_MASTER_NOISY_DEBUG2, "client inode: %u:%u\n", (uint32_t)((crctx->ctx->ctxino) >> 32),
  										   		(uint32_t)((crctx->ctx->ctxino) & 0xFFFFFFFF));
 #endif
 
@@ -168,9 +167,9 @@ static void mamsock_readcb(struct bufferevent *bev, void *prctx)
 
 #if MAM_MASTER_NOISY_DEBUG2 == 1
 						uuid_unparse_lower(crctx->ctx->ctxid, uuid_str);
-						printf("(mam callback) add sockfd: %d to id: %s\n", sk->sk, uuid_str);
-						((client_list_t*)client_list->data)->sockets = g_slist_append(((client_list_t*)client_list->data)->sockets, sk);
+						DLOG(MAM_MASTER_NOISY_DEBUG2, "(mam callback) add sockfd: %d to id: %s\n", sk->sk, uuid_str);
 #endif
+						((client_list_t*)client_list->data)->sockets = g_slist_append(((client_list_t*)client_list->data)->sockets, sk);
 					}
 				}
 
@@ -207,12 +206,14 @@ static void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
     if (error & BEV_EVENT_EOF) {
         /* connection has been closed, do any clean up here */
 		GSList *client_list = g_slist_find_custom(global_mctx->clients, crctx->ctx->ctxid, compare_id_in_struct);
+        char uuid_str[37];
+		uuid_unparse_lower(crctx->ctx->ctxid, uuid_str);
+		DLOG(MAM_MASTER_NOISY_DEBUG2, "Connection closed by client %s\n", uuid_str);
 		
-		if (client_list)
-		{
-			if (((client_list_t*)client_list->data)->callback_function)
-				((client_list_t*)client_list->data)->callback_function(client_list);
-		}
+		g_hash_table_destroy(((client_list_t *)client_list->data)->flow_table);
+		g_slist_free_full(((client_list_t *)client_list->data)->sockets, &_free_socket_list);
+		free((client_list_t *)client_list->data);
+		global_mctx->clients = g_slist_delete_link(global_mctx->clients, client_list);
 		
     } else if (error & BEV_EVENT_ERROR) {
         /* check errno to see what error occurred */
@@ -227,18 +228,6 @@ static void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
 		free(rctx);
 	}
     bufferevent_free(bev);
-}
-
-void clean_client_state(GSList *client_list)
-{
-#if MAM_MASTER_NOISY_DEBUG2 == 1
-	char uuid_str[37];
-	client_list_t *list = ((client_list_t*)client_list->data);
-	uuid_unparse_lower(list->id, uuid_str);
-	printf("cleaning up state for client with fd:%d and id: %s\n", list->client_sk, uuid_str);
-#endif
-	
-	global_mctx->clients = g_slist_remove(global_mctx->clients, client_list->data);
 }
 
 /** accept new clients of mam
@@ -258,7 +247,7 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
         close(fd);
     } else {
 
-		DLOG(MAM_MASTER_NOISY_DEBUG2, "Accepted client %d\n", fd);
+		DLOG(MAM_MASTER_NOISY_DEBUG2, "Accepted client, socket fd = %d\n", fd);
     	struct bufferevent *bev;
 		request_context_t **ctx;
 
@@ -273,9 +262,13 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
 		client_list->client_sk = fd; //bufferevent_getfd(bev);
 		uuid_generate((*ctx)->ctx->ctxid);
 		uuid_copy(client_list->id, (*ctx)->ctx->ctxid);
-		client_list->callback_function = &clean_client_state;
 		client_list->sockets = NULL;
 		global_mctx->clients = g_slist_append(global_mctx->clients, client_list);
+        #if MAM_MASTER_NOISY_DEBUG2 == 1
+            char uuid_str[37];
+            uuid_unparse_lower(client_list->id, uuid_str);
+            DLOG(MAM_MASTER_NOISY_DEBUG2, "generated uuid: %s - allocated state\n", uuid_str);
+        #endif
 
     	/* set up bufferevent magic */
         evutil_make_socket_nonblocking(fd);
@@ -293,7 +286,7 @@ static void do_read_fifo(evutil_socket_t fd, short event, void *arg)
 	int (*callback_function)(struct mam_context *mctx, char* config) = NULL;
 
 	//printf("fifo_read called with fd: %d, event: %d\n", (int)fd, event);
-	
+
 	len = read(fd, buf, 255);
 
 	if (len <= 0) 
@@ -479,7 +472,7 @@ static void configure_mamma() {
 		DLOG(MAM_MASTER_NOISY_DEBUG1, "unloading old policy module\n");
 		cleanup_policy_module(global_mctx);
 	}
-	
+
 	/* get interface config from system */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "updating interface list from system\n");
 	update_src_prefix_list(global_mctx);
@@ -533,7 +526,14 @@ static void do_reconfigure(evutil_socket_t _, short what, void* evctx) {
 		DLOG(MAM_MASTER_NOISY_DEBUG1, "unloading old policy module\n");
 		cleanup_policy_module(global_mctx);
 	}
-	
+
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "clearing prefix flags\n");
+	g_slist_foreach(global_mctx->prefixes, &_mam_clear_prefix_flags, NULL);
+
+	DLOG(MAM_MASTER_NOISY_DEBUG1, "clearing client list\n");
+	g_slist_free_full(global_mctx->clients, &_free_client_list);
+	global_mctx->clients=NULL;
+
 	/* load policy module if we have command line arguments */
 	DLOG(MAM_MASTER_NOISY_DEBUG1, "parsing config file\n");	
 	mam_read_config(config_fd, &policy_filename, global_mctx);
