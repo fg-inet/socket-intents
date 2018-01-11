@@ -309,7 +309,6 @@ int _mam_callback_or_fail(request_context_t *ctx, const char *function, unsigned
 		if (ret != 0)
 		{
 			DLOG(MAM_UTIL_NOISY_DEBUG1,"Callback %s returned %d\n", function, ret);
-			_muacc_send_ctx_event(ctx, action_if_fail);
 		}
 		return 0;
 	}
@@ -475,6 +474,7 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
 		{
 			DLOG(MAM_UTIL_NOISY_DEBUG2, "Receiving new socket set\n");
 			ctx->sockets = malloc(sizeof(struct socketlist));
+			memset(ctx->sockets, 0, sizeof(struct socketlist));
 			ctx->sockets->next = NULL;
 			ctx->sockets->file = *(int *) data;
 			ctx->sockets->ctx = _muacc_create_ctx();
@@ -490,6 +490,7 @@ int _muacc_proc_tlv_event(request_context_t *ctx)
 
 			/* Creating socket set member */
 			new->next = malloc(sizeof(struct socketlist));
+			memset(new->next, 0, sizeof(struct socketlist));
 			new->next->next = NULL;
 			new->next->file = *(int *) data;
 			new->next->ctx = _muacc_create_ctx();

@@ -42,6 +42,7 @@ void _muacc_logtofile (const char *filename, const char *format, ...)
 		char *str;
 		vasprintf(&str, format, args);
 		fprintf(fp, "%s", str);
+        free(str);
 	}
 	va_end(args);
 	if (fp != NULL)

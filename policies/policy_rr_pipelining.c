@@ -10,6 +10,8 @@
 
 GSList *in4_enabled = NULL;
 GSList *in6_enabled = NULL;
+GSList *in4_next = NULL;
+GSList *in6_next = NULL;
 int lastsocket = 0;
 
 char addr_str[INET6_ADDRSTRLEN];	/** string for debug / error printing */
@@ -22,16 +24,22 @@ void set_sa_rr (request_context_t *rctx, strbuf_t sb)
 	if(rctx->ctx->domain == AF_INET && in4_enabled != NULL)
 	{
 		// bind to next IPv4 address, then advance in circular list
-		set_bind_sa(rctx, (struct src_prefix_list *)in4_enabled->data, &sb);
+		set_bind_sa(rctx, (struct src_prefix_list *)in4_next->data, &sb);
 		strbuf_printf(&sb, " (next in list)");
-		in4_enabled = in4_enabled->next;
+		in4_next = in4_next->next;
+        if (in4_next == NULL) {
+            in4_next = in4_enabled;
+        }
 	}
 	else if(rctx->ctx->domain == AF_INET6 && in6_enabled != NULL)
 	{
 		// bind to next IPv6 address, then advance in circular list
-		set_bind_sa(rctx, (struct src_prefix_list *)in4_enabled->data, &sb);
+		set_bind_sa(rctx, (struct src_prefix_list *)in6_next->data, &sb);
 		strbuf_printf(&sb, " (next in list)");
-		in6_enabled = in6_enabled->next;
+		in6_next = in6_next->next;
+        if (in6_next == NULL) {
+            in6_next = in6_enabled;
+        }
 	}
 	else
 	{	// failed
@@ -45,11 +53,9 @@ int init(mam_context_t *mctx)
 
 	make_v4v6_enabled_lists (mctx->prefixes, &in4_enabled, &in6_enabled);
 
-	// Let last element point to first element again to form a circular list
-	if (in4_enabled != NULL)
-		g_slist_last(in4_enabled)->next = in4_enabled;
-	if (in6_enabled != NULL)
-		g_slist_last(in6_enabled)->next = in6_enabled;
+	// Set pointer to next source prefix to use
+	in4_next = in4_enabled;
+	in6_next = in6_enabled;
 
 	printf("\nPolicy module \"pipelining round robin\" has been loaded.\n");
 	return 0;
@@ -59,6 +65,9 @@ int cleanup(mam_context_t *mctx)
 {
 	g_slist_free(in4_enabled);
 	g_slist_free(in6_enabled);
+
+	in4_enabled = NULL;
+	in6_enabled = NULL;
 
 	printf("Policy module \"pipelining round robin\" cleaned up.\n");
 	return 0;

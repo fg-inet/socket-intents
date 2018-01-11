@@ -92,6 +92,10 @@ int strbuf_vprintf(strbuf_t *sb, const char *fmt, va_list args)
 
 int strbuf_printf(strbuf_t *sb, const char *fmt, ...)
 {
+	if (sb == NULL)
+	{
+		return 0;
+	}
 	int ret;
 	va_list args;
 	va_start(args,fmt);

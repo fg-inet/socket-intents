@@ -456,7 +456,10 @@ static void resolve_request_result(int errcode, struct evutil_addrinfo *addr, vo
 	_muacc_send_ctx_event(rctx, rctx->action);
 
     printf("%s\n\n", strbuf_export(&sb));
-    strbuf_release(&sb);
+    int ret = strbuf_release(&sb);
+    if (ret > 0) {
+        fprintf(stderr, "Strbuf could not be freed! %d\n", ret);
+    }
 }
 
 /* Helper function that issues a DNS request
@@ -504,17 +507,12 @@ int resolve_name(request_context_t *rctx)
 			rctx);
 
     printf("%s\n", strbuf_export(&sb));
-    strbuf_release(&sb);
+    int ret = strbuf_release(&sb);
+    if (ret > 0) {
+        fprintf(stderr, "Strbuf could not be freed! %d\n", ret);
+    }
 
-	/* If function returned immediately, request failed */
-    if (req == NULL) {
-		printf("\tRequest failed. Sending reply.\n");
-		_muacc_send_ctx_event(rctx, muacc_error_resolve);
-		return -1;
-	}
-	else {
-		return 0;
-	}
+	return 0;
 }
 
 /** Resolve request 
@@ -562,7 +560,10 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
 
     printf("%s\n\n", strbuf_export(&sb));
-    strbuf_release(&sb);
+    int ret = strbuf_release(&sb);
+    if (ret > 0) {
+        fprintf(stderr, "Strbuf could not be freed! %d\n", ret);
+    }
 
 	return 0;
 }
@@ -601,7 +602,10 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 	}
 
     printf("%s\n\n", strbuf_export(&sb));
-	strbuf_release(&sb);
+	int ret = strbuf_release(&sb);
+    if (ret > 0) {
+        fprintf(stderr, "Strbuf could not be freed! %d\n", ret);
+    }
 
 	rctx->action = muacc_act_socketconnect_resp;
 
@@ -658,11 +662,15 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 			/* Provide the information to open a new similar socket, in case the suggested socket cannot be used */
 			uuid_t context_id;
 			__uuid_copy(context_id, rctx->ctx->ctxid);
+			_muacc_free_ctx(rctx->ctx);
 			rctx->ctx = _muacc_clone_ctx(rctx->sockets->ctx);
 			__uuid_copy(rctx->ctx->ctxid, context_id);
 
 			printf("%s\n\n", strbuf_export(&sb));
-			strbuf_release(&sb);
+			int ret = strbuf_release(&sb);
+            if (ret > 0) {
+                fprintf(stderr, "Strbuf could not be freed! %d\n", ret);
+            }
 
 			// Send reply back to client
 			_muacc_send_ctx_event(rctx, muacc_act_socketchoose_resp_existing);
@@ -684,7 +692,10 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 	rctx->action = muacc_act_socketchoose_resp_new;
 
 	printf("%s\n\n", strbuf_export(&sb));
-	strbuf_release(&sb);
+	int ret = strbuf_release(&sb);
+    if (ret > 0) {
+        fprintf(stderr, "Strbuf could not be freed! %d\n", ret);
+    }
 
 	return resolve_name(rctx);
 }

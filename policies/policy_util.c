@@ -213,15 +213,16 @@ int is_there_a_socket_on_prefix(struct socketlist *list, struct src_prefix_list 
 		if (addr != NULL && is_addr_in_prefix(addr, pfx) == 0)
 		{
 			strbuf_printf(&sb, " - matches prefix!\n");
+            strbuf_release(&sb);
 			return 1;
 		}
 		current = current->next;
 	}
 	strbuf_printf(&sb, "Reached end of function and no address for this prefix found\n");
-	return 0;
 
 	DLOG(MAM_POLICY_UTIL_NOISY_DEBUG2, "%s\n\n", strbuf_export(&sb));
 	strbuf_release(&sb);
+	return 0;
 }
 
 void pick_sockets_on_prefix(request_context_t *rctx, struct src_prefix_list *bind_pfx)

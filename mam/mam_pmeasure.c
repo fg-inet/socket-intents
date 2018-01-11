@@ -71,6 +71,11 @@ int recv_nl_msg(int sock, void *pfx, GList **values);
 void insert_errors(GHashTable *pTable, struct rtnl_link *pLink);
 #endif
 
+void cleanup_double(void *value);
+
+void cleanup_measure_dict_pf(void *pfx, void *data);
+void cleanup_measure_dict_if(void *pfx, void *data);
+
 // The interval in which the computation of the values happens, i.e. the time between two computations (in seconds)
 #ifndef CALLBACK_DURATION
 static const double CALLBACK_DURATION=0.1;
@@ -311,7 +316,7 @@ void insert_errors(GHashTable *dict, struct rtnl_link *link)
     uint64_t *rx_errors;
 
     tx_errors = g_hash_table_lookup(dict, "tx_errors");
-    rx_errors = g_hash_table_lookup(dict, "rx_error");
+    rx_errors = g_hash_table_lookup(dict, "rx_errors");
 
     if (tx_errors == NULL)
     {
@@ -746,6 +751,8 @@ void pmeasure_log_prefix_summary(void *pfx, void *data)
         _muacc_logtofile(logfile, "%" PRIu64 "\n", *tx_errors);
     else
         _muacc_logtofile(logfile, "NA\n");
+
+    free(logfile);
 }
 
 
@@ -827,6 +834,8 @@ void pmeasure_log_iface_summary(void *ifc, void *data)
         _muacc_logtofile(logfile, "%f\n", *upload_max_srate);
     else
         _muacc_logtofile(logfile, "NA\n");
+
+    free(logfile);
 }
 
 #ifdef HAVE_LIBNL
@@ -1073,7 +1082,7 @@ void compute_srtt(void *pfx, void *data)
         compute_minimum(prefix->measure_dict, values);
 
         // clean up
-        g_list_free(values);
+        g_list_free_full(values, &cleanup_double);
         close(sock_ip4);
         close(sock_ip6);
 		#endif
@@ -1135,6 +1144,140 @@ void get_stats(void *pfx, void *data)
 }
 #endif
 
+void cleanup_double(void *value) {
+    double *tofree = value;
+    free(tofree);
+}
+
+void cleanup_measure_dict_pf(void *pfx, void *data)
+{
+	struct src_prefix_list *prefix = pfx;
+	if (pfx == NULL || prefix->if_name == NULL || prefix->measure_dict == NULL)
+	{
+		DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Cannot cleanup measure dict for NULL network prefix\n");
+		return;
+	}
+
+    double *meanvalue = g_hash_table_lookup(prefix->measure_dict, "srtt_mean");
+    if (meanvalue != NULL)
+        free(meanvalue);
+
+    double *medianvalue = g_hash_table_lookup(prefix->measure_dict, "srtt_median");
+    if (medianvalue != NULL)
+        free(medianvalue);
+
+    double *minimumvalue = g_hash_table_lookup(prefix->measure_dict, "srtt_minimum");
+    if (minimumvalue != NULL)
+        free(minimumvalue);
+
+}
+
+void cleanup_measure_dict_if(void *ifc, void *data)
+{
+	struct iface_list *iface = ifc;
+	if (ifc == NULL || iface->if_name == NULL || iface->measure_dict == NULL)
+	{
+		DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Cannot cleanup measure dict for NULL network interface\n");
+		return;
+	}
+
+    int *sample = g_hash_table_lookup(iface->measure_dict, "sample");
+    if (sample != NULL)
+        free(sample);
+
+    long *t_bytes = g_hash_table_lookup(iface->measure_dict, "upload_counter");
+    if (t_bytes != NULL)
+        free(t_bytes);
+
+    long *r_bytes = g_hash_table_lookup(iface->measure_dict, "download_counter");
+    if (r_bytes != NULL)
+        free(r_bytes);
+
+    double *callback_duration_rate = g_hash_table_lookup(iface->measure_dict, "callback_duration_rate");
+    if (callback_duration_rate != NULL)
+        free(callback_duration_rate);
+
+    double *download_rate = g_hash_table_lookup(iface->measure_dict, "download_rate");
+    if (download_rate != NULL)
+        free(download_rate);
+
+    double *download_max_rate = g_hash_table_lookup(iface->measure_dict, "download_max_rate");
+    if (download_max_rate != NULL)
+        free(download_max_rate);
+
+    double *s_download_rate = g_hash_table_lookup(iface->measure_dict, "download_srate");
+    if (s_download_rate != NULL)
+        free(s_download_rate);
+
+    double *download_max_srate = g_hash_table_lookup(iface->measure_dict, "download_max_srate");
+    if (download_max_srate != NULL)
+        free(download_max_srate);
+
+    double *upload_rate = g_hash_table_lookup(iface->measure_dict, "upload_rate");
+    if (upload_rate != NULL)
+        free(upload_rate);
+
+    double *upload_max_rate = g_hash_table_lookup(iface->measure_dict, "upload_max_rate");
+    if (upload_max_rate != NULL)
+        free(upload_max_rate);
+
+    double *s_upload_rate = g_hash_table_lookup(iface->measure_dict, "upload_srate");
+    if (s_upload_rate != NULL)
+        free(s_upload_rate);
+
+    double *upload_max_srate = g_hash_table_lookup(iface->measure_dict, "upload_max_srate");
+    if (upload_max_srate != NULL)
+        free(upload_max_srate);
+
+    double *measurement_timestamp_sec = g_hash_table_lookup(iface->measure_dict, "rate_timestamp_sec");
+    if (measurement_timestamp_sec != NULL)
+        free(measurement_timestamp_sec);
+
+    double *measurement_timestamp_usec = g_hash_table_lookup(iface->measure_dict, "rate_timestamp_usec");
+    if (measurement_timestamp_usec != NULL)
+        free(measurement_timestamp_usec);
+
+    uint64_t  *rx_errors = g_hash_table_lookup(iface->measure_dict, "rx_errors");
+    if (rx_errors != NULL) {
+        free(rx_errors);
+    }
+
+    uint64_t *tx_errors = g_hash_table_lookup(iface->measure_dict, "tx_errors");
+    if (tx_errors != NULL) {
+        free(tx_errors);
+    }
+
+    double *signal = g_hash_table_lookup(iface->measure_dict, "signal_strength");
+	if (signal != NULL)
+        free(signal);
+    signal = g_hash_table_lookup(iface->measure_dict, "signal_strength_bss");
+	if (signal != NULL)
+        free(signal);
+    signal = g_hash_table_lookup(iface->measure_dict, "signal_strength_avg");
+	if (signal != NULL)
+        free(signal);
+
+    double *txrate = g_hash_table_lookup(iface->measure_dict, "tx_rate");
+	if (txrate != NULL)
+        free(txrate);
+
+    double *rxrate = g_hash_table_lookup(iface->measure_dict, "rx_rate");
+	if (rxrate != NULL)
+        free(rxrate);
+
+    uint16_t *numsta = g_hash_table_lookup(iface->measure_dict, "number_of_stations");
+	if (numsta != NULL)
+        free(numsta);
+
+    double *channelutilization = g_hash_table_lookup(iface->measure_dict, "channel_utilization");
+	if (channelutilization != NULL)
+        free(channelutilization);
+
+    uint16_t *adcap = g_hash_table_lookup(iface->measure_dict, "available_admission_capacity");
+	if (adcap != NULL)
+        free(adcap);
+}
+
 void pmeasure_setup(mam_context_t *ctx)
 {
 	DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Setting up pmeasure \n");
@@ -1146,6 +1289,9 @@ void pmeasure_setup(mam_context_t *ctx)
 void pmeasure_cleanup(mam_context_t *ctx)
 {
 	DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Cleaning up\n");
+
+    g_slist_foreach(ctx->ifaces, &cleanup_measure_dict_if, NULL);
+    g_slist_foreach(ctx->prefixes, &cleanup_measure_dict_pf, NULL);
 }
 
 void pmeasure_callback(evutil_socket_t fd, short what, void *arg)

@@ -183,6 +183,7 @@ static void resolve_request_result(int errcode, struct evutil_addrinfo *addr, vo
 		_muacc_print_sockaddr(&sb, rctx->ctx->remote_sa, rctx->ctx->remote_sa_len);
 		strbuf_printf(&sb, "\n");
 
+        //strbuf_release(&sb);
 		evutil_freeaddrinfo(addr);
 	}
 
@@ -200,8 +201,6 @@ int resolve_name(request_context_t *rctx)
 {
 	strbuf_t sb;
 	strbuf_init(&sb);
-
-    struct evdns_getaddrinfo_request *req;
 
 	struct evdns_base *evdns_base = rctx->evdns_base;
 
@@ -231,7 +230,7 @@ int resolve_name(request_context_t *rctx)
 
 	/* Try to resolve this request using asynchronous lookup */
 	assert(evdns_base != NULL);
-    req = evdns_getaddrinfo(
+    evdns_getaddrinfo(
     		evdns_base,
 			rctx->ctx->remote_hostname,
 			rctx->ctx->remote_service,
@@ -242,15 +241,7 @@ int resolve_name(request_context_t *rctx)
     printf("%s\n", strbuf_export(&sb));
     strbuf_release(&sb);
 
-	/* If function returned immediately, request failed */
-    if (req == NULL) {
-		printf("\tRequest failed. Sending reply.\n");
-		_muacc_send_ctx_event(rctx, muacc_error_resolve);
-		return -1;
-	}
-	else {
-		return 0;
-	}
+	return 0;
 }
 
 /** Resolve request function (mandatory)
