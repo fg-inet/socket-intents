@@ -8,11 +8,6 @@ ADD_LIBRARY(policy_rr_naive MODULE policy_rr_naive.c policy_util.c)
 SET_TARGET_PROPERTIES(policy_rr_naive PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_rr_naive mam ${GLIB2_LIBRARIES})
 
-ADD_LIBRARY(policy_filesize MODULE policy_filesize.c policy_util.c)
-SET_TARGET_PROPERTIES(policy_filesize PROPERTIES PREFIX "")
-TARGET_LINK_LIBRARIES(policy_filesize mam ${GLIB2_LIBRARIES})
-
-
 if ( ${HAVE_LIBNL} )
 ADD_LIBRARY(policy_mptcp_filesize MODULE policy_mptcp_filesize.c policy_util.c)
 SET_TARGET_PROPERTIES(policy_mptcp_filesize PROPERTIES PREFIX "")
@@ -32,7 +27,7 @@ ADD_LIBRARY(policy_rr_pipelining MODULE policy_rr_pipelining.c policy_util.c)
 SET_TARGET_PROPERTIES(policy_rr_pipelining PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_rr_pipelining mam ${GLIB2_LIBRARIES})
 
-ADD_LIBRARY(policy_earliest_arrival MODULE policy_earliest_arrival.c policy_util.c)
+ADD_LIBRARY(policy_earliest_arrival MODULE policy_earliest_arrival.c policy_earliest_arrival_base.c policy_util.c)
 SET_TARGET_PROPERTIES(policy_earliest_arrival PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_earliest_arrival mam ${GLIB2_LIBRARIES})
 

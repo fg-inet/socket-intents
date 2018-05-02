@@ -26,6 +26,8 @@ struct sample_info {
 GSList *in4_enabled = NULL;
 GSList *in6_enabled = NULL;
 
+static const char *logfile = NULL;
+
 struct src_prefix_list *get_default_prefix(request_context_t *rctx, strbuf_t *sb);
 int resolve_name(request_context_t *rctx);
 
@@ -119,6 +121,12 @@ int init(mam_context_t *mctx)
 
 	make_v4v6_enabled_lists (mctx->prefixes, &in4_enabled, &in6_enabled);
 
+	logfile = g_hash_table_lookup(mctx->policy_set_dict, "logfile");
+	if (logfile != NULL)
+	{
+		printf("\nLogging to %s\n", logfile);
+	}
+
 	printf("\nPolicy module \"sample\" has been loaded.\n");
 	return 0;
 }
@@ -152,13 +160,14 @@ static void resolve_request_result(int errcode, struct evutil_addrinfo *addr, vo
 	strbuf_init(&sb);
 
 	if (errcode) {
-	    strbuf_printf(&sb, "\tError resolving: %s -> %s\n", rctx->ctx->remote_hostname, evutil_gai_strerror(errcode));
+	    strbuf_printf(&sb, "\t[%.6f] Error resolving: %s -> %s\n", gettimestamp(), rctx->ctx->remote_hostname, evutil_gai_strerror(errcode));
 		rctx->action = muacc_error_resolve;
 	}
 	else
 	{
 		// Successfully resolved name
-		strbuf_printf(&sb, "\tGot resolver response for %s %s\n",
+		strbuf_printf(&sb, "\t[%.6f] Got resolver response for %s %s\n",
+			gettimestamp(),
 			rctx->ctx->remote_hostname,
 			addr->ai_canonname ? addr->ai_canonname : "");
 		
@@ -188,11 +197,12 @@ static void resolve_request_result(int errcode, struct evutil_addrinfo *addr, vo
 	}
 
 	// send reply to client
-	strbuf_printf(&sb, "\n\tSending reply");
+	strbuf_printf(&sb, "\n\t[%.6f] Sending reply\n", gettimestamp());
 	_muacc_send_ctx_event(rctx, rctx->action);
 
-    printf("%s\n\n", strbuf_export(&sb));
+    printf("%s\n", strbuf_export(&sb));
     strbuf_release(&sb);
+    printf("\n\t[%.6f] Returning resolve result callback\n\n", gettimestamp());
 }
 
 /* Helper function that issues a DNS request
@@ -224,12 +234,12 @@ int resolve_name(request_context_t *rctx)
 		rctx->ctx->remote_addrinfo_hint->ai_protocol = rctx->ctx->protocol;
 	}
 
-	strbuf_printf(&sb, "\tResolving: %s:%s with hint: ", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 	if (evdns_base_set_option(evdns_base, "timeout", "1") < 0)
 	{
 		strbuf_printf(&sb, "Setting DNS timeout failed\n");
 	}
 
+	strbuf_printf(&sb, "\t[%.6f] Resolving: %s:%s with hint: ", gettimestamp(), (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 	_muacc_print_addrinfo(&sb, rctx->ctx->remote_addrinfo_hint);
 	strbuf_printf(&sb, "\n");
 
@@ -246,6 +256,7 @@ int resolve_name(request_context_t *rctx)
     printf("%s\n", strbuf_export(&sb));
     strbuf_release(&sb);
 
+	printf("\t[%.6f] Returning resolve_name.\n\n", gettimestamp());
 	return 0;
 }
 
@@ -255,7 +266,20 @@ int resolve_name(request_context_t *rctx)
  */
 int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
-	printf("\n\tResolve request: %s:%s\n\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+	printf("\n\t[%.6f] Resolve request: %s:%s\n\n", gettimestamp(), (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+
+	if(rctx->ctx->bind_sa_req != NULL)
+	{	// already bound
+		printf("\tBind interface already specified\n");
+		rctx->ctx->domain = rctx->ctx->bind_sa_req->sa_family;
+
+		struct src_prefix_list *bind_pfx = get_pfx_with_addr(rctx, rctx->ctx->bind_sa_req);
+		if (bind_pfx != NULL) {
+			// Set DNS base to this prefix's
+			rctx->evdns_base = bind_pfx->evdns_base;
+			printf("\tSet DNS base\n");
+		}
+	}
 
 	if(rctx->ctx->bind_sa_req != NULL)
 	{	// already bound
@@ -272,6 +296,7 @@ int on_resolve_request(request_context_t *rctx, struct event_base *base)
 
 	rctx->action = muacc_act_getaddrinfo_resolve_resp;
 
+	printf("\n\t[%.6f] Calling resolve_name\n", gettimestamp());
 	return resolve_name(rctx);
 }
 
@@ -283,7 +308,7 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 {
 	strbuf_t sb;
 	strbuf_init(&sb);
-	strbuf_printf(&sb, "\tConnect request: dest=");
+	strbuf_printf(&sb, "\t[%.6f] Connect request: dest=", gettimestamp());
 	_muacc_print_sockaddr(&sb, rctx->ctx->remote_sa, rctx->ctx->remote_sa_len);
 
 	// Check if client has already chosen a source address to bind to
@@ -298,17 +323,19 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 		// search default address, and set it as bind_sa in the request context if found
 		struct src_prefix_list *bind_pfx = get_default_prefix(rctx, &sb);
 		if (bind_pfx != NULL) {
+			_muacc_logtofile(logfile, "%s_default\n", bind_pfx->if_name);
 			set_bind_sa(rctx, bind_pfx, &sb);
 		}
 	}
 
 	// send response back
-	strbuf_printf(&sb, "\n\tSending reply");
+	strbuf_printf(&sb, "\n\t[%.6f] Sending reply\n", gettimestamp());
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
 
-    printf("%s\n\n", strbuf_export(&sb));
+    printf("%s\n", strbuf_export(&sb));
     strbuf_release(&sb);
 
+	printf("\t[%.6f] Returning\n\n", gettimestamp());
 	return 0;
 }
 
@@ -323,6 +350,8 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 	strbuf_init(&sb);
 
 	printf("\n\tSocketconnect request: %s:%s\n\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+	double timestamp = gettimestamp();
+	_muacc_logtofile(logfile, "%.6f,,,,,,,,,,,,", timestamp);
 
 	// Check if client has already chosen a source address to bind to
 	if(rctx->ctx->bind_sa_req != NULL)
@@ -343,6 +372,7 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 		struct src_prefix_list *bind_pfx = get_default_prefix(rctx, &sb);
 		if (bind_pfx != NULL) {
 			set_bind_sa(rctx, bind_pfx, &sb);
+			_muacc_logtofile(logfile, "%s_default\n", bind_pfx->if_name);
 
 			// Set this prefix' evdns base for name resolution
 			rctx->evdns_base = bind_pfx->evdns_base;
@@ -372,6 +402,17 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 	strbuf_init(&sb);
 
 	printf("\n\tSocketchoose request: %s:%s\n\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+	double timestamp = gettimestamp();
+	_muacc_logtofile(logfile, "%.6f,", timestamp);
+	GSList *spl = in4_enabled;
+	while (spl != NULL)
+	{
+        struct src_prefix_list *cur = spl->data;
+		int reuse = count_sockets_on_prefix(rctx->sockets, cur, logfile);
+		_muacc_logtofile(logfile, "%d,", reuse);
+		spl = spl->next;
+	}
+	_muacc_logtofile(logfile, ",,,,,,,,,");
 
 	// Check if a set of existing sockets was supplied in the request
 	if (rctx->sockets != NULL)
@@ -385,7 +426,8 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 		rctx->ctx = _muacc_clone_ctx(rctx->sockets->ctx);
 		__uuid_copy(rctx->ctx->ctxid, context_id);
 
-		strbuf_printf(&sb, "\n\tSending reply");
+		_muacc_logtofile(logfile, "%d_reuse\n", rctx->sockets->file);
+		strbuf_printf(&sb, "\n\tSending reply\n");
 		_muacc_send_ctx_event(rctx, muacc_act_socketchoose_resp_existing);
 
 		printf("%s\n\n", strbuf_export(&sb));
@@ -415,6 +457,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 			struct src_prefix_list *bind_pfx = get_default_prefix(rctx, &sb);
 			if (bind_pfx != NULL) {
 				set_bind_sa(rctx, bind_pfx, &sb);
+				_muacc_logtofile(logfile, "%s_default\n", bind_pfx->if_name);
 
 				// Set this prefix' evdns base for name resolution
 				rctx->evdns_base = bind_pfx->evdns_base;
@@ -433,4 +476,9 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 
 		return resolve_name(rctx);
 	}
+}
+
+int on_new_subflow_request(mam_context_t *mctx, struct mptcp_flow_info *flow)
+{
+    return 0;
 }

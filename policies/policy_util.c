@@ -9,6 +9,8 @@
 
 #include "dlog.h"
 
+#include <time.h>
+
 #ifndef MAM_POLICY_UTIL_NOISY_DEBUG0
 #define MAM_POLICY_UTIL_NOISY_DEBUG0 0
 #endif
@@ -179,10 +181,39 @@ void *lookup_prefix_info(struct src_prefix_list *prefix, const void *key)
 	return value;
 }
 
+double lookup_value(struct src_prefix_list *prefix, const void *key, strbuf_t *sb)
+{
+    if (prefix == NULL)
+        return 0;
+
+    double *value = lookup_prefix_info(prefix, key);
+
+    if (value == NULL || *value < EPSILON || (DBL_MAX - *value) < EPSILON)
+    {
+        strbuf_printf(sb, "\t\t%s: N/A,\t", key);
+        return 0;
+    }
+    else
+    {
+        strbuf_printf(sb, "\t\t%s: %f,\t", key, *value);
+        return *value;
+    }
+}
+
 int is_there_a_socket_on_prefix(struct socketlist *list, struct src_prefix_list *pfx)
+{
+    if (count_sockets_on_prefix(list, pfx, NULL) > 0)
+        return 1;
+    else
+        return 0;
+}
+
+int count_sockets_on_prefix(struct socketlist *list, struct src_prefix_list *pfx, const char *logfile)
 {
 	strbuf_t sb;
 	strbuf_init(&sb);
+
+	int counter = 0;
 
 	struct socketlist *current = list;
 
@@ -213,8 +244,9 @@ int is_there_a_socket_on_prefix(struct socketlist *list, struct src_prefix_list 
 		if (addr != NULL && is_addr_in_prefix(addr, pfx) == 0)
 		{
 			strbuf_printf(&sb, " - matches prefix!\n");
-            strbuf_release(&sb);
-			return 1;
+            counter++;
+            if (logfile != NULL)
+                _muacc_logtofile(logfile, "%d-", current->file);
 		}
 		current = current->next;
 	}
@@ -222,7 +254,39 @@ int is_there_a_socket_on_prefix(struct socketlist *list, struct src_prefix_list 
 
 	DLOG(MAM_POLICY_UTIL_NOISY_DEBUG2, "%s\n\n", strbuf_export(&sb));
 	strbuf_release(&sb);
-	return 0;
+
+	if (logfile != NULL)
+		_muacc_logtofile(logfile, ",");
+	return counter;
+}
+
+struct socketlist *find_socket_on_prefix(struct socketlist *sockets, struct src_prefix_list *pfx)
+{
+	while (sockets != NULL)
+	{
+		if (sockets->ctx == NULL)
+		{
+			continue;
+		}
+
+		struct sockaddr *addr = NULL;
+
+		if (sockets->ctx->bind_sa_suggested != NULL)
+		{
+			addr = sockets->ctx->bind_sa_suggested;
+		}
+		else if (sockets->ctx->bind_sa_req != NULL)
+		{
+			addr = sockets->ctx->bind_sa_req;
+		}
+
+		if (addr != NULL && is_addr_in_prefix(addr, pfx) == 0 && !(sockets->flags & MUACC_SOCKET_IN_USE))
+		{
+			return sockets;
+		}
+		sockets = sockets->next;
+	}
+	return NULL;
 }
 
 void pick_sockets_on_prefix(request_context_t *rctx, struct src_prefix_list *bind_pfx)
@@ -257,7 +321,7 @@ void pick_sockets_on_prefix(request_context_t *rctx, struct src_prefix_list *bin
 		strbuf_printf(&sb, "Socket %d has address ", current->file);
 		_muacc_print_sockaddr(&sb, addr, addrlen);
 
-		if (addr != NULL && is_addr_in_prefix(addr, bind_pfx) == 0)
+		if (addr != NULL && is_addr_in_prefix(addr, bind_pfx) == 0 && !(current->flags & MUACC_SOCKET_IN_USE))
 		{
 			strbuf_printf(&sb, " - same subnet as prefix - suggesting it");
 			if (suggested == NULL)
@@ -280,7 +344,7 @@ void pick_sockets_on_prefix(request_context_t *rctx, struct src_prefix_list *bin
 		}
 		else
 		{
-			strbuf_printf(&sb, " - different subnet than prefix - removing it");
+			strbuf_printf(&sb, " - different subnet than prefix or likely in use - removing it");
 
 			struct socketlist *slist_to_free = current;
 			current = current->next;
@@ -316,4 +380,66 @@ struct src_prefix_list *get_pfx_with_addr(request_context_t *rctx, struct sockad
 	}
 	DLOG(MAM_POLICY_UTIL_NOISY_DEBUG2, "Did not find prefix with the given address!\n");
 	return NULL;
+}
+
+double gettimestamp()
+{
+	struct timeval current_time;
+	gettimeofday(&current_time, NULL);
+	double measured_sec = current_time.tv_sec;
+	double measured_usec = current_time.tv_usec;
+	return (measured_sec + (measured_usec / 1000000));
+}
+
+void print_sockets(struct socketlist *sockets)
+{
+    if (sockets != NULL)
+    {
+        printf("[ %d", sockets->file);
+        while (sockets->next != NULL)
+        {
+            printf(", %d", sockets->next->file);
+            sockets = sockets->next;
+        }
+        printf(" ]");
+    }
+}
+
+struct src_prefix_list *get_lowest_srtt_pfx(GSList *prefixes, const char *key)
+{
+	struct src_prefix_list *lowest_srtt_pfx = NULL;
+	double lowest_srtt = DBL_MAX;
+
+    while (prefixes != NULL)
+    {
+		struct src_prefix_list *cur = prefixes->data;
+		double *cur_srtt = lookup_prefix_info(cur, key);
+		if (cur_srtt != NULL && *cur_srtt > EPSILON && *cur_srtt < lowest_srtt)
+		{
+			lowest_srtt = *cur_srtt;
+			lowest_srtt_pfx = cur;
+		}
+        prefixes = prefixes->next;
+    }
+	return lowest_srtt_pfx;
+}
+
+void insert_socket(int socketarray[], int socket)
+{
+	socketarray[socket] = 1;
+}
+
+int take_socket_from_array(int socketarray[], int socket)
+{
+	if (socketarray[socket] == 1)
+	{
+		// Socket was found in the array
+		socketarray[socket] = 0;
+		return 1;
+	}
+	else
+	{
+		// Return False - the socket was not found in the array
+		return 0;
+	}
 }
