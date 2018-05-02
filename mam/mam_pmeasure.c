@@ -99,9 +99,6 @@ int compare_ip (struct sockaddr *a1, struct sockaddr *a2);
 int is_addr_in_pfx (const void *a, const void *b);
 
 void compute_srtt(void *pfx, void *data);
-void get_stats(void *iface, void *data);
-
-#ifdef HAVE_LIBNL
 
 #define BUFFER_SIZE (getpagesize() < 8192L ? getpagesize() : 8192L)
 #define TCPF_ALL 0xFFF
@@ -119,12 +116,14 @@ int rolling_minimum(double *values, int length, double current_minimum);
 double calculate_mean(GList *values);
 double calculate_median(GList **values);
 
+#ifdef HAVE_LIBNL
 int create_nl_sock();
 GList * parse_nl_msg(struct inet_diag_msg *pMsg, int rtalen, void *pfx, GList *values);
 int send_nl_msg(int sock, int i);
 int recv_nl_msg(int sock, void *pfx, GList **values);
 void insert_errors(GHashTable *pTable, struct rtnl_link *pLink);
 
+void get_stats(void *iface, void *data);
 void get_additional_info(void *pfx, void *data);
 void get_netlink_messages(void *pfx, void *data);
 
@@ -170,6 +169,7 @@ void get_our_bssid(void *ifc, void *data);
 void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
 void get_last_packet(void *ifc, void *data);
 void cleanup_passive_network_load(void *ifc, void *data);
+#endif
 
 long read_stats(char *path);
 void compute_link_usage(void *ifc, void *lookup);
@@ -629,6 +629,7 @@ int rolling_minimum(double *values, int length, double old_minimum)
 }
 
 
+#ifdef HAVE_LIBNL
 void insert_errors(GHashTable *dict, struct rtnl_link *link)
 {
     uint64_t *tx_errors;
@@ -1210,8 +1211,10 @@ void compute_srtt(void *pfx, void *data)
 {
     struct src_prefix_list *prefix = pfx;
 
+    #ifdef HAVE_LIBNL
     // List for rtt values
     GList *values = NULL;
+    #endif
 
     if (prefix == NULL || prefix->measure_dict == NULL)
         return;
@@ -1219,9 +1222,8 @@ void compute_srtt(void *pfx, void *data)
 
     if (prefix->if_name != NULL && strncmp(prefix->if_name,"lo",2))
     {
-        DLOG(MAM_PMEASURE_SRTT_NOISY_DEBUG, "Computing SRTTs for a prefix of interface %s:\n", prefix->if_name);
-
         #ifdef HAVE_LIBNL
+        DLOG(MAM_PMEASURE_SRTT_NOISY_DEBUG, "Computing SRTTs for a prefix of interface %s:\n", prefix->if_name);
         // create the socket
         int sock_ip4 = create_nl_sock();
         int sock_ip6 = create_nl_sock();
@@ -1409,18 +1411,21 @@ void get_additional_info(void *ifc, void *data)
         return;
     }
 
+    #ifdef HAVE_LIBNL
     // Check if this interface was marked for querying WiFi info
     if (iface->additional_info & MAM_IFACE_WIFI_STATION_INFO)
     {
         get_netlink_messages(ifc, data);
     }
+    #endif
     if (iface->additional_info == MAM_IFACE_UNKNOWN_LOAD)
     {
         DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Network load for interface %s is unknown!\n", iface->if_name);
     }
 }
-/** Receive netlink messages for wireless interface, executing callbacks */
 
+#ifdef HAVE_LIBNL
+/** Receive netlink messages for wireless interface, executing callbacks */
 void get_netlink_messages(void *ifc, void *data)
 {
     struct iface_list *iface = ifc;
@@ -1519,6 +1524,7 @@ static int parse_netlink_messages(struct nl_msg *msg, void *arg)
     // Skip to next message
     return NL_SKIP;
 }
+#endif /* HAVE_LIBNL */
 
 #ifdef IS_LINUX
 /** BSS info was found - insert it into the interface's measurement dictionary */
@@ -1659,7 +1665,9 @@ void insert_rate(struct iface_list *iface, double data, char *key)
 
     DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Inserted %s bitrate into dictionary: %.2f \n", key, *rate);
 }
+#endif
 
+#ifdef HAVE_LIBNL
 /** Parse station information for connection on this 802.11 interface */
 int parse_station_info(struct nl_msg *msg, void *arg)
 {
@@ -1838,7 +1846,6 @@ int parse_station_info(struct nl_msg *msg, void *arg)
 
     return 0;
 }
-#endif
 
 
 /** Callback for the sequence checking errors: Ignore them, report that everything is okay
@@ -1909,6 +1916,7 @@ int get_station_info(struct iface_list *iface)
 
     return 0;
 }
+#endif
 
 /** For each interface, set up state to query additional_info
 *  e.g. prepare netlink sockets for querying BSS load on 802.11 interfaces
@@ -1922,6 +1930,7 @@ void setup_additional_info(void *ifc, void *data)
         DLOG(MAM_PMEASURE_NOISY_DEBUG1, "Cannot setup load for NULL network interface\n");
         return;
     }
+    #ifdef HAVE_LIBNL
     // Check if we are querying additional information for this interface
     if (iface->additional_info & MAM_IFACE_WIFI_STATION_INFO)
     {
@@ -2032,6 +2041,7 @@ void setup_additional_info(void *ifc, void *data)
             }
         }
     }
+    #endif
 }
 
 /** When shutting down pmeasure, clean up the additional_info querying state for each interface
@@ -2046,6 +2056,7 @@ void cleanup_additional_info(void *ifc, void *data)
         return;
     }
 
+    #ifdef HAVE_LIBNL
     // Check if 802.11 BSS Load attribute was set
     if (iface->additional_info & MAM_IFACE_WIFI_STATION_INFO)
     {
@@ -2065,6 +2076,7 @@ void cleanup_additional_info(void *ifc, void *data)
         }
         DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Cleaned up additional_info state for interface %s\n", iface->if_name);
     }
+    #endif
 }
 
 void cleanup_measure_dict_pf(void *pfx, void *data)
@@ -2280,6 +2292,7 @@ int compute_rates (struct iface_list *iface, char *direction)
         DLOG(MAM_PMEASURE_NOISY_DEBUG1,"Computing rates failed because iface or direction were NULL!\n");
         return -1;
     }
+    #ifdef IS_LINUX
     DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"=========\t%s STATS\t=========\n", direction);
 
     long *prev_bytes = NULL;
@@ -2422,6 +2435,7 @@ int compute_rates (struct iface_list *iface, char *direction)
         DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Current Counter Value: %ld Bytes\n",*prev_bytes);
     }
 
+    #endif
     return 0;
 }
 
@@ -2483,6 +2497,7 @@ void compute_link_usage(void *ifc, void *lookup)
 
 /*BEGIN OF THE PASSIVE BSS LOAD ELEMENT GETTER PART*/
 
+#ifdef HAVE_LIBNL
 //Checks if we got a beacon with the BSSID of AP we are associated with
 int check_bssid(const u_char *whole_packet, unsigned char *our_bssid, int header_length)
 {
@@ -2641,6 +2656,7 @@ void cleanup_passive_network_load(void *ifc, void *data)
         DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Cleaned up passive network load state for interface %s\n", iface->if_name);
     }
 }
+#endif
 
 /*END OF THE PASSIVE BSS LOAD ELEMENT GETTER PART*/
 
@@ -2664,8 +2680,10 @@ void pmeasure_cleanup(mam_context_t *ctx)
     // Go through interface list. For each interface, clean up the state to query additional_info
     g_slist_foreach(ctx->ifaces, &cleanup_additional_info, NULL);
 
+    #ifdef HAVE_LIBNL
     // Go through interface list. For each interface, clean up the pcap session used for passive scanning
     g_slist_foreach(ctx->ifaces, &cleanup_passive_network_load, NULL);
+    #endif
 }
 
 void pmeasure_callback(evutil_socket_t fd, short what, void *arg)
@@ -2678,11 +2696,13 @@ void pmeasure_callback(evutil_socket_t fd, short what, void *arg)
         return;
 
     g_slist_foreach(ctx->prefixes, &compute_srtt, NULL);
-    g_slist_foreach(ctx->ifaces, &get_stats, NULL);
     g_slist_foreach(ctx->ifaces, &compute_link_usage, NULL);
+    #ifdef HAVE_LIBNL
+    g_slist_foreach(ctx->ifaces, &get_stats, NULL);
     g_slist_foreach(ctx->ifaces, &get_additional_info, NULL);
     DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Get packets from passive scan\n");
     g_slist_foreach(ctx->ifaces, &get_last_packet, NULL);
+    #endif
 
     if (MAM_PMEASURE_NOISY_DEBUG0)
     {

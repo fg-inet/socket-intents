@@ -24,6 +24,7 @@
 
 #include <ifaddrs.h>
 
+#ifdef HAVE_LIBNL
 #include <netlink/netlink.h>
 #include <netlink/socket.h>
 #include <netlink/route/addr.h>
@@ -34,6 +35,7 @@
 #include <netlink/genl/family.h>
 #include <netlink/genl/ctrl.h>
 #include <netlink/attr.h>
+#endif
 
 #include <pcap.h>
 
@@ -76,6 +78,7 @@
 
 #define BUFFER_SIZE (getpagesize() < 8192L ? getpagesize() : 8192L)
 
+#ifdef HAVE_LIBNL
 /** Data structure for netlink state of an interface that communicates through nl80211 to get load
 */
 struct netlink_state
@@ -87,11 +90,13 @@ struct netlink_state
 	char *dev_name;						/**< Device name of this interface */
 	unsigned int monitor_iface_status;	/**< Creation status of the monitor interface */
 };
+#endif
 
 /* Function declaration: Add a new interface to list */
 struct iface_list *_add_iface_to_list (GSList **ifacel, char *if_name);
 int is_iface_wireless (char *if_name);
 
+#ifdef HAVE_LIBNL
 int prepare_netlink_socket_for_iface(struct netlink_state *nlstate, char *dev_iface);
 void close_netlink_socket(struct netlink_state *nlstate);
 
@@ -99,6 +104,7 @@ int make_monitor_iface(struct netlink_state *nlstate, char *device, char *phy_if
 int setup_sniffer(pcap_t **sniffer, char *device, char *errbuf);
 void close_monitor_interface(char *device);
 int bring_iface_up (char* mon_device);
+#endif
 
 /** Compare a src_prefix_list struct with a src_prefix_model
  *  Return 0 if they are equal, 1 if not, -1 on error */
@@ -295,6 +301,7 @@ int setup_sniffer(pcap_t **sniffer, char *device, char *errbuf) {
 	}
 }
 
+#ifdef HAVE_LIBNL
 /*Handler for netlink acknowledgements*/
 static int ack_handler(struct nl_msg *msg, void *arg) {
 	DLOG(MAM_IF_NOISY_DEBUG3, "We got an ACK from netlink!\n");
@@ -485,6 +492,7 @@ void close_monitor_interface(char *mon_device) {
 
 	close_netlink_socket(nlstate);
 }
+#endif /* HAVE_LIBNL */
 
 /** Add an interface to the interface list, if it does not exist there yet
  *  In any case, return a pointer to the interface list item
@@ -537,6 +545,7 @@ struct iface_list *_add_iface_to_list (
 			{
 				// Query 802.11 station info for this interface
 				new->additional_info |= MAM_IFACE_WIFI_STATION_INFO;
+                #ifdef HAVE_LIBNL
 				// We know that it is a wireless interface so we would like to query the bss load on it.
 				new->additional_info |= MAM_IFACE_QUERY_BSS_LOAD;
 				DLOG(MAM_IF_NOISY_DEBUG3, "Creating a virtual monitor interface and beacon frames capture for wireless interface %s!\n", new->if_name);
@@ -633,6 +642,7 @@ struct iface_list *_add_iface_to_list (
                 wifi->sniffer = snf;
                 wifi->monitor_already_existed = monitor_already_exists;
                 new->query_state = wifi;
+                #endif
 			}
             #endif
 
@@ -793,8 +803,8 @@ void _free_iface_list (gpointer data)
 {
 	struct iface_list *element = (struct iface_list *) data;
 
+    #ifdef HAVE_LIBNL
 	struct wifi_state *wifi = element->query_state;
-
 	if ((wifi != NULL) && (element->if_name != NULL))
 	{
 		char mon_device[strlen(element->if_name) + 3];
@@ -813,6 +823,7 @@ void _free_iface_list (gpointer data)
 		}
         free(wifi);
 	}
+    #endif
 	if (element->if_name != NULL) {
 		free(element->if_name);
 	}
