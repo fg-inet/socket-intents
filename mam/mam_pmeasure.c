@@ -62,6 +62,10 @@
 #define MAM_PMEASURE_SRTT_NOISY_DEBUG 0
 #endif
 
+#ifndef MAM_PMEASURE_LOSS_NOISY_DEBUG
+#define MAM_PMEASURE_LOSS_NOISY_DEBUG 0
+#endif
+
 #ifndef MAM_PMEASURE_THRUPUT_DEBUG
 #define MAM_PMEASURE_THRUPUT_DEBUG 0
 #endif
@@ -624,6 +628,9 @@ void pmeasure_print_prefix_summary(void *pfx, void *data)
     if (srtt_vars != NULL)
         printf("\tMean of variations of SRTTs: %f ms\n", *srtt_vars);
 
+    double *packet_loss = g_hash_table_lookup(prefix->measure_dict, "packet_loss_up_median");
+    if (packet_loss != NULL)
+        printf("\tMedian of upstream packet loss: %f \n", *packet_loss);
 
 
     printf("\n");
@@ -752,6 +759,12 @@ void pmeasure_log_prefix_summary(void *pfx, void *data)
     var_of_srtts = g_hash_table_lookup(prefix->measure_dict, "srtt_var_mean_within");
     if (var_of_srtts != NULL)
         _muacc_logtofile(logfile, "%f,", *var_of_srtts);
+    else
+        _muacc_logtofile(logfile, "NA,");
+
+    double *packet_loss = g_hash_table_lookup(prefix->measure_dict, "packet_loss_up_median");
+    if (packet_loss != NULL)
+        _muacc_logtofile(logfile, "%f,", *packet_loss);
     else
         _muacc_logtofile(logfile, "NA,");
 
@@ -1039,6 +1052,10 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
     GList *var_table = g_hash_table_lookup(prefix->measure_dict, "vars_of_rtts");
     GList *values2 = var_table;
 
+    #ifdef HAVE_TCP_INFO_DATA_SEGS_OUT
+    GList *loss_table = g_hash_table_lookup(prefix->measure_dict, "packet_loss_up");
+    GList *values3 = loss_table;
+    #endif
 
     // Get Attributes
     if (rtalen > 0)
@@ -1057,6 +1074,14 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
                 double *rtt_var = malloc(sizeof(double));
                 *rtt_var = tcpInfo->tcpi_rttvar/1000.;
 
+                #ifdef HAVE_TCP_INFO_DATA_SEGS_OUT
+                double *loss = malloc(sizeof(double));
+                *loss = tcpInfo->tcpi_lost / tcpInfo->tcpi_data_segs_out;
+
+                DLOG(MAM_PMEASURE_LOSS_NOISY_DEBUG, "Computing loss: %d / %d = %.3f\n", tcpInfo->tcpi_lost, tcpInfo->tcpi_data_segs_out, *loss);
+                values3 = g_list_append(values3, loss);
+                #endif
+
                 // append it to the list of values
                 values = g_list_append(values, rtt);
                 values2 = g_list_append(values2, rtt_var);
@@ -1071,6 +1096,12 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
         DLOG(MAM_PMEASURE_SRTT_NOISY_DEBUG, "Inserted vars_of_rtts\n");
     }
 
+    #ifdef HAVE_TCP_INFO_DATA_SEGS_OUT
+    if (loss_table == NULL) {
+        g_hash_table_insert(prefix->measure_dict, "packet_loss_up", values3);
+        DLOG(MAM_PMEASURE_LOSS_NOISY_DEBUG, "Inserted packet_loss_up\n");
+    }
+    #endif
     return values;
 }
 #endif /* HAVE_LIBNL */
@@ -1151,11 +1182,30 @@ void compute_srtt(void *pfx, void *data)
             *mean_of_vars = 0;
         }
 
+        double *median_packet_loss_up = g_hash_table_lookup(prefix->measure_dict, "packet_loss_up_median");
+        if (median_packet_loss_up == NULL)
+        {
+            median_packet_loss_up = malloc(sizeof(double));
+            g_hash_table_insert(prefix->measure_dict, "packet_loss_up_median", median_packet_loss_up);
+        }
+
+        #ifdef HAVE_TCP_INFO_DATA_SEGS_OUT
+        GList *packet_loss_up = g_hash_table_lookup(prefix->measure_dict, "packet_loss_up");
+        if (packet_loss_up != NULL)
+        {
+            *median_packet_loss_up = calculate_median(&packet_loss_up);
+            DLOG(MAM_PMEASURE_LOSS_NOISY_DEBUG, "Computed median packet loss: %f\n", *median_packet_loss_up);
+        } else {
+            DLOG(MAM_PMEASURE_LOSS_NOISY_DEBUG, "No packet loss information - setting to zero\n");
+            *median_packet_loss_up = 0;
+        }
+        #endif
 
         // clean up
         g_list_free_full(values, &cleanup_double);
         g_list_free_full(vars_of_rtts, &cleanup_double);
         g_hash_table_remove(prefix->measure_dict, "vars_of_rtts");
+        g_hash_table_remove(prefix->measure_dict, "packet_loss_up");
         close(sock_ip4);
         close(sock_ip6);
         #endif

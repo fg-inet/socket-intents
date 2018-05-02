@@ -1,2 +1,3 @@
 /* have BSD sockaddr length field */
 #cmakedefine HAVE_SOCKADDR_LEN 1
+#cmakedefine HAVE_TCP_INFO_DATA_SEGS_OUT 1
