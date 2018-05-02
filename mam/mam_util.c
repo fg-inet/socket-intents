@@ -69,20 +69,26 @@ void _mam_print_measure_dict (gpointer key,  gpointer val, gpointer sb)
 {
 	if (strncmp((const char *) key, "srtt", 4) == 0)
 	{
-		strbuf_printf((strbuf_t *) sb, " %s -> %f", (char *) key, *(double *) val);
+		strbuf_printf((strbuf_t *) sb, " %s -> %f,", (char *) key, *(double *) val);
 	}
 	else if (strncmp((const char*)key+2, "_errors", 11) == 0)
 	{
-		strbuf_printf((strbuf_t *) sb, " %s -> %" PRIu64, (char *) key, *(uint64_t *) val);
+		strbuf_printf((strbuf_t *) sb, " %s -> %" PRIu64 ",", (char *) key, *(uint64_t *) val);
+	}
+	else if (strncmp((const char*)key, "channel_utilization", 19) == 0)
+	{
+		strbuf_printf((strbuf_t *) sb, " %s -> %.2f%%,", (char *) key, *(double *) val);
 	}
 	else if (strncmp((const char *) key, "counter", 7) == 0)
 	{
 		strbuf_printf((strbuf_t *) sb, " %s -> %ld", (char *) key, *(long *) val);
 	}
+
 	else if (strncmp((const char *) key, "sample", 7) == 0)
 	{
 		strbuf_printf((strbuf_t *) sb, " %s -> %d", (char *) key, *(int *) val);
 	}
+
 	else if (
         (strncmp((const char *) key, "upload", 6) == 0) ||
         (strncmp((const char *) key, "download", 8) == 0) ||
@@ -92,8 +98,17 @@ void _mam_print_measure_dict (gpointer key,  gpointer val, gpointer sb)
 	{
 		strbuf_printf((strbuf_t *) sb, " %s -> %f", (char *) key, *(double *) val);
 	}
+	else if (strncmp((const char*)key+2, "_errors", 11) == 0)
+	{
+		strbuf_printf((strbuf_t *) sb, " %s -> %" PRIu64, (char *) key, *(uint64_t *) val);
+	}
+
+	else if (strncmp((const char*)key, "signal_strength", 15) == 0)
+	{
+		strbuf_printf((strbuf_t *) sb, " %s -> %.2f%%,", (char *) key, *(double *) val);
+	}
 	else
-		strbuf_printf((strbuf_t *) sb, " %s -> (unknown format)", (char *) key);
+		strbuf_printf((strbuf_t *) sb, " %s -> (unknown format),", (char *) key);
 }
 
 void _mam_print_iface_list(strbuf_t *sb, GSList *ifaces)
@@ -111,10 +126,20 @@ void _mam_print_iface_list(strbuf_t *sb, GSList *ifaces)
 	strbuf_printf(sb, "}");
 }
 
+void _mam_print_iface_additional_info(strbuf_t *sb, unsigned int additional_info)
+{
+	strbuf_printf(sb, "additional_info = ");
+	if(additional_info == 0) strbuf_printf(sb, " MAM_IFACE_UNKNOWN_LOAD");
+	if(additional_info & MAM_IFACE_QUERY_BSS_LOAD	 ) strbuf_printf(sb, " MAM_IFACE_QUERY_BSS_LOAD");
+	if(additional_info & MAM_IFACE_WIFI_STATION_INFO ) strbuf_printf(sb, " MAM_IFACE_WIFI_STATION_INFO");
+	strbuf_printf(sb, ", ");
+}
+
 void _mam_print_iface(strbuf_t *sb, struct iface_list *current)
 {
 	strbuf_printf(sb, "{ ");
 	strbuf_printf(sb, " if_name = %s, ", current->if_name);
+	_mam_print_iface_additional_info(sb, current->additional_info);
 	if(current->policy_set_dict != NULL)
 	{
 		strbuf_printf(sb, " policy_set_dict = {");

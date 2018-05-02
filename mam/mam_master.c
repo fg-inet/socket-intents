@@ -282,7 +282,7 @@ static void do_accept(evutil_socket_t listener, short event, void *arg)
 static void do_read_fifo(evutil_socket_t fd, short event, void *arg)
 {
 	char buf[255];
-	int len, ret;
+	int len;
 	int (*callback_function)(struct mam_context *mctx, char* config) = NULL;
 
 	//printf("fifo_read called with fd: %d, event: %d\n", (int)fd, event);
@@ -307,7 +307,7 @@ static void do_read_fifo(evutil_socket_t fd, short event, void *arg)
 	{
 			/* Call policy module function */
 			DLOG(MAM_MASTER_NOISY_DEBUG2, "calling on_config_request callback\n");
-			ret = callback_function(global_mctx, buf);
+			callback_function(global_mctx, buf);
 	}
 	else
 		DLOG(MAM_MASTER_NOISY_DEBUG2, "Policy does not have a on_config_request method!\n");
@@ -400,7 +400,7 @@ static int setup_policy_module(mam_context_t *ctx, const char *filename)
 	}
 	else
 	{
-		DLOG(MAM_MASTER_NOISY_DEBUG1, "module %s could not be initialized", filename);
+		DLOG(MAM_MASTER_NOISY_DEBUG1, "module %s could not be initialized\n", filename);
 		return -1;
 	}
 
@@ -512,6 +512,7 @@ static void do_graceful_shutdown(evutil_socket_t _, short what, void* evctx) {
  */
 static void do_reconfigure(evutil_socket_t _, short what, void* evctx) {
 	DLOG(MAM_MASTER_NOISY_DEBUG0, "got hangup signal - reconfigureing\n");
+
 	char *policy_filename = NULL;
 		
 	if ( (config_fd = open(configfile_path, O_RDONLY)) == -1 )

@@ -7,8 +7,14 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/sysctl.h>
-
+#include <sys/ioctl.h>
 #include <sys/types.h>
+
+#ifdef IS_LINUX
+#include <linux/wireless.h>
+#include <linux/nl80211.h>
+#endif
+
 #include <netdb.h>
 #include <ifaddrs.h>
 #include <stdio.h>
@@ -49,6 +55,8 @@
 
 /* Function declaration: Add a new interface to list */
 struct iface_list *_add_iface_to_list (GSList **ifacel, char *if_name);
+int is_iface_wireless (char *if_name);
+
 
 
 /** Compare a src_prefix_list struct with a src_prefix_model
@@ -62,22 +70,6 @@ int compare_src_prefix (gconstpointer listelement, gconstpointer model)
 		DLOG(MAM_IF_NOISY_DEBUG1, "WARNING: called with NULL argument\n");
 		return -1;
 	}
-
-/*    DLOG(MAM_IF_NOISY_DEBUG2, "Comparing src_prefix_list item with model\n");
-#if MAM_IF_NOISY_DEBUG2
-	strbuf_t sb;
-	strbuf_init(&sb);
-	strbuf_printf(&sb, "Prefix =\t{");
-	_mam_print_prefix(&sb, cur);
-	strbuf_printf(&sb, "}, \nPrefix model =\t{ ");
-	strbuf_printf(&sb, " if_name = %s,  ", (m->if_name!=NULL)?m->if_name:"ANY");
-	_mam_print_prefix_list_flags(&sb, m->flags);
-	strbuf_printf(&sb, " if_addrs = ");
-	if(m->addr != NULL) _muacc_print_sockaddr(&sb, m->addr, m->addr_len); else strbuf_printf(&sb, "ANY ");
-	strbuf_printf(&sb, "}\n");
-	fprintf(stderr, "%s", strbuf_export(&sb));
-	strbuf_release(&sb);
-#endif*/
 
 	/* different interface or family */
 	if( ((cur->pfx_flags)^m->flags) & m->flags )
@@ -168,6 +160,51 @@ int compare_if_name (gconstpointer listelement, gconstpointer ifname)
 
 }
 
+/** Query the wireless extension protocol for this interface, which only exists if
+ *  the interface is wireless in a 802.11 sense
+ *  Returns 1 if the interface is wireless, 0 if not, and -1 on error
+ */
+#ifdef IS_LINUX
+int is_iface_wireless (char *if_name)
+{
+	if (if_name == NULL)
+	{
+		DLOG(MAM_IF_NOISY_DEBUG1, "Called with NULL interface\n");
+		return -1;
+	}
+
+	// Prepare socket and query data structure
+	int sock = -1;
+	struct iwreq data;
+	memset(&data, 0 , sizeof(data));
+	// Write interface name to query data structure
+	strncpy(data.ifr_name, if_name, IFNAMSIZ);
+
+	// Open socket for querying the wireless extension protocol
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+	{
+		DLOG(MAM_IF_NOISY_DEBUG1, "Cannot open socket - no way to determine if interface is wireless\n");
+		return -1;
+	}
+
+	// Do ioctl request for the wireless extension protocol of this interface
+	int ret = -1;
+	if ((ret = ioctl(sock, SIOCGIWNAME, &data)) == 0)
+	{
+		DLOG(MAM_IF_NOISY_DEBUG2, "Interface %s is wireless (802.11)!\n", if_name);
+		close(sock);
+		return 1;
+	}
+	else
+	{
+		DLOG(MAM_IF_NOISY_DEBUG2, "Interface %s is not wireless (802.11)! (returned %d)\n", if_name, ret);
+		close(sock);
+		return 0;
+	}
+}
+#endif
+
+
 /** Add an interface to the interface list, if it does not exist there yet
  *  In any case, return a pointer to the interface list item
  */
@@ -179,6 +216,8 @@ struct iface_list *_add_iface_to_list (
 	{
 		DLOG(MAM_IF_NOISY_DEBUG1, "Cannot add interface \"NULL\"!\n");
 		return NULL;
+	} else {
+		DLOG(MAM_IF_NOISY_DEBUG2, "Adding interface \"%s\"!\n", if_name);
 	}
 	GSList *ifacelistitem = NULL;
 
@@ -188,7 +227,7 @@ struct iface_list *_add_iface_to_list (
 	if (ifacelistitem != NULL)
 	{
 		/* Interface name already found in list: Return this interface list item */
-		DLOG(MAM_IF_NOISY_DEBUG2, "Interface %s already in list\n", if_name);
+		DLOG(MAM_IF_NOISY_DEBUG2, "Interface %s already in list. Nothing to add to list.\n", if_name);
 		return ifacelistitem->data;
 	}
 	else
@@ -210,9 +249,18 @@ struct iface_list *_add_iface_to_list (
 			new->if_name = _muacc_clone_string(if_name);
 			new->measure_dict = g_hash_table_new(g_str_hash, g_str_equal);
 
+			new->additional_info = MAM_IFACE_UNKNOWN_LOAD;
+            /* Checking for the wireless extension is currently only working on linux */
+            #ifdef IS_LINUX
+			if (is_iface_wireless(if_name) == 1)
+			{
+				// Query 802.11 station info for this interface
+				new->additional_info |= MAM_IFACE_WIFI_STATION_INFO;
+			}
+            #endif
+
 			/* Append to list */
 			*ifacel = g_slist_append(*ifacel, (gpointer) new);
-
 			return new;
 		}
 	}

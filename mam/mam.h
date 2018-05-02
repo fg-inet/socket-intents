@@ -85,18 +85,35 @@ typedef struct src_prefix_list {
 	GHashTable				*measure_dict;		/**< Dictionary for measurement data of this prefix */
 } src_prefix_list_t;
 
-/** list of interfacses */
+/** Flags that indicate what additional information to get for an interface */
+#define MAM_IFACE_UNKNOWN_LOAD 		0x0000		/**< No known way to determine network load */
+#define MAM_IFACE_QUERY_BSS_LOAD 	0x0001		/**< We get 802.11 BSS Load information from 802.11 */
+#define MAM_IFACE_WIFI_STATION_INFO 0x0002		/**< We get 802.11 station info */
+
+/** list of interfaces */
 typedef struct iface_list {
 	char 					*if_name;			/**< Name of the interface */
+	unsigned int			additional_info;	/**< Indicates what additional info can be queried */
+	void					*query_state;		/**< State needed for querying additional info, e.g. netlink socket */
 	GHashTable 				*policy_set_dict; 	/**< dictionary for policy configuration */
 	GHashTable				*measure_dict;		/**< Dictionary for measurement data of this interface */
 } iface_list_t;
+
+/** Data structure to store state about a local 802.11 interface
+ */
+struct wifi_state {
+	struct netlink_state *nl_state;
+	unsigned char bssid[6];
+    pcap_t *sniffer;
+    int monitor_already_existed;
+};
+
 
 /** Context of the MAM */
 typedef struct mam_context {
 	int						usage;				/**< Reference counter */
 	GSList					*prefixes;			/**< Possible source prefixes on this system */
-	GSList					*ifaces;		/**< Interfaces of this system */
+	GSList					*ifaces;			/**< Interfaces of this system */
 	lt_dlhandle				policy;				/**< Handle of policy module */
 	struct event_base 		*ev_base;			/**< Libevent Event Base */
 	struct evdns_base 		*evdns_default_base;/**< DNS base to do look ups if all other fails */
@@ -116,7 +133,7 @@ typedef struct _client_list {
 
 /** List of sockets opened by a client application */
 typedef struct _socket_list {
-	int 					sk;
+	int sk;
 } socket_list_t;
 
 /** Model that describes a prefix, used for lookup in the list */

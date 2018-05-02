@@ -14,7 +14,7 @@
 #include <netdb.h>
 #include "muacc.h"
 
-#define MUACC_TLV_MAXLEN 4096
+#define MUACC_TLV_MAXLEN 16384
 
 /** push data in an TLV buffer
  *

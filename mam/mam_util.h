@@ -21,6 +21,9 @@ void _mam_print_prefix(strbuf_t *sb, struct src_prefix_list *current);
 /** Helper to print a list of interfaces to a string */
 void _mam_print_iface_list(strbuf_t *sb, GSList *ifaces);
 
+/** Helper to print interface properties e.g. whether to query load of wifi info */
+void _mam_print_iface_additional_info(strbuf_t *sb, unsigned int additional_info);
+
 /** Helper to print an interface to a string */
 void _mam_print_iface(strbuf_t *sb, struct iface_list *current);
 
