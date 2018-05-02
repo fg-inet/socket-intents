@@ -33,6 +33,8 @@
 
 #include "mptcp_netlink_parser.h"
 
+#include <pcap.h>
+
 /** Context of an incoming request to the MAM */
 typedef struct request_context {
 	struct evbuffer 	*out;		/**< output buffer for libevent2 */

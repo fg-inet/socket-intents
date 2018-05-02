@@ -15,8 +15,11 @@ SET_DIRECTORY_PROPERTIES(PROPERTIES ADDITIONAL_MAKE_CLEAN_FILES "${cleanup_files
 ADD_LIBRARY(mam SHARED mam_ctx.c mam_iface.c mam_util.c)
 TARGET_LINK_LIBRARIES(mam muacc y ltdl ${LIBEVENT_LIBRARIES} ${GLIB2_LIBRARIES})
 
-ADD_EXECUTABLE(mamma mam mam_configp.c mam_configs.c mam_master.c ${NETLINK_CODE_FILES})
-TARGET_LINK_LIBRARIES(mamma mam uuid ${LIBNL_LIBRARIES} ${LIBEVENT_LIBRARIES} ${GLIB2_LIBRARIES})
+FIND_PACKAGE(PCAP)
+
+ADD_EXECUTABLE(mamma mam mam_configp.c mam_configs.c mam_master.c mam_pmeasure.c ${NETLINK_CODE_FILES})
+TARGET_LINK_LIBRARIES(mamma mam uuid ${LIBNL_LIBRARIES} ${LIBEVENT_LIBRARIES} ${GLIB2_LIBRARIES} ${PCAP_LIBRARIES})
+
 
 SET_TARGET_PROPERTIES(mamma
 PROPERTIES 	BUILD_WITH_INSTALL_RPATH TRUE
@@ -31,3 +34,13 @@ INSTALL(TARGETS mamma
 INSTALL(TARGETS mam
     LIBRARY DESTINATION lib
 )
+
+IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+	FIND_PROGRAM(SETCAP_EXECUTABLE setcap)
+	IF(SETCAP_EXECUTABLE)
+		INSTALL(CODE "MESSAGE(\"Granting capabilities to ${CMAKE_INSTALL_PREFIX}/bin/mamma to set up monitor interface...\")")
+		INSTALL(CODE "EXECUTE_PROCESS(COMMAND ${SETCAP_EXECUTABLE} cap_net_raw,cap_net_admin=eip ${CMAKE_INSTALL_PREFIX}/bin/mamma)")
+	ELSE(SETCAP_EXECUTABLE)
+		INSTALL(CODE "MESSAGE(\"Could not grant capabilities to ${CMAKE_INSTALL_PREFIX}/bin/mamma. Please install setcap/libcap2-bin.\")")
+	ENDIF()
+ENDIF()

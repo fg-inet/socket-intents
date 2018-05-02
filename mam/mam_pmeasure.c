@@ -4,6 +4,14 @@
  *  All rights reserved. This project is released under the New BSD License.
  */
 
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/sysctl.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+
+#include <ifaddrs.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,6 +49,8 @@
 
 #endif /* HAVE_LIBNL */
 
+#include <pcap.h>
+
 #ifdef IS_LINUX
 #include <linux/sock_diag.h>
 #include <linux/inet_diag.h>
@@ -74,6 +84,10 @@
 
 #ifndef MAM_PMEASURE_THRUPUT_DEBUG
 #define MAM_PMEASURE_THRUPUT_DEBUG 0
+#endif
+
+#ifndef MAM_PMEASURE_NOISY_DEBUG_PQL
+#define MAM_PMEASURE_NOISY_DEBUG_PQL 0
 #endif
 
 #define BUFFER_SIZE (getpagesize() < 8192L ? getpagesize() : 8192L)
@@ -148,6 +162,14 @@ void cleanup_measure_dict_if(void *pfx, void *data);
 static const double CALLBACK_DURATION=0.1;
 #endif
 
+#ifdef IS_LINUX
+/* Helpers to passively get QBSS Load Element */
+int check_bssid(const u_char *whole_packet, unsigned char *our_bssid, int header_length);
+void save_qbss_load(void *ifc, const u_char *whole_packet, int position);
+void get_our_bssid(void *ifc, void *data);
+void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data);
+void get_last_packet(void *ifc, void *data);
+void cleanup_passive_network_load(void *ifc, void *data);
 
 long read_stats(char *path);
 void compute_link_usage(void *ifc, void *lookup);
@@ -2458,6 +2480,169 @@ void compute_link_usage(void *ifc, void *lookup)
     }
     return;
 }
+
+/*BEGIN OF THE PASSIVE BSS LOAD ELEMENT GETTER PART*/
+
+//Checks if we got a beacon with the BSSID of AP we are associated with
+int check_bssid(const u_char *whole_packet, unsigned char *our_bssid, int header_length)
+{
+    // Offset of the bssid in whole beacon frame
+    int offset_begin = header_length + 16; // 16 bytes is the offset of BSSID in beacon frame field.
+    int offset_end = header_length + 16 + 6;
+
+    // Save the received bssid here
+    unsigned char got_bssid[6];
+    bzero(got_bssid,6);
+
+    // Start at the beginning of the bssid and copy it bytewise
+    int i = offset_begin;
+    while (i < offset_end) {
+        got_bssid[i - offset_begin] = whole_packet[i];
+        i++;
+    }
+
+    DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Got beacon frame with BSSID: %02X:%02X:%02X:%02X:%02X:%02X\n", got_bssid[0], got_bssid[1], got_bssid[2], got_bssid[3], got_bssid[4], got_bssid[5]);
+    // Chceck if that beacon was from AP we are associated with
+    i = 0;
+    while (i < 6) {
+        if (got_bssid[i] != our_bssid[i]) {
+            DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "This beacon frame was not from our AP!\n");
+            return -1;
+        }
+        i++;
+    }
+    DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "We received a beacon frame from our AP!\n");
+    return 0;
+}
+
+// Saves the necessary BSS Load Values
+void save_qbss_load(void *ifc, const u_char *whole_packet, int position)
+{
+    struct iface_list *iface = ifc;
+    uint8_t data[5];
+    unsigned int i = 0;
+    while (i < 5) {
+        data[i] = whole_packet[position + 2 + i];
+        i++;
+    }
+    // DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Station count: \t \t %d\n", whole_packet[position + 3] << 8 | whole_packet[position + 2]);
+    // DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Channel utilization: \t \t %d\n", whole_packet[position + 4]);
+    // DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Admission Capabilities: \t \t %d\n", whole_packet[position + 6] << 8 | whole_packet[position + 5]);
+    insert_bss_load(iface, data);
+}
+
+// On pcap_dispatch this function will be executed for each beacon frame obtained
+void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data)
+{
+    struct iface_list *iface = (struct iface_list*)param;
+    struct wifi_state *wifi = iface->query_state;
+    int length = header->caplen;
+    int header_len = pkt_data[2];
+    int i = header_len + 36;
+    if (check_bssid(pkt_data, wifi->bssid, header_len) == -1) return;
+    DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Handle beacon frame from our AP on interface: %s\n", iface->if_name);
+    while (i < length) {
+        switch (pkt_data[i]) {
+            case QBSS_LOAD_ELEMENT_TAG:{
+                DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "This beacon contained the QBSS Load! Saving it for later use.\n");
+                save_qbss_load(iface, pkt_data, i);
+                i += pkt_data[i+1] + 2;
+                return;
+            }
+            default: i += pkt_data[i+1] + 2; break;
+
+        }
+    }
+    DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Unfortunately this beacon frame had no QBSS Load Element in it :(\n");
+}
+
+//Checks which AP we are currently associated with
+void get_our_bssid(void *ifc, void *data)
+{
+    struct iface_list *iface = ifc;
+    struct wifi_state *wifi = iface->query_state;
+    int sock = -1;
+    struct iwreq iw_data;
+    memset(&iw_data, 0 , sizeof(iw_data));
+    // Write interface name to query data structure
+    strncpy(iw_data.ifr_name, iface->if_name, IFNAMSIZ);
+
+    // Open socket for querying the wireless extension protocol
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    {
+        DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Cannot open socket - no way to determine the current BSSID\n");
+        return;
+    }
+
+    // Do ioctl request for the wireless extension protocol of this interface
+    int ret = -1;
+    if ((ret = ioctl(sock, SIOCGIWAP, &iw_data)) != 0)
+    {
+        DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "IOCTL on interface %s FAILED! Couldn't get current BSSID\n", iface->if_name);
+    }
+    else
+    {
+        unsigned char our_bssid[6];
+        unsigned int i = 0;
+        while (i < 6) {
+            our_bssid[i] = (u_char)iw_data.u.ap_addr.sa_data[i];
+            i++;
+        }
+        if (wifi->bssid[0] != our_bssid[0] || wifi->bssid[1] != our_bssid[1] || wifi->bssid[2] != our_bssid[2] || wifi->bssid[3] != our_bssid[3] || wifi->bssid[4] != our_bssid[4] || wifi->bssid[5] != our_bssid[5]) {
+            DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "BSSID changed! Clearing wifi info! \n");
+            clear_wifi_info(iface);
+        }
+        memcpy(wifi->bssid, our_bssid, 6);
+        DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Our BSSID: %02X:%02X:%02X:%02X:%02X:%02X\n", our_bssid[0], our_bssid[1], our_bssid[2], our_bssid[3], our_bssid[4], our_bssid[5]);
+    }
+    close(sock);
+}
+
+void get_last_packet(void *ifc, void *data)
+{
+    struct iface_list *iface = ifc;
+    struct wifi_state *wifi = iface->query_state;
+    if ((iface->additional_info & MAM_IFACE_QUERY_BSS_LOAD) && wifi->sniffer != NULL) { // Check if we have pcap capture
+        DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Begin dispatch to get passive network load for interface: %s\n", iface->if_name);
+        get_our_bssid(ifc, data);
+        if(pcap_dispatch(wifi->sniffer, -1, packet_handler, (u_char*) iface) < 0) {
+            DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Error on dispatch - stop monitoring BSS Load\n");
+            pcap_close(wifi->sniffer);
+            wifi->sniffer = NULL;
+            iface->additional_info &= ~(MAM_IFACE_QUERY_BSS_LOAD);
+        }
+    } else {
+        DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Load cannot be queried on interface: %s. Error: \n", iface->if_name);
+        if (!(iface->additional_info & MAM_IFACE_QUERY_BSS_LOAD)) {
+            DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Load query is not enabled for this interface.\n");
+        } else if (wifi->sniffer == NULL) {
+            DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "No load queried on %s - Pcap capturing device failed.\n", iface->if_name);
+        } else {
+            DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "No load queried on %s - Other error.\n", iface->if_name);
+        }
+
+    }
+}
+
+void cleanup_passive_network_load(void *ifc, void *data)
+{
+    struct iface_list *iface = ifc;
+
+    if (ifc == NULL || iface->if_name == NULL)
+    {
+        DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Cannot cleanup passive network load state for NULL network interface\n");
+        return;
+    }
+
+    // Check if 802.11 BSS Load attribute was set
+    if (iface->additional_info & MAM_IFACE_QUERY_BSS_LOAD)
+    {
+        // If something needs to be cleaned up, it can be added here.
+        DLOG(MAM_PMEASURE_NOISY_DEBUG_PQL, "Cleaned up passive network load state for interface %s\n", iface->if_name);
+    }
+}
+
+/*END OF THE PASSIVE BSS LOAD ELEMENT GETTER PART*/
 
 void pmeasure_setup(mam_context_t *ctx)
 {
