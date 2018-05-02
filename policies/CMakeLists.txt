@@ -19,10 +19,6 @@ SET_TARGET_PROPERTIES(policy_mptcp_default_flow PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_mptcp_default_flow mam ${GLIB2_LIBRARIES} ${LIBNL_LIBRARIES})
 endif ()
 
-ADD_LIBRARY(policy_intents MODULE policy_intents.c policy_util.c)
-SET_TARGET_PROPERTIES(policy_intents PROPERTIES PREFIX "")
-TARGET_LINK_LIBRARIES(policy_intents mam ${GLIB2_LIBRARIES})
-
 ADD_LIBRARY(policy_rr_pipelining MODULE policy_rr_pipelining.c policy_util.c)
 SET_TARGET_PROPERTIES(policy_rr_pipelining PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_rr_pipelining mam ${GLIB2_LIBRARIES})
@@ -31,7 +27,27 @@ ADD_LIBRARY(policy_earliest_arrival MODULE policy_earliest_arrival.c policy_earl
 SET_TARGET_PROPERTIES(policy_earliest_arrival PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_earliest_arrival mam ${GLIB2_LIBRARIES})
 
-INSTALL(TARGETS policy_sample policy_rr_naive policy_filesize policy_intents policy_rr_pipelining policy_earliest_arrival
+ADD_LIBRARY(policy_earliest_arrival_maxcapacity MODULE policy_earliest_arrival_maxcapacity.c policy_earliest_arrival_base.c policy_util.c)
+SET_TARGET_PROPERTIES(policy_earliest_arrival_maxcapacity PROPERTIES PREFIX "")
+TARGET_LINK_LIBRARIES(policy_earliest_arrival_maxcapacity mam ${GLIB2_LIBRARIES})
+
+ADD_LIBRARY(policy_earliest_arrival_countconns MODULE policy_earliest_arrival_countconns.c policy_earliest_arrival_base.c policy_util.c)
+SET_TARGET_PROPERTIES(policy_earliest_arrival_countconns PROPERTIES PREFIX "")
+TARGET_LINK_LIBRARIES(policy_earliest_arrival_countconns mam ${GLIB2_LIBRARIES})
+
+ADD_LIBRARY(policy_earliest_arrival_threshold MODULE policy_earliest_arrival_threshold.c policy_earliest_arrival_base.c policy_util.c)
+SET_TARGET_PROPERTIES(policy_earliest_arrival_threshold PROPERTIES PREFIX "")
+TARGET_LINK_LIBRARIES(policy_earliest_arrival_threshold mam ${GLIB2_LIBRARIES})
+
+ADD_LIBRARY(policy_earliest_arrival_probabilities MODULE policy_earliest_arrival_probabilities.c policy_earliest_arrival_base.c policy_util.c)
+SET_TARGET_PROPERTIES(policy_earliest_arrival_probabilities PROPERTIES PREFIX "")
+TARGET_LINK_LIBRARIES(policy_earliest_arrival_probabilities mam ${GLIB2_LIBRARIES})
+
+ADD_LIBRARY(policy_earliest_arrival_static MODULE policy_earliest_arrival_static.c policy_util.c)
+SET_TARGET_PROPERTIES(policy_earliest_arrival_static PROPERTIES PREFIX "")
+TARGET_LINK_LIBRARIES(policy_earliest_arrival_static mam ${GLIB2_LIBRARIES})
+
+INSTALL(TARGETS policy_sample policy_rr_naive policy_rr_pipelining policy_earliest_arrival policy_earliest_arrival_maxcapacity policy_earliest_arrival_threshold policy_earliest_arrival_static policy_earliest_arrival_countconns policy_earliest_arrival_probabilities
 	DESTINATION "${CMAKE_INSTALL_PREFIX}/${POLICY_PATH}"
 )
 
