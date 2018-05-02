@@ -198,3 +198,25 @@ int compare_tlv(char *buf, size_t buf_pos, size_t buf_len, const void *value, si
 	}
 	return 0;
 }
+
+/** Receive data from a socket for testing purposes
+ */
+int recv_bytes_from_socket(int sock, int filesize)
+{
+	char buffer[BUFSIZ];
+	ssize_t len;
+	size_t bytes_to_read = BUFSIZ;
+
+	if (filesize < bytes_to_read)
+		bytes_to_read = filesize;
+
+	DLOG(TEST_UTIL_NOISY_DEBUG2, "Reading %zu bytes\n", bytes_to_read);
+	while(((len = recv(sock, buffer, bytes_to_read, 0)) > 0) && (filesize > 0))
+	{
+		filesize -= len;
+		if (filesize < bytes_to_read)
+			bytes_to_read = filesize;
+		DLOG(TEST_UTIL_NOISY_DEBUG2, "Read %zu bytes, %d remain\n", len, filesize);
+	}
+	return 0;
+}

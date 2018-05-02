@@ -198,7 +198,7 @@ int main(int argc, char *argv[])
 	*arg_hostname->sval = NULL;
 	*arg_service->sval = NULL;
     *arg_transport->sval = "TCP";
-    *arg_url->sval = "http://www.maunz.org:443";
+    *arg_url->sval = "http://aliexpress.com:80";
 
 	char *hostname = NULL;
 	size_t hostnamelen = 0;

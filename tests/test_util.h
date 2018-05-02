@@ -48,4 +48,8 @@ void tlv_print_buffer(char buf[], size_t buflen);
  */
 int compare_tlv(char *buf, size_t buf_pos, size_t buf_len, const void *value, size_t value_len);
 
+/** Receive data from a socket for testing purposes
+ */
+int recv_bytes_from_socket(int sock, int filesize);
+
 #endif /* __TEST_UTIL_H__ */
