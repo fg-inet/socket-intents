@@ -9,6 +9,7 @@
 #include <sys/sysctl.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
+#include <sys/errno.h>
 
 #ifdef IS_LINUX
 #include <linux/wireless.h>
@@ -38,6 +39,7 @@
 #endif
 
 #include <pcap.h>
+#include <pthread.h>
 
 #undef __USE_MISC //Dirty hack: Prevent breaking previous defines from linux/if.h (included by netlink)
 #include <net/if.h>

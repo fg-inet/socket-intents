@@ -65,9 +65,12 @@ muacc_ctxino_t _muacc_get_ctxino(int sockfd)
 
 int _is_socket_open(int sockfd)
 {
-    char dummy;
+	char dummy;
 	ssize_t ret;
-    ret = recv(sockfd, &dummy, 1, MSG_PEEK | MSG_DONTWAIT);
+	int flags = fcntl(sockfd, F_GETFL, 0);
+	fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+ 	ret = recv(sockfd, &dummy, 1, MSG_PEEK );
+	fcntl(sockfd, F_SETFL, flags );
 
 	DLOG(MUACC_CLIENT_UTIL_NOISY_DEBUG1, "Socket closed check returned: %zu errno: %d\n", ret, errno);
 	if (ret == 0)

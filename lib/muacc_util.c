@@ -12,7 +12,6 @@
 #include <arpa/inet.h>
 #include <sys/un.h>
 #include <netdb.h>
-
 #include "muacc.h"
 #include "muacc_util.h"
 #include "socketset.h"

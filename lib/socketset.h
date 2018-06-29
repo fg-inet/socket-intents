@@ -8,6 +8,8 @@
 #ifndef MUACC_LIB_SOCKETSET_H
 #define MUACC_LIB_SOCKETSET_H
 
+#include <pthread.h>
+
 /** List of socketsets that we have
  *  each with its own destination host/port, connection type, status, read/write lock
  *  and list of sockets that belong to the set

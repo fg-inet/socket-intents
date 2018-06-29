@@ -13,6 +13,7 @@
  */
 
 #include "client_util.h"
+#include <sys/select.h>
 
 /** Asynchronous function that returns a connected socket to the given URL
  *  Supply a "-1" socket and URL, type, proto, family to get a new, freshly connected socket

@@ -4,8 +4,8 @@
  *  All rights reserved. This project is released under the New BSD License.
  */
 
+#include <sys/errno.h>
 #include <stdio.h>
-#include <errno.h>
 
 #include "dlog.h"
 #include "strbuf.h"

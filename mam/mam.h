@@ -26,6 +26,7 @@
 
 #include <ltdl.h>
 #include <glib.h>
+#include <pcap.h>
 
 #include "muacc.h"
 #include "socketset.h"
@@ -33,7 +34,7 @@
 
 #include "mptcp_netlink_parser.h"
 
-#include <pcap.h>
+
 
 /** Context of an incoming request to the MAM */
 typedef struct request_context {

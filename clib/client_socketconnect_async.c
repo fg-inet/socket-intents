@@ -13,6 +13,7 @@
 #include <arpa/inet.h>
 #include <sys/un.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <netdb.h>
 #include <errno.h>
 #include <pthread.h>

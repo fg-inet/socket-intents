@@ -223,7 +223,7 @@ int muacc_ai_getaddrinfo(const char *hostname, const char *service,
 
 void muacc_ai_freeaddrinfo(struct muacc_addrinfo *ai)
 {
-    assert(*ai!=NULL);
+    assert(ai!=NULL);
     assert(ai->ai_next==NULL); /* as our getaddrinfo only returns one address,
     we only have to free one. */
     
