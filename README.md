@@ -9,7 +9,7 @@ The actual decision-making is implemented within the __Multi Access Manager__, a
 
 Copyright
 -----
-Copyright (c) 2013-2017, Internet Network Architectures Group, Berlin Institute of Technology,
+Copyright (c) 2013-2018, Internet Network Architectures Group, Berlin Institute of Technology,
 Philipp S. Tiesel and Theresa Enghardt and Mirko Palmer.  
 All rights reserved.  
 This project has been licensed under the New BSD License.
@@ -18,7 +18,9 @@ This project has been licensed under the New BSD License.
 Building and Installing the Socket Intents Framework
 -------------------------------------------------
 
-__Supported platforms:__ Linux (we use mainly Debian and Ubuntu), OS X
+__Supported platforms:__ Linux (we use mainly Debian and Ubuntu), Mac OS X 
+
+'''Note''': Path characteristics collection is currently only supported on Linux. Furthermore, release-0.7 currently does not compile on Mac OS. 
 
 __Prerequisites:__ cmake, pkg-config, bison, flex, libltdl-dev, libevent-dev, libglib2.0-dev, libargtable2-dev, uuid-dev, libnl-3-dev, libnl-genl-3-dev, libnl-idiag-3-dev, libnl-route-3-dev, (liburiparser-dev)
 
