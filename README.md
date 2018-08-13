@@ -22,7 +22,7 @@ __Supported platforms:__ Linux (we use mainly Debian and Ubuntu), Mac OS X
 
 __Note__: Path characteristics collection is currently only supported on Linux. Furthermore, release-0.7 currently does not compile on Mac OS. 
 
-__Prerequisites:__ cmake, pkg-config, bison, flex, libltdl-dev, libevent-dev, libglib2.0-dev, libargtable2-dev, uuid-dev, libnl-3-dev, libnl-genl-3-dev, libnl-idiag-3-dev, libnl-route-3-dev, (liburiparser-dev)
+__Prerequisites:__ cmake, pkg-config, bison, flex, libltdl-dev, libevent-dev, libglib2.0-dev, libargtable2-dev, uuid-dev, libnl-3-dev, libnl-genl-3-dev, libnl-idiag-3-dev, libnl-route-3-dev, libpcap-dev, (liburiparser-dev)
 
 To build and install:
 
