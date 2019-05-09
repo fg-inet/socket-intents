@@ -3,6 +3,12 @@ Changes
 
 This document describes significant changes to the Socket Intents prototype in different releases, with the latest changes at the top.
 
+release-0.8
+-----------
+
+* Add simplified MPTCP policy which enables MPTCP for every socket
+* Finalize Threshold Policy with advanced capacity estimation and load time computation with slow start
+* Fix some memory management issues
 
 release-0.7
 -----------

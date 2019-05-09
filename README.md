@@ -9,7 +9,7 @@ The actual decision-making is implemented within the __Multi Access Manager__, a
 
 Copyright
 -----
-Copyright (c) 2013-2018, Internet Network Architectures Group, Berlin Institute of Technology,
+Copyright (c) 2013-2019, Internet Network Architectures Group, Berlin Institute of Technology,
 Philipp S. Tiesel and Theresa Enghardt and Mirko Palmer.  
 All rights reserved.  
 This project has been licensed under the New BSD License.
@@ -92,6 +92,16 @@ To test with different parameters, run the following to see what is available:
 ```sh
 ./tests/socketconnecttest --help
 ```
+
+Notable policies
+----------------
+
+* __Sample Policy__: Always use a single default interface. See policies/policy_sample.c
+* __MPTCP__: Always enable MPTCP for every socket. Bind to lower latency interface so the first subflow will be established there. See policies/mptcp_simple.c
+* __Threshold Policy__: This Informed Access Network Selection policy first judges whether a new resource load is latency-dominated or capacity-dominated. If it is latency-dominated, it chooses the interface (i.e., the network) with the lowest latency. If it is capacity-dominated, it compares the predicted completion times (latency + capacity part) of all interfaces and chooses the lowest completion time. See policies/threshold_policy.c
+
+
+
 
 Adding a new application
 ------------------------
