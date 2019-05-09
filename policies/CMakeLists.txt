@@ -31,9 +31,9 @@ ADD_LIBRARY(policy_earliest_arrival MODULE policy_earliest_arrival.c policy_earl
 SET_TARGET_PROPERTIES(policy_earliest_arrival PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_earliest_arrival mam ${GLIB2_LIBRARIES})
 
-ADD_LIBRARY(policy_earliest_arrival_maxcapacity MODULE policy_earliest_arrival_maxcapacity.c policy_earliest_arrival_base.c policy_util.c)
-SET_TARGET_PROPERTIES(policy_earliest_arrival_maxcapacity PROPERTIES PREFIX "")
-TARGET_LINK_LIBRARIES(policy_earliest_arrival_maxcapacity mam ${GLIB2_LIBRARIES})
+ADD_LIBRARY(threshold_policy MODULE threshold_policy.c policy_earliest_arrival_base.c policy_util.c)
+SET_TARGET_PROPERTIES(threshold_policy PROPERTIES PREFIX "")
+TARGET_LINK_LIBRARIES(threshold_policy mam ${GLIB2_LIBRARIES})
 
 ADD_LIBRARY(policy_earliest_arrival_countconns MODULE policy_earliest_arrival_countconns.c policy_earliest_arrival_base.c policy_util.c)
 SET_TARGET_PROPERTIES(policy_earliest_arrival_countconns PROPERTIES PREFIX "")
