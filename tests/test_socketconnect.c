@@ -508,6 +508,10 @@ int test_run (int *our_socket, const char* host, size_t hostlen, const char *ser
 	int returnvalue = -1;
 	
 	DLOG(TEST_POLICY_NOISY_DEBUG0, "Thread %d: Starting test run: Socketconnect with %d\n", tid, *our_socket);
+    if (clearsocket) {
+        *our_socket = -1;
+        DLOG(TEST_POLICY_NOISY_DEBUG2, "Thread %d: Cleared socket to %d\n", tid, *our_socket);
+    }
 	returnvalue = socketconnect(our_socket, host, hostlen, serv, servlen, options, family, socktype, protocol);
 	DLOG(TEST_POLICY_NOISY_DEBUG0, "Thread %d: Socketconnect returned code %d, socket %d\n", tid, returnvalue, *our_socket);
 
