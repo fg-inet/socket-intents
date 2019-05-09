@@ -210,10 +210,12 @@ static void mamsock_errorcb(struct bufferevent *bev, short error, void *ctx)
 		uuid_unparse_lower(crctx->ctx->ctxid, uuid_str);
 		DLOG(MAM_MASTER_NOISY_DEBUG2, "Connection closed by client %s\n", uuid_str);
 		
-		g_hash_table_destroy(((client_list_t *)client_list->data)->flow_table);
-		g_slist_free_full(((client_list_t *)client_list->data)->sockets, &_free_socket_list);
-		free((client_list_t *)client_list->data);
-		global_mctx->clients = g_slist_delete_link(global_mctx->clients, client_list);
+        if (client_list != NULL) {
+            //g_hash_table_destroy(((client_list_t *)client_list->data)->flow_table);
+            g_slist_free_full(((client_list_t *)client_list->data)->sockets, &_free_socket_list);
+            free((client_list_t *)client_list->data);
+            global_mctx->clients = g_slist_delete_link(global_mctx->clients, client_list);
+        }
 		
     } else if (error & BEV_EVENT_ERROR) {
         /* check errno to see what error occurred */

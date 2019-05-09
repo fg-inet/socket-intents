@@ -69,6 +69,9 @@ int _muacc_send_ctx_event(request_context_t *ctx, muacc_mam_action_t reason);
  */
 void _mam_print_prefix_list_flags(strbuf_t *sb, unsigned int	pfx_flags);
 
+/** Helper to print some information on interface load query */
+void _mam_print_iface_load_query(strbuf_t *sb, unsigned int load_query);
+
 /** helper that tries to call a policy function. If it fails, it simply tries to send back the context
  *
  * @return 0 if callback was successfully invoked, -1 if it failed

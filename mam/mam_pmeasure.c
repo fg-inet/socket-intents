@@ -62,6 +62,11 @@
 #include <net/if.h>
 #define __USE_MISC
 
+#ifndef MAM_PMEASURE_LOGPREFIX
+//#define MAM_PMEASURE_LOGPREFIX "/tmp/metrics"
+#define MAM_PMEASURE_LOGPREFIX ""
+#endif
+
 #ifndef MAM_PMEASURE_NOISY_DEBUG0
 #define MAM_PMEASURE_NOISY_DEBUG0 0
 #endif
@@ -100,8 +105,6 @@ int is_addr_in_pfx (const void *a, const void *b);
 
 void compute_srtt(void *pfx, void *data);
 
-#define BUFFER_SIZE (getpagesize() < 8192L ? getpagesize() : 8192L)
-#define TCPF_ALL 0xFFF
 
 void delete_zeroes(GList **values);
 gint compare_rtts (gconstpointer a, gconstpointer b);
@@ -179,7 +182,8 @@ int compute_rates (struct iface_list *iface, char *direction);
 double EPSILON=0.00001;
 
 // How many values to store until they are overwritten
-int n_timeout = 600;
+
+int n_timeout = 6000;
 
 #ifdef IS_LINUX
 //path of statistics file (sans interface) in linux broken into two strings
@@ -200,11 +204,11 @@ static const char path2[] = "/statistics/";
 */
 struct netlink_state
 {
-    struct nl_sock *sock;		/**< Netlink socket */
-    int nl80211_id;				/**< nl80211 driver ID as destination for messages */
-    int mcid;					/**< ID of multicast group we subscribed to */
-    struct nl_cb *cb;			/**< Pointer to callback functions to process netlink messages */
-    unsigned int dev_id;		/**< Device ID of this interface, for netlink messages */
+    struct nl_sock *sock;        /**< Netlink socket */
+    int nl80211_id;              /**< nl80211 driver ID as destination for messages */
+    int mcid;                    /**< ID of multicast group we subscribed to */
+    struct nl_cb *cb;            /**< Pointer to callback functions to process netlink messages */
+    unsigned int dev_id;         /**< Device ID of this interface, for netlink messages */
 };
 
 /** compare two ip addresses
@@ -251,8 +255,8 @@ int is_addr_in_pfx (const void *a, const void *b)
 }
 
 /** Log the length of the list of RTT values, which corresponds to
-*  the number of open TCP connections
-*/
+ *  the number of open TCP connections
+ */
 void log_number_of_connections(GHashTable *dict, GList *values)
 {
     int *num_connections = g_hash_table_lookup(dict, "num_conns");
@@ -269,8 +273,8 @@ void log_number_of_connections(GHashTable *dict, GList *values)
 }
 
 /** Compute the mean SRTT from the currently valid srtts
-*  If none, keep the old median SRTT until it expires after n_timeout callbacks
-*/
+ *  If none, keep the old median SRTT until it expires after n_timeout callbacks
+ */
 void compute_mean(GHashTable *dict, GList *values)
 {
     double *mean_recent = g_hash_table_lookup(dict, "srtt_mean_recent");
@@ -333,10 +337,11 @@ double calculate_mean(GList *values)
 }
 
 /** Compute the SRTT variance from the currently valid srtts
-*  Insert it into the measure_dict as "srtt_var_across_current"
-*/
+ *  Insert it into the measure_dict as "srtt_var_across_current"
+ */
 void compute_variance(GHashTable *dict, GList *values)
 {
+
     double *variance;
 
     int n = g_list_length(values);
@@ -410,10 +415,9 @@ gint compare_rtts (gconstpointer a, gconstpointer b)
         return 1;
     }
 }
-
 /** Compute the median SRTT from a list of individual flows
-*  If none, keep the old median SRTT until it expires after n_timeout callbacks
-*/
+ *  If none, keep the old median SRTT until it expires after n_timeout callbacks
+ */
 void compute_median(GHashTable *dict, GList **values)
 {
     double *median_recent = g_hash_table_lookup(dict, "srtt_median_recent");
@@ -587,6 +591,7 @@ void compute_minimum(GHashTable *dict, GList *values)
 /* Get the position of the maximum in an array of values */
 int rolling_maximum(double *values, int length, double old_maximum)
 {
+
     double candidate = values[0];
     int candidate_offset = 0;
 
@@ -606,8 +611,8 @@ int rolling_maximum(double *values, int length, double old_maximum)
 }
 
 /* Get the position of the (non-zero) minimum in an array of values
-* !!! Returns -1 if there is none !!!
-*/
+ * !!! Returns -1 if there is none !!!
+ */
 int rolling_minimum(double *values, int length, double old_minimum)
 {
     double candidate = DBL_MAX;
@@ -757,9 +762,10 @@ void pmeasure_print_iface_summary(void *ifc, void *data)
     printf("\n");
 }
 
+
 /** Log the available measurement data for each prefix, with timestamp and first prefix address
     Destination: MAM_PMEASURE_LOGPREFIXprefix.log
-*/
+ */
 void pmeasure_log_prefix_summary(void *pfx, void *data)
 {
     struct src_prefix_list *prefix = pfx;
@@ -847,10 +853,9 @@ void pmeasure_log_prefix_summary(void *pfx, void *data)
     free(logfile);
 }
 
-
 /** Log the available measurement data for each interface, with timestamp
     Destination: MAM_PMEASURE_LOGPREFIXinterface.log
-*/
+ */
 void pmeasure_log_iface_summary(void *ifc, void *data)
 {
     struct iface_list *iface = ifc;
@@ -1174,7 +1179,11 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
 
                 #ifdef HAVE_TCP_INFO_DATA_SEGS_OUT
                 double *loss = malloc(sizeof(double));
-                *loss = tcpInfo->tcpi_lost / tcpInfo->tcpi_data_segs_out;
+                if (tcpInfo->tcpi_data_segs_out > 0) {
+                    *loss = tcpInfo->tcpi_lost / tcpInfo->tcpi_data_segs_out;
+                } else {
+                    *loss = 0;
+                }
 
                 DLOG(MAM_PMEASURE_LOSS_NOISY_DEBUG, "Computing loss: %d / %d = %.3f\n", tcpInfo->tcpi_lost, tcpInfo->tcpi_data_segs_out, *loss);
                 values3 = g_list_append(values3, loss);
@@ -1205,8 +1214,8 @@ GList * parse_nl_msg(struct inet_diag_msg *msg, int rtalen, void *pfx, GList *va
 #endif /* HAVE_LIBNL */
 
 /** Compute the SRTT on an prefix, except on lo
-*  Insert it into the measure_dict as "srtt_median_recent"
-*/
+ *  Insert it into the measure_dict as "srtt_median_recent"
+ */
 void compute_srtt(void *pfx, void *data)
 {
     struct src_prefix_list *prefix = pfx;
@@ -1399,8 +1408,8 @@ void cleanup_double(void *value) {
 }
 
 /** Get load of the network if some mode was specified
-*  e.g., for wireless 802.11 interfaces, query signal strength
-**/
+ *  e.g., for wireless 802.11 interfaces, query signal strength
+ **/
 void get_additional_info(void *ifc, void *data)
 {
     struct iface_list *iface = ifc;
@@ -1423,6 +1432,8 @@ void get_additional_info(void *ifc, void *data)
         DLOG(MAM_PMEASURE_NOISY_DEBUG2, "Network load for interface %s is unknown!\n", iface->if_name);
     }
 }
+
+
 
 #ifdef HAVE_LIBNL
 /** Receive netlink messages for wireless interface, executing callbacks */
@@ -1849,7 +1860,7 @@ int parse_station_info(struct nl_msg *msg, void *arg)
 
 
 /** Callback for the sequence checking errors: Ignore them, report that everything is okay
-**/
+ **/
 static int no_seq_check(struct nl_msg *msg, void *arg)
 {
     // Do not throw an error
@@ -1857,7 +1868,7 @@ static int no_seq_check(struct nl_msg *msg, void *arg)
 }
 
 /** Callback for the receiving of the netlink ACK messages
-**/
+ **/
 static int ack_handler(struct nl_msg *msg, void *arg)
 {
     // Skip to the next message
@@ -1865,7 +1876,7 @@ static int ack_handler(struct nl_msg *msg, void *arg)
 }
 
 /** Callback for when the receiving of the netlink messages is done
-**/
+ **/
 static int finish_handler(struct nl_msg *msg, void *arg)
 {
     // Skip to the next message
@@ -1919,8 +1930,8 @@ int get_station_info(struct iface_list *iface)
 #endif
 
 /** For each interface, set up state to query additional_info
-*  e.g. prepare netlink sockets for querying BSS load on 802.11 interfaces
-*/
+ *  e.g. prepare netlink sockets for querying BSS load on 802.11 interfaces
+ */
 void setup_additional_info(void *ifc, void *data)
 {
     struct iface_list *iface = ifc;
@@ -2045,7 +2056,7 @@ void setup_additional_info(void *ifc, void *data)
 }
 
 /** When shutting down pmeasure, clean up the additional_info querying state for each interface
-*/
+ */
 void cleanup_additional_info(void *ifc, void *data)
 {
     struct iface_list *iface = ifc;
@@ -2262,8 +2273,8 @@ void cleanup_measure_dict_if(void *ifc, void *data)
 }
 
 /**
-*This function reads reads the interface counters for each interface called.
-*/
+ *This function reads reads the interface counters for each interface called.
+ */
 long read_stats(char *path)
 {
     FILE *fp;
@@ -2282,9 +2293,9 @@ long read_stats(char *path)
 }
 
 /** Compute the rates for one interface in one direction
-*  First the current rate, based on the counter increase / passed time
-*  then the maximum rate seen in the last n_timeout callbacks
-*/
+ *  First the current rate, based on the counter increase / passed time
+ *  then the maximum rate seen in the last n_timeout callbacks
+ */
 int compute_rates (struct iface_list *iface, char *direction)
 {
     if (iface == NULL || direction == NULL)
@@ -2440,16 +2451,16 @@ int compute_rates (struct iface_list *iface, char *direction)
 }
 
 /**
-*  This function calculates the current throughput on each interface
-*  For upload and download, the following metrics are stored:
-*  - counter:          Current interface counter [Bytes]
-*  - rate_recent:      Currently observed throughput [Bytes / second]
-*                      = Difference between current and previous counter value,
-*                        divided by the callback duration
-*  - rate_max_recent:  Maximum of rates seen in the last n_timeout callbacks
-*
-*  Internally, for each interface the most recent n_timeout values are stored
-*/
+ *  This function calculates the current throughput on each interface
+ *  For upload and download, the following metrics are stored:
+ *  - counter:          Current interface counter [Bytes]
+ *  - rate_recent:      Currently observed throughput [Bytes / second]
+ *                      = Difference between current and previous counter value,
+ *                        divided by the callback duration
+ *  - rate_max_recent:  Maximum of rates seen in the last n_timeout callbacks
+ *
+ *  Internally, for each interface the most recent n_timeout values are stored
+ */
 void compute_link_usage(void *ifc, void *lookup)
 {
     struct iface_list *iface = ifc;
@@ -2499,8 +2510,7 @@ void compute_link_usage(void *ifc, void *lookup)
 
 #ifdef HAVE_LIBNL
 //Checks if we got a beacon with the BSSID of AP we are associated with
-int check_bssid(const u_char *whole_packet, unsigned char *our_bssid, int header_length)
-{
+int check_bssid(const u_char *whole_packet, unsigned char *our_bssid, int header_length) {
     // Offset of the bssid in whole beacon frame
     int offset_begin = header_length + 16; // 16 bytes is the offset of BSSID in beacon frame field.
     int offset_end = header_length + 16 + 6;
@@ -2531,8 +2541,7 @@ int check_bssid(const u_char *whole_packet, unsigned char *our_bssid, int header
 }
 
 // Saves the necessary BSS Load Values
-void save_qbss_load(void *ifc, const u_char *whole_packet, int position)
-{
+void save_qbss_load(void *ifc, const u_char *whole_packet, int position) {
     struct iface_list *iface = ifc;
     uint8_t data[5];
     unsigned int i = 0;
@@ -2547,8 +2556,7 @@ void save_qbss_load(void *ifc, const u_char *whole_packet, int position)
 }
 
 // On pcap_dispatch this function will be executed for each beacon frame obtained
-void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data)
-{
+void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_char *pkt_data) {
     struct iface_list *iface = (struct iface_list*)param;
     struct wifi_state *wifi = iface->query_state;
     int length = header->caplen;
@@ -2572,8 +2580,7 @@ void packet_handler(u_char *param, const struct pcap_pkthdr *header, const u_cha
 }
 
 //Checks which AP we are currently associated with
-void get_our_bssid(void *ifc, void *data)
-{
+void get_our_bssid(void *ifc, void *data) {
     struct iface_list *iface = ifc;
     struct wifi_state *wifi = iface->query_state;
     int sock = -1;
@@ -2613,8 +2620,7 @@ void get_our_bssid(void *ifc, void *data)
     close(sock);
 }
 
-void get_last_packet(void *ifc, void *data)
-{
+void get_last_packet(void *ifc, void *data) {
     struct iface_list *iface = ifc;
     struct wifi_state *wifi = iface->query_state;
     if ((iface->additional_info & MAM_IFACE_QUERY_BSS_LOAD) && wifi->sniffer != NULL) { // Check if we have pcap capture
@@ -2677,10 +2683,10 @@ void pmeasure_cleanup(mam_context_t *ctx)
 
     g_slist_foreach(ctx->ifaces, &cleanup_measure_dict_if, NULL);
     g_slist_foreach(ctx->prefixes, &cleanup_measure_dict_pf, NULL);
+    #ifdef HAVE_LIBNL
     // Go through interface list. For each interface, clean up the state to query additional_info
     g_slist_foreach(ctx->ifaces, &cleanup_additional_info, NULL);
 
-    #ifdef HAVE_LIBNL
     // Go through interface list. For each interface, clean up the pcap session used for passive scanning
     g_slist_foreach(ctx->ifaces, &cleanup_passive_network_load, NULL);
     #endif
@@ -2695,9 +2701,12 @@ void pmeasure_callback(evutil_socket_t fd, short what, void *arg)
     if (ctx == NULL)
         return;
 
-    g_slist_foreach(ctx->prefixes, &compute_srtt, NULL);
+    #ifdef IS_LINUX
     g_slist_foreach(ctx->ifaces, &compute_link_usage, NULL);
+    #endif
+
     #ifdef HAVE_LIBNL
+    g_slist_foreach(ctx->prefixes, &compute_srtt, NULL);
     g_slist_foreach(ctx->ifaces, &get_stats, NULL);
     g_slist_foreach(ctx->ifaces, &get_additional_info, NULL);
     DLOG(MAM_PMEASURE_NOISY_DEBUG0, "Get packets from passive scan\n");

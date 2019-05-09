@@ -39,7 +39,7 @@
 
 %token SEMICOLON OBRACE CBRACE EQUAL SLASH
 %token POLICYTOK IFACETOK PREFIXTOK 
-%token SETTOK RESOLVCONFTOK ENABLETOK NAMESERVERTOK
+%token SETTOK RESOLVCONFTOK DNSBINDTOK ENABLETOK NAMESERVERTOK
 
 %union
 {
@@ -221,6 +221,15 @@ prefix_statement:
 			pfx_flags_values |= PFX_ENABLED; 
 		else
 			pfx_flags_values &= PFX_ENABLED^PFX_ENABLED; 
+	}
+	|
+	DNSBINDTOK QNAME
+	{
+		if(l_evdns_base != NULL || (l_evdns_base = evdns_base_new(yymctx->ev_base, 0)) != NULL)
+		{
+			DLOG(MAM_CONFIGP_NOISY_DEBUG, "Configuring DNS base -> binding to %s\n", $2);
+			evdns_base_set_option(l_evdns_base, "bind-to", $2);
+		}
 	}
 	|
 	RESOLVCONFTOK QNAME

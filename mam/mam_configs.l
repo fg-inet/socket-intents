@@ -34,6 +34,7 @@ iface                   return IFACETOK;
 set                		return SETTOK;
 enabled					return ENABLETOK;
 
+dnsbindto               return DNSBINDTOK;
 resolvconf              return RESOLVCONFTOK;
 nameserver              return NAMESERVERTOK;
 

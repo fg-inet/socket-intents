@@ -20,7 +20,6 @@ FIND_PACKAGE(PCAP)
 ADD_EXECUTABLE(mamma mam mam_configp.c mam_configs.c mam_master.c mam_pmeasure.c ${NETLINK_CODE_FILES})
 TARGET_LINK_LIBRARIES(mamma mam uuid ${LIBNL_LIBRARIES} ${LIBEVENT_LIBRARIES} ${GLIB2_LIBRARIES} ${PCAP_LIBRARIES})
 
-
 SET_TARGET_PROPERTIES(mamma
 PROPERTIES 	BUILD_WITH_INSTALL_RPATH TRUE
 			INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${POLICY_PATH}"
@@ -38,7 +37,7 @@ INSTALL(TARGETS mam
 IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	FIND_PROGRAM(SETCAP_EXECUTABLE setcap)
 	IF(SETCAP_EXECUTABLE)
-		INSTALL(CODE "MESSAGE(\"Granting capabilities to ${CMAKE_INSTALL_PREFIX}/bin/mamma to set up monitor interface...\")")
+		INSTALL(CODE "MESSAGE(\"Granting capabilities to ${CMAKE_INSTALL_PREFIX}/bin/mamma to execute scan...\")")
 		INSTALL(CODE "EXECUTE_PROCESS(COMMAND ${SETCAP_EXECUTABLE} cap_net_raw,cap_net_admin=eip ${CMAKE_INSTALL_PREFIX}/bin/mamma)")
 	ELSE(SETCAP_EXECUTABLE)
 		INSTALL(CODE "MESSAGE(\"Could not grant capabilities to ${CMAKE_INSTALL_PREFIX}/bin/mamma. Please install setcap/libcap2-bin.\")")
