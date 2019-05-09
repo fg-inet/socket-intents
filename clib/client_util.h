@@ -132,4 +132,4 @@ int _muacc_send_socketchoose (muacc_context_t *ctx, int *socket, struct socketse
  */
 int _muacc_host_serv_to_ctx(muacc_context_t *ctx, const char *host, size_t hostlen, const char *serv, size_t servlen);
 
-#endif
+#endif /* __MUACC_CLIENT_UTIL_H__ */

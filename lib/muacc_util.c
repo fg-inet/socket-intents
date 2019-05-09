@@ -414,6 +414,12 @@ int _muacc_add_sockopt_to_list(socketopt_t **opts, int level, int optname, const
 {
 	int retval = -2;
 
+	if (opts == NULL) {
+		// No list exists
+		perror("empty list");
+		return retval;
+	}
+
 	/* Go through sockopt list and look for this option */
 	struct socketopt *current = *opts;
 	struct socketopt *prev = current;

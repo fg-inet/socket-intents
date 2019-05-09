@@ -26,7 +26,7 @@
 #endif
 
 #ifndef CLIB_IF_NOISY_DEBUG1
-#define CLIB_IF_NOISY_DEBUG1 1
+#define CLIB_IF_NOISY_DEBUG1 0
 #endif
 
 #ifndef CLIB_IF_NOISY_DEBUG2
