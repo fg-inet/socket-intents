@@ -17,25 +17,27 @@
  *  If it is bandwidth-dominated, it compares the predicted completion times
  *  (latency + bandwidth part) of all interfaces and chooses the lowest one.
  *  For calculating the bandwidth part, it divides the max_rate by the number of
- *  connections, of which it keeps track by analyzing the sockets offered for reuse
- *  in a similar fashion as eaf_countconns. Additionally, it differentiates
- *  between "small" connections (that were latency-dominated) and "big" ones
- *  (that were bandwidth-dominated).
+ *  connections. As number of connections, it takes "num_conns" of the prefix,
+ *  which corresponds to the number of TCP connections over this interface.
+ *  If current utilization ratio estimate is above a certain threshold, treat
+ *  the interface as busy and assume that connections are indeed used.
+ *  If ratio is below a certain threshold, assume they are idle, and treat
+ *  interface as free.
  */
 
 #include "policy_earliest_arrival_base.h"
 
-#define INITIAL_CWND 14880
+#define INITIAL_CWND 14480
 
-#define EAF_COUNT_NOISY_DEBUG 0
+#define USAGE_RATIO_THRESHOLD_BUSY 0.5
+#define USAGE_RATIO_THRESHOLD_FREE 0.1
 
-double completion_time_with_slowstart(int filesize, double bandwidth, double rtt, strbuf_t *sb);
+double completion_time_with_slowstart(int filesize, double bandwidth, double rtt, strbuf_t *sb, int ssl_used);
 double completion_time_without_slowstart(int filesize, double bandwidth, double rtt, strbuf_t *sb);
 
-double get_latency_part(struct src_prefix_list *pfx, strbuf_t *sb);
+double get_latency_part(struct src_prefix_list *pfx, strbuf_t *sb, int ssl_used);
 double get_bandwidth_part (struct src_prefix_list *pfx, int filesize, strbuf_t *sb);
 int is_latency_dominated(struct src_prefix_list *pfx, int filesize, request_context_t *rctx, strbuf_t *sb);
-void dec_conn_counts(GSList *spl, request_context_t *rctx);
 
 int penalize_by_utilization(struct src_prefix_list *pfx);
 int is_utilization_over_threshold(struct src_prefix_list *pfx, double threshold, strbuf_t *sb);
@@ -43,125 +45,10 @@ double lookup_utilization_threshold(struct src_prefix_list *pfx);
 
 void choose_this_prefix(struct request_context *rctx, struct src_prefix_list *bind_pfx, strbuf_t *sb)
 {
-	struct eafirst_info *pfxinfo = bind_pfx->policy_info;
 	set_bind_sa(rctx, bind_pfx, sb);
-
-	// If this prefix has sockets to reuse
-	if (pfxinfo->reuse)
-	{
-		// Assume one of the sockets will be reused
-		// Decrease counter of available sockets already seen for next time
-		pfxinfo->reuse_prev--;
-
-		// Find out which of the actual sockets is gonna be suggested for reuse
-		struct socketlist *first_socket = find_socket_on_prefix(rctx->sockets, bind_pfx);
-		if (first_socket != NULL && first_socket->file != 0)
-		{
-			double current_timestamp = gettimestamp();
-			// Set timestamp of last modification for this socket
-			pfxinfo->sockettimestamps[first_socket->file] = current_timestamp;
-
-			// If socket to be suggested is found, insert it info an array
-			// Either into the one counting "big" transfers (bandwidth dominated)
-			// or into the one for "small" transfers (latency dominated)
-			if (pfxinfo->count > pfxinfo->count_prev)
-			{
-				DLOG(EAF_COUNT_NOISY_DEBUG, "[%.6f][%s: inserting %d (big)]\n", current_timestamp, bind_pfx->if_name, first_socket->file);
-				insert_socket(pfxinfo->sockets_big, first_socket->file);
-			}
-			else
-			{
-				DLOG(EAF_COUNT_NOISY_DEBUG, "[%.6f][%s: inserting %d (small)]\n", current_timestamp, bind_pfx->if_name, first_socket->file);
-				insert_socket(pfxinfo->sockets_small, first_socket->file);
-			}
-		}
-	}
 }
 
-void dec_conn_counts(GSList *spl, request_context_t *rctx)
-{
-	while (spl != NULL)
-	{
-		struct src_prefix_list *cur = spl->data;
-		struct eafirst_info *pfxinfo = cur->policy_info;
 
-		if (pfxinfo->reuse)
-		{
-			int reuse_diff = pfxinfo->reuse - pfxinfo->reuse_prev;
-			if (reuse_diff > 0)
-			{
-				DLOG(EAF_COUNT_NOISY_DEBUG, "[%.6f][%s reuse = %d, reuse_prev = %d in dec_conn_counts]\n", gettimestamp(), cur->if_name, pfxinfo->reuse, pfxinfo->reuse_prev);
-				int decreased = 0;
-				// there are more sockets than last time
-				// find out which socket is new (part of one of our socket arrays)
-				// decrease counter for that array
-				struct socketlist *sockets = rctx->sockets;
-				while (sockets != NULL)
-				{
-					double current_timestamp = gettimestamp();
-					double last_timestamp_for_this_socket = pfxinfo->sockettimestamps[sockets->file];
-					double *min_srtt = lookup_prefix_info(cur, "srtt_minimum");
-					if (last_timestamp_for_this_socket > 0 && min_srtt != NULL && *min_srtt > EPSILON)
-					{
-						DLOG(EAF_COUNT_NOISY_DEBUG, "[%.6f][%s: checking %d: time diff = %.3f, min_srtt = %.3f)]\n", current_timestamp, cur->if_name, sockets->file, (current_timestamp - last_timestamp_for_this_socket) * 1000, *min_srtt);
-						if ((current_timestamp - last_timestamp_for_this_socket) < (*min_srtt/1000))
-						{
-							DLOG(EAF_COUNT_NOISY_DEBUG, "[%.6f][%s: too soon to reuse %d or decrease count for it (lt = %.6f)]\n", current_timestamp, cur->if_name, sockets->file, last_timestamp_for_this_socket);
-							reuse_diff--;
-							pfxinfo->reuse--;
-							sockets->flags |= MUACC_SOCKET_IN_USE;
-							DLOG(EAF_COUNT_NOISY_DEBUG, "Setting flag: %d\n", sockets->flags);
-							sockets = sockets->next;
-							continue;
-						}
-					}
-
-					if (take_socket_from_array(pfxinfo->sockets_small, sockets->file) && pfxinfo->count_small > 0 && decreased < reuse_diff)
-					{
-						// Socket was found in list of small sockets
-						pfxinfo->count_small--;
-						DLOG(EAF_COUNT_NOISY_DEBUG, "[%.6f][%s dec count_small to %d because %d was found]\n", current_timestamp, cur->if_name, pfxinfo->count_small, sockets->file);
-						decreased++;
-					}
-					else
-					{
-						if (take_socket_from_array(pfxinfo->sockets_big, sockets->file) && pfxinfo->count > 0 && decreased < reuse_diff)
-						{
-							// Socket was found in list of big sockets
-							pfxinfo->count--;
-							DLOG(EAF_COUNT_NOISY_DEBUG, "[%.6f][%s dec count to %d because %d was found]\n", current_timestamp, cur->if_name, pfxinfo->count, sockets->file);
-							decreased++;
-						}
-					}
-
-					sockets = sockets->next;
-				}
-				while (reuse_diff > decreased && (pfxinfo->count_small > 0 || pfxinfo->count > 0))
-				{
-				// We need to decrease some more
-					if (pfxinfo->count_small > 0)
-					{
-						pfxinfo->count_small--;
-						DLOG(EAF_COUNT_NOISY_DEBUG, "[%.6f][%s dec count_small to %d]\n", gettimestamp(), cur->if_name, pfxinfo->count_small);
-						decreased++;
-					}
-					else
-					{
-						if (pfxinfo->count > 0)
-						{
-							pfxinfo->count--;
-							DLOG(EAF_COUNT_NOISY_DEBUG, "[%.6f][%s dec count to %d]\n", gettimestamp(), cur->if_name, pfxinfo->count);
-							decreased++;
-						}
-					}
-				}
-			}
-		}
-		pfxinfo->reuse_prev = pfxinfo->reuse;
-
-		spl = spl->next;
-	}
-}
 
 /* Compute free capacity on a prefix */
 double get_capacity(struct src_prefix_list *pfx, double max_rate, double rate, strbuf_t *sb)
@@ -171,44 +58,79 @@ double get_capacity(struct src_prefix_list *pfx, double max_rate, double rate, s
 
 	// Compute free capacity on the link
 	double free_capacity = max_rate;
+    double usage_ratio = 1;
 
-    struct eafirst_info *pfxinfo = pfx->policy_info;
+	int num_conns = lookup_value(pfx, "num_conns", sb);
 
-	DLOG(EAF_COUNT_NOISY_DEBUG, "[%.6f][%s: Using count_small = %d and count = %d]\n", gettimestamp(), pfx->if_name, pfxinfo->count_small, pfxinfo->count);
-    free_capacity = free_capacity / (pfxinfo->count + pfxinfo->count_small + 1);
+    if (max_rate > EPSILON) {
+        // Compute usage ratio and treat interface as busy or free
+        usage_ratio = rate / max_rate;
+		strbuf_printf(sb, " usage ratio: %f ", usage_ratio);
+        if (usage_ratio > USAGE_RATIO_THRESHOLD_BUSY) {
+            usage_ratio = 1;
+            strbuf_printf(sb, " (BUSY) ", usage_ratio);
+        }
+        if (usage_ratio < USAGE_RATIO_THRESHOLD_FREE) {
+            usage_ratio = 0;
+            strbuf_printf(sb, " (FREE) ", usage_ratio);
+        }
 
-	if (free_capacity < EPSILON)
-	{
+        free_capacity = free_capacity / ((num_conns * usage_ratio) + 1);
+    } else
+    {
 		strbuf_printf(sb, " Got invalid free capacity: %f\n", free_capacity);
 		return -1;
 	}
 
-	strbuf_printf(sb, "free capacity: %.2f (conns: %d small, %d big)\n", free_capacity, pfxinfo->count_small, pfxinfo->count);
+	strbuf_printf(sb, "free capacity: %.2f (existing conns weighted by usage ratio + 1: %d * %f = %f)\n", free_capacity, num_conns, usage_ratio, (num_conns * usage_ratio)+1);
 
 	return free_capacity;
 }
 
-double completion_time_with_slowstart(int filesize, double bandwidth, double rtt, strbuf_t *sb)
+double completion_time_with_slowstart(int filesize, double bandwidth, double rtt, strbuf_t *sb, int ssl_used)
 {
-    int max_chunk = (int) (bandwidth * (rtt / 1000));
+    // Initial RTT for TCP handshake
+    double slowstart_time = rtt;
 
-    int rounds = 1;
+    if (ssl_used) {
+        // Two more RTTs for TLS handshake (assume TLS 1.2)
+        slowstart_time += 2 * rtt;
+    }
+    // Max chunk only until 80% of bandwidth
+    int max_chunk = (int) ((bandwidth * 0.8) * (rtt / 1000));
+
+    int rounds = 0;
     int slowstart_chunk = INITIAL_CWND;
-    filesize = filesize - slowstart_chunk;
-
-    while (filesize > 0 && slowstart_chunk < max_chunk)
-    {
-        rounds++;
-        slowstart_chunk += slowstart_chunk;
+    if (slowstart_chunk < max_chunk) {
         filesize = filesize - slowstart_chunk;
+        rounds++;
+        strbuf_printf(sb, "\n\t\t chunks: %d [%d left] ", slowstart_chunk, filesize);
+
+        while (filesize > 0 && slowstart_chunk < max_chunk)
+        {
+            rounds++;
+            slowstart_chunk += slowstart_chunk;
+            filesize = filesize - slowstart_chunk;
+        }
+        if (filesize < 0)
+        {
+            filesize = filesize + slowstart_chunk;
+        }
+    } else {
+        strbuf_printf(sb, "\n\t\t no slowstart ");
     }
-    if (filesize < 0)
-    {
-        filesize = filesize + slowstart_chunk;
-    }
+	// Calculating "finally used download rate" based on the last slowstart chunk,
+    // divided by the RTT - because that's a conservative estimate for
+    // how much we actually transfer in congestion avoidance
+    // ... unless our "bandwidth" (free capacity) was tiny anyway,
+    // in which case we take this one as the actually used download rate
+    double finally_used_download_rate = slowstart_chunk / (rtt / 1000);
+    if (finally_used_download_rate > bandwidth)
+        finally_used_download_rate = bandwidth;
+
     // Adding initial RTT to set up connection, RTTs for rounds with slow start, and one final RTT
-    double slowstart_time = (rounds + 1) * rtt + 1000 * (filesize / bandwidth);
-	strbuf_printf(sb, "\tPredicted %d slow start rounds for new object (final chunk size = %d, rest of bytes to fetch = %d, BDP = %d)\n", rounds, slowstart_chunk, filesize, max_chunk);
+    slowstart_time += (rounds) * rtt + 1000 * (filesize / finally_used_download_rate);
+	strbuf_printf(sb, "\tPredicted %d slow start rounds for new object (chunk threshold = %d, rest of bytes to fetch = %d, finally_used_download_rate = %f)\n", rounds, max_chunk, filesize, finally_used_download_rate);
     return slowstart_time;
 }
 
@@ -221,13 +143,13 @@ double completion_time_without_slowstart(int filesize, double bandwidth, double 
 
 
 /* Estimate completion time of an object of a given file size on this prefix */
-double predict_completion_time(struct src_prefix_list *pfx, int filesize, int reuse, strbuf_t *sb)
+double predict_completion_time(struct src_prefix_list *pfx, int filesize, int reuse, strbuf_t *sb, int ssl_used)
 {
 	if (pfx == NULL)
 		return 0;
 
 	struct eafirst_info *pfxinfo = pfx->policy_info;
-	strbuf_printf(sb, "\tPredicting completion time for new object (%d bytes) on %s %s\n", filesize, pfx->if_name, (pfxinfo->reuse) ? "(connection reuse)" : "");
+	strbuf_printf(sb, "\tPredicting completion time for new object (%d bytes) on %s %s, %s\n", filesize, pfx->if_name, (pfxinfo->reuse) ? "(connection reuse)" : "", (ssl_used ? "(TLS)" : ""));
 
 	double completion_time = DBL_MAX;
 
@@ -244,7 +166,7 @@ double predict_completion_time(struct src_prefix_list *pfx, int filesize, int re
 		}
 		else
 		{
-			completion_time = completion_time_with_slowstart(filesize, free_capacity, rtt, sb);
+			completion_time = completion_time_with_slowstart(filesize, free_capacity, rtt, sb, ssl_used);
 
 		}
 
@@ -268,7 +190,7 @@ double predict_completion_time(struct src_prefix_list *pfx, int filesize, int re
 	return completion_time;
 }
 
-double get_latency_part(struct src_prefix_list *pfx, strbuf_t *sb)
+double get_latency_part(struct src_prefix_list *pfx, strbuf_t *sb, int ssl_used)
 {
 	double srtt = lookup_value(pfx, "srtt_minimum_recent", sb);
 	struct eafirst_info *pfxinfo = pfx->policy_info;
@@ -280,6 +202,10 @@ double get_latency_part(struct src_prefix_list *pfx, strbuf_t *sb)
 	else
 	{
 		latency_part = 2 * srtt;
+        if (ssl_used) {
+            // Assume TLS 1.2 with 2-RTT handshake
+            latency_part = latency_part + 2 * srtt;
+        }
 	}
 	return latency_part;
 }
@@ -298,8 +224,9 @@ int is_latency_dominated(struct src_prefix_list *pfx, int filesize, request_cont
     if (pfx == NULL) {
         return 0;
     }
-	strbuf_printf(sb, "\tGetting latency and bandwidth part for object (size = %d B)\n", filesize);
-	double latency_part = get_latency_part(pfx, NULL);
+    int ssl_used = (strncmp(rctx->ctx->remote_service, "443", 4) == 0 ? 1 : 0);
+	strbuf_printf(sb, "\tGetting latency and bandwidth part for object (size = %d B) port %s %s\n", filesize, rctx->ctx->remote_service, (ssl_used ? "(TLS)" : ""));
+	double latency_part = get_latency_part(pfx, NULL, ssl_used);
 	double bandwidth_part = get_bandwidth_part(pfx, filesize, NULL);
 
 	strbuf_printf(sb, "\t\t--> latency part = %.2f, bandwidth part = %.2f", latency_part, bandwidth_part);
@@ -358,25 +285,19 @@ struct src_prefix_list *get_best_prefix(GSList *spl, int filesize, request_conte
 {
     struct src_prefix_list *chosenpfx = NULL;
 
-	// Decrease counters for finished transfers
-	dec_conn_counts(spl, rctx);
-
 	struct src_prefix_list *low_srtt_pfx = get_lowest_srtt_pfx(spl, "srtt_minimum_recent");
 	int latency_dominated = 0;
 
 	if (low_srtt_pfx != NULL) {
-		struct eafirst_info *pfxinfo = low_srtt_pfx->policy_info;
 		// Check if object is latency dominated
 		if (is_latency_dominated(low_srtt_pfx, filesize, rctx, sb))
 		{
 			latency_dominated = 1;
 			chosenpfx = low_srtt_pfx;
-			double total_time = get_latency_part(chosenpfx, NULL) + get_bandwidth_part(chosenpfx, filesize, NULL);
+			double total_time = get_latency_part(chosenpfx, NULL, (strncmp(rctx->ctx->remote_service, "443", 4) == 0 ? 1 : 0)) + get_bandwidth_part(chosenpfx, filesize, NULL);
 			strbuf_printf(sb, " -> getting lowest latency interface\n");
-			pfxinfo->count_small++;
 
-			DLOG(EAF_COUNT_NOISY_DEBUG, "[%.6f][%s inc count_small to %d]\n", gettimestamp(), chosenpfx->if_name, pfxinfo->count_small);
-			_muacc_logtofile(logfile, ",,,%.2f,%d,%d,%s_lowrtt\n", total_time, pfxinfo->count, pfxinfo->count_small, chosenpfx->if_name);
+			_muacc_logtofile(logfile, ",,,%.2f,,,%s_lowrtt\n", total_time, chosenpfx->if_name);
 		}
 	}
 
@@ -394,7 +315,7 @@ struct src_prefix_list *get_best_prefix(GSList *spl, int filesize, request_conte
         struct eafirst_info *pfxinfo = cur->policy_info;
 
 		// Predict completion time on this prefix
-		pfxinfo->predicted_time = predict_completion_time(cur, filesize, pfxinfo->reuse, sb);
+		pfxinfo->predicted_time = predict_completion_time(cur, filesize, pfxinfo->reuse, sb, (strncmp(rctx->ctx->remote_service, "443", 4) == 0 ? 1 : 0));
 
 		spl = spl->next;
 	}
@@ -411,16 +332,13 @@ struct src_prefix_list *get_best_prefix(GSList *spl, int filesize, request_conte
 		{
 			// Set source prefix to the fastest prefix, if link is not overloaded
 			strbuf_printf(sb, "\tFastest prefix is on %s (%.2f ms)\n", chosenpfx->if_name, min_completion_time);
-			pfxinfo->count_prev = pfxinfo->count;
-            pfxinfo->count++;
-            DLOG(EAF_COUNT_NOISY_DEBUG, "[%.6f][%s: inc count to %d]\n", gettimestamp(), chosenpfx->if_name, pfxinfo->count);
-			_muacc_logtofile(logfile, ",,,%.2f,%d,%d,%s_highbw\n", min_completion_time, pfxinfo->count, pfxinfo->count_small, chosenpfx->if_name);
+			_muacc_logtofile(logfile, ",,,%.2f,,,%s_highbw\n", min_completion_time, chosenpfx->if_name);
 		}
 		else
 		{
 			strbuf_printf(sb, "\tGot completion time of %.2f ms on %s - not taking it\n", min_completion_time, chosenpfx->if_name);
 			chosenpfx = get_default_prefix(spl2, rctx, sb);
-			_muacc_logtofile(logfile, ",,,%.2f,%d,%d,%s_default\n", min_completion_time, pfxinfo->count, pfxinfo->count_small, chosenpfx->if_name);
+			_muacc_logtofile(logfile, ",,,%.2f,,,%s_default\n", min_completion_time, chosenpfx->if_name);
 		}
 	}
 	else

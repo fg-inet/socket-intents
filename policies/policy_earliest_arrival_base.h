@@ -43,7 +43,7 @@ double get_max_rate(struct src_prefix_list *pfx, strbuf_t *sb);
 double get_rate(struct src_prefix_list *pfx, strbuf_t *sb);
 double get_capacity(struct src_prefix_list *pfx, double max_rate, double rate, strbuf_t *sb);
 struct src_prefix_list *get_best_prefix(GSList *spl, int filesize, request_context_t *rctx, const char *logfile, strbuf_t *sb);
-double predict_completion_time(struct src_prefix_list *pfx, int filesize, int reuse, strbuf_t *sb);
+double predict_completion_time(struct src_prefix_list *pfx, int filesize, int reuse, strbuf_t *sb, int ssl_used);
 void choose_this_prefix(struct request_context *rctx, struct src_prefix_list *bind_pfx, strbuf_t *sb);
 
 void set_reuse_count (GSList *spl, request_context_t *rctx);

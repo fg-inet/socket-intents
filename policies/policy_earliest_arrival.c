@@ -11,8 +11,13 @@
  *  Socketchoose  - Choose a socket on the prefix with the shortest predicted completion time
  */
 
-
 #include "policy_earliest_arrival_base.h"
+
+#define INITIAL_CWND 14480
+
+double completion_time_with_slowstart(int filesize, double bandwidth, double rtt, strbuf_t *sb, int ssl_used);
+double completion_time_without_slowstart(int filesize, double bandwidth, double rtt, strbuf_t *sb);
+
 
 void choose_this_prefix(struct request_context *rctx, struct src_prefix_list *bind_pfx, strbuf_t *sb)
 {
@@ -24,7 +29,6 @@ double get_srtt(struct src_prefix_list *pfx, strbuf_t *sb)
 {
 	if (pfx == NULL)
 		return 0;
-
 
 	double *min_srtt = lookup_prefix_info(pfx, "srtt_minimum_recent");
 
@@ -53,7 +57,6 @@ double get_max_rate(struct src_prefix_list *pfx, strbuf_t *sb)
 		// If not found or zero: look up maximum download rate (non-smoothoed)
 		download_max_rate = lookup_prefix_info(pfx, "download_max_rate");
 	*/
-
 
 	double *download_max_rate = lookup_prefix_info(pfx, "download_rate_max_recent");
 
@@ -84,7 +87,6 @@ double get_rate(struct src_prefix_list *pfx, strbuf_t *sb)
 		download_rate = lookup_prefix_info(pfx, "download_rate");
 	*/
 
-
 	double *download_rate = lookup_prefix_info(pfx, "download_rate_current");
 
 	if (download_rate == NULL)
@@ -106,47 +108,115 @@ double get_capacity(struct src_prefix_list *pfx, double max_rate, double rate, s
 		return -1;
 
 	// Compute free capacity on the link
-	double free_capacity = max_rate - rate;
+	double free_capacity = max_rate;
+    double usage_ratio = 1;
 
-	if (free_capacity < EPSILON)
-	{
+	int num_conns = lookup_value(pfx, "num_conns", sb);
+
+    if (max_rate > EPSILON) {
+        // weigh number of connections by current utilization rate
+        usage_ratio = rate / max_rate;
+		strbuf_printf(sb, " usage ratio: %f - ", usage_ratio);
+        free_capacity = free_capacity / ((num_conns * usage_ratio) + 1);
+    } else
+    {
 		strbuf_printf(sb, " Got invalid free capacity: %f\n", free_capacity);
 		return -1;
 	}
 
-	strbuf_printf(sb, "free capacity: %.2f\n", free_capacity);
+	strbuf_printf(sb, "free capacity: %.2f (existing conns weighted by usage ratio + 1: %d * %f + 1 = %f)\n", free_capacity, num_conns, usage_ratio, (num_conns * usage_ratio)+1);
 
 	return free_capacity;
 }
 
 /* Estimate completion time of an object of a given file size on this prefix */
-double predict_completion_time(struct src_prefix_list *pfx, int filesize, int reuse, strbuf_t *sb)
+double completion_time_with_slowstart(int filesize, double bandwidth, double rtt, strbuf_t *sb, int ssl_used)
+{
+    // Initial RTT for TCP handshake
+    double slowstart_time = rtt;
+
+    if (ssl_used) {
+        // Two more RTTs for TLS handshake (assume TLS 1.2)
+        slowstart_time += 2 * rtt;
+    }
+    // Calculate max_chunk to fill up only 80% of the bandwidth...
+    int max_chunk = (int) ((bandwidth * 0.8) * (rtt / 1000));
+
+    int rounds = 0;
+    int slowstart_chunk = INITIAL_CWND;
+
+    if (slowstart_chunk < max_chunk) {
+        filesize = filesize - slowstart_chunk;
+        rounds++;
+        strbuf_printf(sb, "\n\t\t chunks: %d [%d left] ", slowstart_chunk, filesize);
+        while (filesize > 0 && slowstart_chunk < (max_chunk/2))
+        {
+            rounds++;
+            slowstart_chunk += slowstart_chunk;
+            filesize = filesize - slowstart_chunk;
+            strbuf_printf(sb, " .. %d [%d left] ", slowstart_chunk, filesize);
+        }
+        if (filesize < 0)
+        {
+            //filesize = filesize + slowstart_chunk;
+            filesize = 0;
+            // Entire object fetched in slow start - nothing left to fetch
+        }
+    } else {
+        strbuf_printf(sb, "\n\t\t no slowstart ", slowstart_chunk);
+    }
+
+    // Calculating "finally used download rate" based on the last slowstart chunk,
+    // divided by the RTT - because that's a conservative estimate for
+    // how much we actually transfer in congestion avoidance
+    // ... unless our "bandwidth" (free capacity) was tiny anyway,
+    // in which case we take this one as the actually used download rate
+    double finally_used_download_rate = slowstart_chunk / (rtt / 1000);
+    if (finally_used_download_rate > bandwidth)
+        finally_used_download_rate = bandwidth;
+
+    // Adding initial RTT to set up connection, RTTs for rounds with slow start, and one final RTT
+    slowstart_time += (rounds) * rtt + 1000 * (filesize / finally_used_download_rate);
+	strbuf_printf(sb, "\tPredicted %d slow start rounds for new object (chunk threshold = %d, rest of bytes to fetch = %d, finally_used_download_rate = %f)\n", rounds, max_chunk, filesize, finally_used_download_rate);
+    return slowstart_time;
+}
+
+double completion_time_without_slowstart(int filesize, double bandwidth, double rtt, strbuf_t *sb)
+{
+    double time = rtt + 1000 * (filesize / bandwidth);
+    return time;
+}
+
+
+
+/* Estimate completion time of an object of a given file size on this prefix */
+double predict_completion_time(struct src_prefix_list *pfx, int filesize, int reuse, strbuf_t *sb, int ssl_used)
 {
 	if (pfx == NULL)
 		return 0;
 
+	struct eafirst_info *pfxinfo = pfx->policy_info;
 	strbuf_printf(sb, "\tPredicting completion time for new object (%d bytes) on %s %s\n", filesize, pfx->if_name, (reuse) ? "(connection reuse)" : "");
 
 	double completion_time = DBL_MAX;
 
-	double srtt = get_srtt(pfx, sb);
-	double max_rate = get_max_rate(pfx, sb);
-	double rate = get_rate(pfx, sb);
+	double max_rate = lookup_value(pfx, "download_rate_max_recent", sb);
+	double rate = lookup_value(pfx, "download_rate_current", sb);
 	double free_capacity = get_capacity(pfx, max_rate, rate, sb);
+	double rtt = lookup_value(pfx, "srtt_median_recent", sb);
 
-	_muacc_logtofile(logfile, "%f,%f,%f,%f,", srtt, max_rate, rate, free_capacity);
+	//_muacc_logtofile(logfile, "%f,%f,%f,%f,", srtt, max_rate, rate, free_capacity);
 
-	if (srtt > EPSILON && free_capacity > EPSILON)
+	if (free_capacity > EPSILON && rtt > EPSILON)
 	{
-		if (reuse)
+		if (pfxinfo->reuse)
 		{
-			// Predict completion time for reusing a connection
-			completion_time = srtt + 1000 * (filesize / free_capacity);
+			completion_time = completion_time_without_slowstart(filesize, free_capacity, rtt, sb);
 		}
 		else
 		{
-			// Predict completion time for new connection
-			completion_time = 2 * srtt + 1000 * (filesize / free_capacity);
+			completion_time = completion_time_with_slowstart(filesize, free_capacity, rtt, sb, ssl_used);
+
 		}
 
 		strbuf_printf(sb, "\t\tEstimated completion time is %.2f ms\n", completion_time);
@@ -177,7 +247,7 @@ struct src_prefix_list *get_best_prefix(GSList *spl, int filesize, request_conte
 		struct eafirst_info *pfxinfo = cur->policy_info;
 
 		// Predict completion time on this prefix
-		pfxinfo->predicted_time = predict_completion_time(cur, filesize, pfxinfo->reuse, sb);
+		pfxinfo->predicted_time = predict_completion_time(cur, filesize, pfxinfo->reuse, sb, (strncmp(rctx->ctx->remote_service, "443", 4) == 0 ? 1 : 0));
 
 		spl = spl->next;
 	}

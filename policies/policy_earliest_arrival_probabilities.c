@@ -356,7 +356,7 @@ double completion_time_without_slowstart(int filesize, double bandwidth, double 
 
 
 /* Estimate completion time of an object of a given file size on this prefix */
-double predict_completion_time(struct src_prefix_list *pfx, int filesize, int reuse, strbuf_t *sb)
+double predict_completion_time(struct src_prefix_list *pfx, int filesize, int reuse, strbuf_t *sb, int ssl_used)
 {
 	if (pfx == NULL)
 		return 0;
@@ -482,7 +482,7 @@ struct src_prefix_list *get_best_prefix(GSList *spl, int filesize, request_conte
         struct eafirst_info *pfxinfo = cur->policy_info;
 
 		// Predict completion time on this prefix
-		pfxinfo->predicted_time = predict_completion_time(cur, filesize, pfxinfo->reuse, sb);
+		pfxinfo->predicted_time = predict_completion_time(cur, filesize, pfxinfo->reuse, sb, (strncmp(rctx->ctx->remote_service, "443", 4) == 0 ? 1 : 0));
 
 		spl = spl->next;
 	}

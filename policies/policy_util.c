@@ -186,18 +186,32 @@ double lookup_value(struct src_prefix_list *prefix, const void *key, strbuf_t *s
     if (prefix == NULL)
         return 0;
 
-    double *value = lookup_prefix_info(prefix, key);
-
-    if (value == NULL || *value < EPSILON || (DBL_MAX - *value) < EPSILON)
-    {
+    void *value = lookup_prefix_info(prefix, key);
+    if (value == NULL) {
         strbuf_printf(sb, "\t\t%s: N/A,\t", key);
         return 0;
     }
-    else
-    {
-        strbuf_printf(sb, "\t\t%s: %f,\t", key, *value);
-        return *value;
+    // Treating values as double by default
+    double returnvalue = *(double *) value;
+
+    if (strncmp(key, "num_conns", 9) == 0) {
+        // Have to convert int to double
+        DLOG(MAM_POLICY_UTIL_NOISY_DEBUG2, "Num_conns == %d\n", *(int *) value);
+        returnvalue = *(int *) value;
     }
+
+    if (returnvalue < EPSILON )
+    {
+        strbuf_printf(sb, "\t\t%s: 0,\t", key);
+        return 0;
+    }
+    if ((DBL_MAX - returnvalue) < EPSILON)
+    {
+        strbuf_printf(sb, "\t\t%s: DBL_MAX -- returning 0,\t", key);
+        return 0;
+    }
+    strbuf_printf(sb, "\t\t%s: %f,\t", key, returnvalue);
+    return returnvalue;
 }
 
 int is_there_a_socket_on_prefix(struct socketlist *list, struct src_prefix_list *pfx)
@@ -214,7 +228,6 @@ int count_sockets_on_prefix(struct socketlist *list, struct src_prefix_list *pfx
 	strbuf_init(&sb);
 
 	int counter = 0;
-
 	struct socketlist *current = list;
 
 	while (current != NULL)
@@ -254,7 +267,6 @@ int count_sockets_on_prefix(struct socketlist *list, struct src_prefix_list *pfx
 
 	DLOG(MAM_POLICY_UTIL_NOISY_DEBUG2, "%s\n\n", strbuf_export(&sb));
 	strbuf_release(&sb);
-
 	if (logfile != NULL)
 		_muacc_logtofile(logfile, ",");
 	return counter;
@@ -407,6 +419,7 @@ void print_sockets(struct socketlist *sockets)
 
 struct src_prefix_list *get_lowest_srtt_pfx(GSList *prefixes, const char *key)
 {
+    DLOG(MAM_POLICY_UTIL_NOISY_DEBUG2, "trying to get lowest srtt from spl of length %d\n", g_slist_length(prefixes));
 	struct src_prefix_list *lowest_srtt_pfx = NULL;
 	double lowest_srtt = DBL_MAX;
 
@@ -419,7 +432,15 @@ struct src_prefix_list *get_lowest_srtt_pfx(GSList *prefixes, const char *key)
 			lowest_srtt = *cur_srtt;
 			lowest_srtt_pfx = cur;
 		}
+        if (cur_srtt != NULL) {
+            DLOG(MAM_POLICY_UTIL_NOISY_DEBUG2, "looking at %s: %s == %f\n", cur->if_name, key, *cur_srtt);
+        }
         prefixes = prefixes->next;
+    }
+    if (lowest_srtt_pfx != NULL) {
+        DLOG(MAM_POLICY_UTIL_NOISY_DEBUG0, "found lowest %s: %s == %f\n", lowest_srtt_pfx->if_name, key, lowest_srtt);
+    } else {
+        DLOG(MAM_POLICY_UTIL_NOISY_DEBUG0, "Did not find a lowest prefix with key %s!\n", key);
     }
 	return lowest_srtt_pfx;
 }
