@@ -34,7 +34,10 @@ FIND_PACKAGE(UUID REQUIRED)
 FIND_PACKAGE(liburiparser REQUIRED)
 
 CHECK_STRUCT_HAS_MEMBER("struct sockaddr" "sa_len" sys/socket.h HAVE_SOCKADDR_LEN)
-CHECK_STRUCT_HAS_MEMBER("struct tcp_info" "tcpi_data_segs_out" netinet/tcp.h HAVE_TCP_INFO_DATA_SEGS_OUT)
+# Does not work for some reason: This is supposed to check if our kernel TCP stack
+# logs sent data segments, so we can estimate upstream packet loss
+# CHECK_STRUCT_HAS_MEMBER("struct tcp_info" "tcpi_data_segs_out" netinet/tcp.h HAVE_TCP_INFO_DATA_SEGS_OUT)
+SET(HAVE_TCP_INFO_DATA_SEGS_OUT False)
 
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR})
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/clib ${CMAKE_CURRENT_SOURCE_DIR}/lib)
