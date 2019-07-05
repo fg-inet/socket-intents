@@ -12,6 +12,8 @@
 
 static const double EPSILON = 0.0001;
 
+#define INITIAL_CWND 14480
+
 #define MAX_NUM_CONNS 1024
 
 #define test_if_in6_is_equal(a, b) (memcmp(&(a), &(b), sizeof(struct in6_addr)) == 0)
@@ -78,8 +80,20 @@ struct src_prefix_list *get_pfx_with_addr(request_context_t *rctx, struct sockad
 double gettimestamp();
 
 /** Get prefix with lowest srtt */
-struct src_prefix_list *get_lowest_srtt_pfx(GSList *prefixes, const char *key);
+struct src_prefix_list *get_lowest_srtt_pfx(GSList *prefixes, const char *key, strbuf_t *sb);
+
+
+struct src_prefix_list *get_lowest_capacity_pfx(GSList *prefixes, const char *key, const char *key2, strbuf_t *sb);
+
+/** Get prefix with highest capacity */
+struct src_prefix_list *get_highest_capacity_prefix(GSList *prefixes, const char *key, strbuf_t *sb);
 
 /** Helper functions for array that keep track of seen sockets in a policy */
 void insert_socket(int socketarray[MAX_NUM_CONNS], int socket);
 int take_socket_from_array(int socketarray[MAX_NUM_CONNS], int socket);
+
+double get_capacity(struct src_prefix_list *pfx, double max_rate, double rate, strbuf_t *sb);
+double predict_completion_time(struct src_prefix_list *pfx, int filesize, int reuse, strbuf_t *sb, int ssl_used, double free_capacity, const char *srtt_estimate);
+
+double completion_time_with_slowstart(int filesize, double bandwidth, double rtt, strbuf_t *sb, int ssl_used);
+double completion_time_without_slowstart(int filesize, double bandwidth, double rtt, strbuf_t *sb);

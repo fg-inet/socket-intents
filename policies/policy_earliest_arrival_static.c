@@ -29,8 +29,6 @@ void check_timestamps(struct src_prefix_list *pfx, strbuf_t *sb);
 double get_srtt(struct src_prefix_list *pfx, strbuf_t *sb);
 double get_max_rate(struct src_prefix_list *pfx, strbuf_t *sb);
 double get_rate(struct src_prefix_list *pfx, strbuf_t *sb);
-double get_capacity(struct src_prefix_list *pfx, double max_rate, double rate, strbuf_t *sb);
-double predict_completion_time(struct src_prefix_list *pfx, int filesize, int reuse, strbuf_t *sb);
 
 struct src_prefix_list *get_src_prefix(request_context_t *rctx, int reuse, strbuf_t *sb);
 struct src_prefix_list *get_fastest_prefix(GSList *spl);
@@ -238,79 +236,6 @@ void check_timestamps(struct src_prefix_list *pfx, strbuf_t *sb)
 	}
 }
 
-/* Compute free capacity on a prefix */
-double get_capacity(struct src_prefix_list *pfx, double max_rate, double rate, strbuf_t *sb)
-{
-	if (pfx == NULL)
-		return -1;
-
-	// Compute free capacity on the link
-	double free_capacity = max_rate - rate;
-
-	check_timestamps(pfx, sb);
-
-	double conns_penalty = ((struct eafirst_info *)pfx->policy_info)->scheduled_connections_penalty;
-
-	if (conns_penalty > 0)
-	{
-		strbuf_printf(sb, "\t\t (penalty %.3f ) ", conns_penalty);
-		free_capacity = free_capacity / (conns_penalty + 1);
-	}
-
-	if (free_capacity < EPSILON)
-	{
-		strbuf_printf(sb, " Got invalid free capacity: %f\n", free_capacity);
-		return -1;
-	}
-
-	strbuf_printf(sb, "free capacity: %.2f\n", free_capacity);
-
-	return free_capacity;
-}
-
-/* Estimate completion time of an object of a given file size on this prefix */
-double predict_completion_time(struct src_prefix_list *pfx, int filesize, int reuse, strbuf_t *sb)
-{
-	if (pfx == NULL)
-		return 0;
-
-	strbuf_printf(sb, "\tPredicting completion time for new object (%d bytes) on %s %s\n", filesize, pfx->if_name, (reuse) ? "(connection reuse)" : "");
-
-	double completion_time = DBL_MAX;
-
-	double srtt = get_srtt(pfx, sb);
-	double max_rate = get_max_rate(pfx, sb);
-	double rate = get_rate(pfx, sb);
-	double free_capacity = get_capacity(pfx, max_rate, rate, sb);
-
-	_muacc_logtofile(logfile, "%f,%f,%f,%f,", srtt, max_rate, rate, free_capacity);
-
-	if (srtt > EPSILON && free_capacity > EPSILON)
-	{
-		if (reuse)
-		{
-			// Predict completion time for reusing a connection
-			completion_time = srtt + 1000 * (filesize / free_capacity);
-		}
-		else
-		{
-			// Compute prediction of completion time
-			completion_time = 2 * srtt + 1000 * (filesize / free_capacity);
-		}
-
-		strbuf_printf(sb, "\t\tEstimated completion time is %.2f ms\n", completion_time);
-		_muacc_logtofile(logfile, "%f,", completion_time);
-	}
-	else
-	{
-		// Not all metrics found - cannot compute completion time
-		strbuf_printf(sb, "\t\tCannot compute completion time!\n");
-		_muacc_logtofile(logfile, "0.0,", completion_time);
-	}
-
-	return completion_time;
-}
-
 struct src_prefix_list *get_fastest_prefix(GSList *spl)
 {
 	struct src_prefix_list *cur = NULL;
@@ -381,8 +306,12 @@ struct src_prefix_list *get_src_prefix(request_context_t *rctx, int reuse, strbu
 			// Check if there is a socket to reuse on this prefix - if not, predict for new connection
 			reuse = is_there_a_socket_on_prefix(rctx->sockets, cur);
 
+			double max_rate = lookup_value(cur, "download_rate_max_recent", sb);
+			double rate = lookup_value(cur, "download_rate_current", sb);
+			double free_capacity = get_capacity(cur, max_rate, rate, sb);
+
 			// Predict completion time on this prefix
-			((struct eafirst_info *)cur->policy_info)->predicted_time = predict_completion_time(cur, filesize, reuse, sb);
+			((struct eafirst_info *)cur->policy_info)->predicted_time = predict_completion_time(cur, filesize, reuse, sb, 0, free_capacity, "srtt_median_recent");
 
 			spl = spl->next;
 		}

@@ -1,11 +1,11 @@
-The Socket Intents Framework
+The Socket Intents Prototype
 =====================================
 
-__Socket Intents__ augment the socket interface to enable the application to express what it knows about its communication patterns and preferences. This information can then be used by our proactive policies to choose the appropriate interface, tune the network parameters, or even combine multiple interfaces.  
-This framework implements a prototype of Socket Intents and enables applications to use them.
+__Socket Intents__ enable an application to express what it knows about its communication patterns and preferences for a new connection or transfer. This information can then be used by our Informed Access Network Selection (IANS) policies to choose the appropriate access network, e.g., WiFi or cellular, combine multiple networks using MPTCP, or tune protocol parameters.
+This prototype implements Socket Intents as well as multiple networking APIs that enable applications to use Socket Intents.
 Note that Socket Intents *do not provide any guarantee* of any specific kind of service. They are strictly best-effort.
 
-The actual decision-making is implemented within the __Multi Access Manager__, a daemon that manages the various network interfaces on a host. The __policy__ is loaded as a shared library within the Multi Access Manager.
+The actual decision-making is implemented within __policies__, which are running in the context of the __Multi Access Manager__, a daemon that manages the various network interfaces on a host. The __policy__ is loaded as a shared library within the Multi Access Manager.
 
 Copyright
 -----
@@ -15,10 +15,10 @@ All rights reserved.
 This project has been licensed under the New BSD License.
 
 
-Building and Installing the Socket Intents Framework
+Building and Installing the Socket Intents Prototype
 -------------------------------------------------
 
-__Supported platforms:__ Linux (we use mainly Debian and Ubuntu), Mac OS X 
+__Supported platforms:__ Linux (tested on Debian and Ubuntu), Mac OS X (until release-0.6)
 
 __Note__: Path characteristics collection is currently only supported on Linux. Furthermore, release-0.7 currently does not compile on Mac OS. 
 
@@ -35,6 +35,7 @@ $ sudo make install
 ```
 
 This will install:
+
 * The client library *libmuacc-client.so*, containing the Socket Intents
 * The Multi Access Manager binary *mamma*
 * The policies for the Multi Access Manager as dynamically loaded libraries, to a subdirectory called *mam-policies*
@@ -46,7 +47,7 @@ After installing and before running the Multi Access Manager, you may have to up
 ldconfig
 ```
 
-Testing the Socket Intents Framework
+Testing the Socket Intents Prototype
 ------------------------------------
 
 First, you need to run the __Multi Access Manager (MAM)__ with a policy.
@@ -98,9 +99,9 @@ Notable policies
 
 * __Sample Policy__: Always use a single default interface. See policies/policy_sample.c
 * __MPTCP__: Always enable MPTCP for every socket. Bind to lower latency interface so the first subflow will be established there. See policies/mptcp_simple.c
-* __Threshold Policy__: This Informed Access Network Selection policy first judges whether a new resource load is latency-dominated or capacity-dominated. If it is latency-dominated, it chooses the interface (i.e., the network) with the lowest latency. If it is capacity-dominated, it compares the predicted completion times (latency + capacity part) of all interfaces and chooses the lowest completion time. See policies/threshold_policy.c
-
-
+* __Threshold Policy__: This Informed Access Network Selection Policy first judges whether a new resource load is latency-dominated or capacity-dominated. If it is latency-dominated, it chooses the interface (i.e., the network) with the lowest latency. If it is capacity-dominated, it compares the predicted completion times (latency + capacity part) of all interfaces and chooses the lowest completion time. See policies/threshold_policy.c
+* __Optimist and Pessimist Policy__: This Informed Access Network Selection Policy is intended to improve the performance of HTTP Adaptive Streaming (HAS). It loads video segments over the network with the higher available capacity while taking different capacity estimates into account, e.g., capacity observed in the last 1 second, 10 seconds, 1 minute, or 10 minutes. Both policies are implemented in the same module, policies/policy_video.c. Selecting between the Optimist and the Pessimist Policy depends on a configuration variable, see policies/optimist_policy.conf and policies/pessimist_policy.conf.
+* __Selective MPTCP Policy__: This Informed Access Network Selection Policy enables MPTCP only for transfers with category BULK and only if sufficient capacity is available. Otherwise, for BULK transfers, it uses the single network with the highest capacity, and for QUERY transfers, it uses the single network with the shortest latency.
 
 
 Adding a new application

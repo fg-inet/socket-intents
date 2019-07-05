@@ -128,8 +128,9 @@ int init(mam_context_t *mctx)
 
 	g_slist_foreach(mctx->prefixes, &set_policy_info, NULL);
     
-    if ((value = g_hash_table_lookup(mctx->policy_set_dict, "foo")) != NULL)
+    if ((value = g_hash_table_lookup(mctx->policy_set_dict, "foo")) != NULL) {
         printf("\nfoo: %d\n", atoi(value));
+    }
 
     make_v4v6_enabled_lists (mctx->prefixes, &in4_enabled, &in6_enabled);
 

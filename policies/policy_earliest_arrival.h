@@ -25,8 +25,6 @@ double EPSILON = 0.0001;
 double get_srtt(struct src_prefix_list *pfx, strbuf_t *sb);
 double get_max_rate(struct src_prefix_list *pfx, strbuf_t *sb);
 double get_rate(struct src_prefix_list *pfx, strbuf_t *sb);
-double get_capacity(struct src_prefix_list *pfx, double max_rate, double rate, strbuf_t *sb);
-double predict_completion_time(struct src_prefix_list *pfx, int filesize, int reuse, strbuf_t *sb);
 
 struct src_prefix_list *get_src_prefix(request_context_t *rctx, int reuse, strbuf_t *sb);
 struct src_prefix_list *get_fastest_prefix(GSList *spl);

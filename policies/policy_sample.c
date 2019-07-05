@@ -266,18 +266,18 @@ int resolve_name(request_context_t *rctx)
  */
 int on_resolve_request(request_context_t *rctx, struct event_base *base)
 {
-	printf("\n\t[%.6f] Resolve request: %s:%s\n\n", gettimestamp(), (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+	//printf("\n\t[%.6f] Resolve request: %s:%s\n\n", gettimestamp(), (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
 
 	if(rctx->ctx->bind_sa_req != NULL)
 	{	// already bound
-		printf("\tBind interface already specified\n");
+		//printf("\tBind interface already specified\n");
 		rctx->ctx->domain = rctx->ctx->bind_sa_req->sa_family;
 
 		struct src_prefix_list *bind_pfx = get_pfx_with_addr(rctx, rctx->ctx->bind_sa_req);
 		if (bind_pfx != NULL) {
 			// Set DNS base to this prefix's
 			rctx->evdns_base = bind_pfx->evdns_base;
-			printf("\tSet DNS base\n");
+			//printf("\tSet DNS base\n");
 		}
 	}
 
@@ -296,7 +296,7 @@ int on_resolve_request(request_context_t *rctx, struct event_base *base)
 
 	rctx->action = muacc_act_getaddrinfo_resolve_resp;
 
-	printf("\n\t[%.6f] Calling resolve_name\n", gettimestamp());
+	//printf("\n\t[%.6f] Calling resolve_name\n", gettimestamp());
 	return resolve_name(rctx);
 }
 
@@ -323,7 +323,7 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 		// search default address, and set it as bind_sa in the request context if found
 		struct src_prefix_list *bind_pfx = get_default_prefix(rctx, &sb);
 		if (bind_pfx != NULL) {
-			_muacc_logtofile(logfile, "%s_default\n", bind_pfx->if_name);
+			_muacc_logtofile(logfile, "%s,default\n", bind_pfx->if_name);
 			set_bind_sa(rctx, bind_pfx, &sb);
 		}
 	}
@@ -332,7 +332,7 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	strbuf_printf(&sb, "\n\t[%.6f] Sending reply\n", gettimestamp());
 	_muacc_send_ctx_event(rctx, muacc_act_connect_resp);
 
-    printf("%s\n", strbuf_export(&sb));
+    //printf("%s\n", strbuf_export(&sb));
     strbuf_release(&sb);
 
 	printf("\t[%.6f] Returning\n\n", gettimestamp());
@@ -349,7 +349,33 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 	strbuf_t sb;
 	strbuf_init(&sb);
 
-	printf("\n\tSocketconnect request: %s:%s\n\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+	printf("\n\tSocketconnect request: %s:%s\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+
+    // Print Intents
+    /*intent_category_t category = -1;
+    socklen_t categorylen = sizeof(intent_category_t);
+	if (mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_CATEGORY, &categorylen, &category) == 0) {
+        printf("\t\twith category %d\n", category);
+    }
+
+	int fs = -1;
+	socklen_t fslen = sizeof(int);
+	if (mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_FILESIZE, &fslen, &fs) == 0) {
+        printf("\t\twith file size %d\n", fs);
+    }
+
+	int bitrate = -1;
+	if (mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_BITRATE, &fslen, &bitrate) == 0) {
+        printf("\t\twith bitrate %d\n", bitrate);
+    }
+
+	int duration = -1;
+	if (mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_DURATION, &fslen, &duration) == 0) {
+        printf("\t\twith duration %d\n", duration);
+    }*/
+
+    printf("\n");
+
 	double timestamp = gettimestamp();
 	_muacc_logtofile(logfile, "%.6f,,,,,,,,,,,,", timestamp);
 
@@ -372,7 +398,7 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 		struct src_prefix_list *bind_pfx = get_default_prefix(rctx, &sb);
 		if (bind_pfx != NULL) {
 			set_bind_sa(rctx, bind_pfx, &sb);
-			_muacc_logtofile(logfile, "%s_default\n", bind_pfx->if_name);
+			_muacc_logtofile(logfile, "%s,default\n", bind_pfx->if_name);
 
 			// Set this prefix' evdns base for name resolution
 			rctx->evdns_base = bind_pfx->evdns_base;
@@ -401,7 +427,33 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 	strbuf_t sb;
 	strbuf_init(&sb);
 
-	printf("\n\tSocketchoose request: %s:%s\n\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+	printf("\n\tSocketchoose request: %s:%s\n", (rctx->ctx->remote_hostname == NULL ? "" : rctx->ctx->remote_hostname), (rctx->ctx->remote_service == NULL ? "" : rctx->ctx->remote_service));
+
+    // Print Intents
+    /*intent_category_t category = -1;
+    socklen_t categorylen = sizeof(intent_category_t);
+	if (mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_CATEGORY, &categorylen, &category) == 0) {
+        printf("\t\twith category %d\n", category);
+    }
+
+	int fs = -1;
+	socklen_t fslen = sizeof(int);
+	if (mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_FILESIZE, &fslen, &fs) == 0) {
+        printf("\t\twith file size %d\n", fs);
+    }
+
+	int bitrate = -1;
+	if (mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_BITRATE, &fslen, &bitrate) == 0) {
+        printf("\t\twith bitrate %d\n", bitrate);
+    }
+
+	int duration = -1;
+	if (mampol_get_socketopt(rctx->ctx->sockopts_current, SOL_INTENTS, INTENT_DURATION, &fslen, &duration) == 0) {
+        printf("\t\twith duration %d\n", duration);
+    }*/
+
+    printf("\n");
+
 	double timestamp = gettimestamp();
 	_muacc_logtofile(logfile, "%.6f,", timestamp);
 	GSList *spl = in4_enabled;
@@ -425,8 +477,13 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 		__uuid_copy(context_id, rctx->ctx->ctxid);
 		rctx->ctx = _muacc_clone_ctx(rctx->sockets->ctx);
 		__uuid_copy(rctx->ctx->ctxid, context_id);
+        struct src_prefix_list *local_pfx = get_pfx_with_addr(rctx, rctx->ctx->bind_sa_suggested);
 
-		_muacc_logtofile(logfile, "%d_reuse\n", rctx->sockets->file);
+        if (local_pfx != NULL) {
+            _muacc_logtofile(logfile, "%s,reuse\n", local_pfx->if_name);
+        } else {
+            _muacc_logtofile(logfile, "%d,reuse\n", rctx->sockets->file);
+        }
 		strbuf_printf(&sb, "\n\tSending reply\n");
 		_muacc_send_ctx_event(rctx, muacc_act_socketchoose_resp_existing);
 
@@ -457,7 +514,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 			struct src_prefix_list *bind_pfx = get_default_prefix(rctx, &sb);
 			if (bind_pfx != NULL) {
 				set_bind_sa(rctx, bind_pfx, &sb);
-				_muacc_logtofile(logfile, "%s_default\n", bind_pfx->if_name);
+				_muacc_logtofile(logfile, "%s,default\n", bind_pfx->if_name);
 
 				// Set this prefix' evdns base for name resolution
 				rctx->evdns_base = bind_pfx->evdns_base;

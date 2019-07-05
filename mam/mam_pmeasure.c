@@ -116,6 +116,10 @@ void log_number_of_connections(GHashTable *dict, GList *values);
 
 int rolling_maximum(double *values, int length, double current_maximum);
 int rolling_minimum(double *values, int length, double current_minimum);
+double moving_average(double *values, int length, int current_offset, int values_to_consider);
+double compute_maximum(double *values, int length, int current_offset, int values_to_consider);
+double compute_min(double *values, int length, int current_offset, int values_to_consider);
+double compute_nonzero_10q(double *values, int length, int current_offset, int values_to_consider);
 double calculate_mean(GList *values);
 double calculate_median(GList **values);
 
@@ -184,6 +188,12 @@ double EPSILON=0.00001;
 // How many values to store until they are overwritten
 
 int n_timeout = 6000;
+
+int MOVING_AVERAGE_VALUES = 10;
+
+int MOVING_AVERAGE_VALUES_MIDTERM = 100;
+
+int MOVING_AVERAGE_VALUES_LONGTERM = 600;
 
 #ifdef IS_LINUX
 //path of statistics file (sans interface) in linux broken into two strings
@@ -633,6 +643,156 @@ int rolling_minimum(double *values, int length, double old_minimum)
     return candidate_offset;
 }
 
+/* Compute average of the last n values
+ */
+double moving_average(double *values, int length, int current_offset, int values_to_consider)
+{
+	double sum = 0;
+    int values_at_end = 0;
+
+    if (values_to_consider > length) {
+        values_to_consider = length;
+    }
+    if (values_to_consider > current_offset) {
+        values_at_end = values_to_consider - current_offset;
+        values_to_consider = current_offset;
+    }
+    int startoffset = current_offset - values_to_consider + 1;
+    /*if (length - current_offset < 10 || current_offset < 10) {
+        printf("Computing moving average: length = %d, current_offset = %d, values_to_consider = %d, so using values from %d to %d (considering %d values at end)]\n", length, current_offset, values_to_consider, startoffset, startoffset + values_to_consider - 1, values_at_end);
+    }*/
+    DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Computing moving average: length = %d, current_offset = %d, values_to_consider = %d, so using values from %d to %d (considering %d values at end)]\n", length, current_offset, values_to_consider, startoffset, startoffset + values_to_consider - 1, values_at_end);
+
+	for (int i=startoffset; i< (startoffset + values_to_consider); i++) {
+        sum = sum + values[i];
+        /*if (length - current_offset < 10 || current_offset < 10) {
+            printf("Considering value at offset %d: %.3f -- sum now %.3f\n", i, values[i], sum);
+        }*/
+	}
+    if (values_at_end > 0) {
+        for (int i = (length - values_at_end); i < length; i++) {
+            sum = sum + values[i];
+            /*if (length - current_offset < 10 || current_offset < 10) {
+                printf("Considering value at offset %d: %.3f -- sum now %.3f\n", i, values[i], sum);
+            }*/
+        }
+    }
+	return(sum / (values_to_consider + values_at_end));
+}
+
+/* Compute maximum of the last n values
+ */
+double compute_maximum(double *values, int length, int current_offset, int values_to_consider)
+{
+	double candidate_maximum = 0;
+    int values_at_end = 0;
+
+    if (values_to_consider > length) {
+        values_to_consider = length;
+    }
+    if (values_to_consider > current_offset) {
+        values_at_end = values_to_consider - current_offset;
+        values_to_consider = current_offset;
+    }
+    int startoffset = current_offset - values_to_consider + 1;
+    //DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Computing maximum: length = %d, current_offset = %d, values_to_consider = %d, so using values from %d to %d (considering %d values at end)]\n", length, current_offset, values_to_consider, startoffset, startoffset + values_to_consider - 1, values_at_end);
+
+	for (int i=startoffset; i< (startoffset + values_to_consider); i++) {
+        //DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Considering value at offset %d: %.3f -- candidate_maximum now %.3f\n", i, values[i], candidate_maximum);
+        if (values[i] > candidate_maximum) {
+            candidate_maximum = values[i];
+        }
+	}
+    if (values_at_end > 0) {
+        for (int i = (length - values_at_end); i < length; i++) {
+            //DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Considering value at offset %d: %.3f -- candidate_maximum now %.3f\n", i, values[i], candidate_maximum);
+            if (values[i] > candidate_maximum) {
+                candidate_maximum = values[i];
+            }
+        }
+    }
+	return(candidate_maximum);
+}
+
+/* Compute minimum of the last n values
+ */
+double compute_min(double *values, int length, int current_offset, int values_to_consider)
+{
+	double candidate_min = DBL_MAX;
+    int values_at_end = 0;
+
+    if (values_to_consider > length) {
+        values_to_consider = length;
+    }
+    if (values_to_consider > current_offset) {
+        values_at_end = values_to_consider - current_offset;
+        values_to_consider = current_offset;
+    }
+    int startoffset = current_offset - values_to_consider + 1;
+    //DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Computing minimum: length = %d, current_offset = %d, values_to_consider = %d, so using values from %d to %d (considering %d values at end)]\n", length, current_offset, values_to_consider, startoffset, startoffset + values_to_consider - 1, values_at_end);
+
+	for (int i=startoffset; i< (startoffset + values_to_consider); i++) {
+        //DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Considering value at offset %d: %.3f -- candidate_maximum now %.3f\n", i, values[i], candidate_maximum);
+        if (values[i] < candidate_min) {
+            candidate_min = values[i];
+        }
+	}
+    if (values_at_end > 0) {
+        for (int i = (length - values_at_end); i < length; i++) {
+            //DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Considering value at offset %d: %.3f -- candidate_maximum now %.3f\n", i, values[i], candidate_maximum);
+            if (values[i] < candidate_min) {
+                candidate_min = values[i];
+            }
+        }
+    }
+	return(candidate_min);
+}
+
+/* Compute nonzero 10th quantile
+ */
+double compute_nonzero_10q(double *values, int length, int current_offset, int values_to_consider)
+{
+    double candidate = 0;
+    GList *values_to_sort = NULL;
+    int values_at_end = 0;
+
+    if (values_to_consider > length) {
+        values_to_consider = length;
+    }
+    if (values_to_consider > current_offset) {
+        values_at_end = values_to_consider - current_offset;
+        values_to_consider = current_offset;
+    }
+    int startoffset = current_offset - values_to_consider + 1;
+
+	for (int i=startoffset; i< (startoffset + values_to_consider); i++) {
+        if (values[i] > EPSILON) {
+            values_to_sort = g_list_prepend(values_to_sort, &values[i]);
+        }
+	}
+    if (values_at_end > 0) {
+        for (int i = (length - values_at_end); i < length; i++) {
+            if (values[i] > EPSILON) {
+                values_to_sort = g_list_prepend(values_to_sort, &values[i]);
+            }
+        }
+    }
+	int n = g_list_length(values_to_sort);
+    int index_quantile = n / 10;
+
+    DLOG(MAM_PMEASURE_THRUPUT_DEBUG, "Getting Quantile of list of length %d at %d\n", n, index_quantile);
+    if (n == 0) {
+        g_list_free(values_to_sort);
+        return 0;
+    } else {
+        values_to_sort = g_list_sort(values_to_sort, *compare_rtts);
+        candidate = *(double *) g_list_nth_data(values_to_sort, index_quantile);
+        g_list_free(values_to_sort);
+        return (candidate);
+    }
+}
+
+
 
 #ifdef HAVE_LIBNL
 void insert_errors(GHashTable *dict, struct rtnl_link *link)
@@ -889,6 +1049,60 @@ void pmeasure_log_iface_summary(void *ifc, void *data)
         _muacc_logtofile(logfile, "%f,", *download_max_rate);
     else
         _muacc_logtofile(logfile, "NA,");
+
+    download_rate = g_hash_table_lookup(iface->measure_dict, "download_sma_max_long");
+    if (download_rate != NULL)
+		_muacc_logtofile(logfile, "%f,", *download_rate);
+	else
+		_muacc_logtofile(logfile, "NA,");
+
+    download_rate = g_hash_table_lookup(iface->measure_dict, "download_sma_max_mid");
+    if (download_rate != NULL)
+		_muacc_logtofile(logfile, "%f,", *download_rate);
+	else
+		_muacc_logtofile(logfile, "NA,");
+
+    download_rate = g_hash_table_lookup(iface->measure_dict, "download_sma_max");
+    if (download_rate != NULL)
+		_muacc_logtofile(logfile, "%f,", *download_rate);
+	else
+		_muacc_logtofile(logfile, "NA,");
+
+    download_rate = g_hash_table_lookup(iface->measure_dict, "download_sma_min_long");
+    if (download_rate != NULL)
+		_muacc_logtofile(logfile, "%f,", *download_rate);
+	else
+		_muacc_logtofile(logfile, "NA,");
+
+    download_rate = g_hash_table_lookup(iface->measure_dict, "download_sma_min_mid");
+    if (download_rate != NULL)
+		_muacc_logtofile(logfile, "%f,", *download_rate);
+	else
+		_muacc_logtofile(logfile, "NA,");
+
+    download_rate = g_hash_table_lookup(iface->measure_dict, "download_sma_min");
+    if (download_rate != NULL)
+		_muacc_logtofile(logfile, "%f,", *download_rate);
+	else
+		_muacc_logtofile(logfile, "NA,");
+
+    download_rate = g_hash_table_lookup(iface->measure_dict, "download_sma_nonzero_10q_long");
+    if (download_rate != NULL)
+		_muacc_logtofile(logfile, "%f,", *download_rate);
+	else
+		_muacc_logtofile(logfile, "NA,");
+
+    download_rate = g_hash_table_lookup(iface->measure_dict, "download_sma_nonzero_10q_mid");
+    if (download_rate != NULL)
+		_muacc_logtofile(logfile, "%f,", *download_rate);
+	else
+		_muacc_logtofile(logfile, "NA,");
+
+    download_rate = g_hash_table_lookup(iface->measure_dict, "download_sma_nonzero_10q");
+    if (download_rate != NULL)
+		_muacc_logtofile(logfile, "%f,", *download_rate);
+	else
+		_muacc_logtofile(logfile, "NA,");
 
     double *upload_rate = g_hash_table_lookup(iface->measure_dict, "upload_rate_current");
     if (upload_rate != NULL)
@@ -2219,6 +2433,50 @@ void cleanup_measure_dict_if(void *ifc, void *data)
     if (rate != NULL)
         free(rate);
 
+    rate = g_hash_table_lookup(iface->measure_dict, "download_sma");
+    if (rate != NULL)
+        free(rate);
+
+    rate = g_hash_table_lookup(iface->measure_dict, "download_sma_current");
+    if (rate != NULL)
+        free(rate);
+
+    rate = g_hash_table_lookup(iface->measure_dict, "download_sma_max");
+    if (rate != NULL)
+        free(rate);
+
+    rate = g_hash_table_lookup(iface->measure_dict, "download_sma_max_long");
+    if (rate != NULL)
+        free(rate);
+
+    rate = g_hash_table_lookup(iface->measure_dict, "download_sma_max_mid");
+    if (rate != NULL)
+        free(rate);
+
+    rate = g_hash_table_lookup(iface->measure_dict, "download_sma_min");
+    if (rate != NULL)
+        free(rate);
+
+    rate = g_hash_table_lookup(iface->measure_dict, "download_sma_min_mid");
+    if (rate != NULL)
+        free(rate);
+
+    rate = g_hash_table_lookup(iface->measure_dict, "download_sma_min_long");
+    if (rate != NULL)
+        free(rate);
+
+    rate = g_hash_table_lookup(iface->measure_dict, "download_sma_nonzero_10q");
+    if (rate != NULL)
+        free(rate);
+
+    rate = g_hash_table_lookup(iface->measure_dict, "download_sma_nonzero_10q_mid");
+    if (rate != NULL)
+        free(rate);
+
+    rate = g_hash_table_lookup(iface->measure_dict, "download_sma_nonzero_10q_long");
+    if (rate != NULL)
+        free(rate);
+
     rate = g_hash_table_lookup(iface->measure_dict, "upload_values");
     if (rate != NULL)
         free(rate);
@@ -2310,32 +2568,55 @@ int compute_rates (struct iface_list *iface, char *direction)
     int *current_offset = NULL;
     int *maximum_offset = NULL;
     double *values = NULL;
+    double *sma_values = NULL;
+    double *max_sma = NULL;
+    double *max_sma_mid = NULL;
+    double *max_sma_long = NULL;
+    double *max_sma_longlong = NULL;
+    double *min_sma = NULL;
+    double *min_sma_mid = NULL;
+    double *min_sma_long = NULL;
+    double *nonzero_10q_sma = NULL;
+    double *nonzero_10q_sma_mid = NULL;
+    double *nonzero_10q_sma_long = NULL;
+    double *current_sma = NULL;
     double *max_rate = NULL;
     double *rate_current = NULL;
     double new_rate;
 
     char path[100];
 
-    if (strncmp(direction, "upload", MAX_KEY_LENGTH) == 0) {
-        prev_bytes = g_hash_table_lookup(iface->measure_dict, "upload_counter");
-        current_offset = g_hash_table_lookup(iface->measure_dict, "upload_rate_offset");
-        maximum_offset = g_hash_table_lookup(iface->measure_dict, "upload_rate_max_offset");
-        values = g_hash_table_lookup(iface->measure_dict, "upload_values");
-        rate_current = g_hash_table_lookup(iface->measure_dict, "upload_rate_current");
-        max_rate = g_hash_table_lookup(iface->measure_dict, "upload_rate_max_recent");
-
-        sprintf(path,"%s%s%s%s",path1,iface->if_name,path2,"tx_bytes");
-    }
-    else
-    {
-        prev_bytes = g_hash_table_lookup(iface->measure_dict, "download_counter");
-        current_offset = g_hash_table_lookup(iface->measure_dict, "download_rate_offset");
-        maximum_offset = g_hash_table_lookup(iface->measure_dict, "download_rate_max_offset");
-        values = g_hash_table_lookup(iface->measure_dict, "download_values");
-        rate_current = g_hash_table_lookup(iface->measure_dict, "download_rate_current");
-        max_rate = g_hash_table_lookup(iface->measure_dict, "download_rate_max_recent");
-        sprintf(path,"%s%s%s%s",path1,iface->if_name,path2,"rx_bytes");
-    }
+	if (strncmp(direction, "upload", MAX_KEY_LENGTH) == 0) {
+		prev_bytes = g_hash_table_lookup(iface->measure_dict, "upload_counter");
+		current_offset = g_hash_table_lookup(iface->measure_dict, "upload_rate_offset");
+		maximum_offset = g_hash_table_lookup(iface->measure_dict, "upload_rate_max_offset");
+		values = g_hash_table_lookup(iface->measure_dict, "upload_values");
+		rate_current = g_hash_table_lookup(iface->measure_dict, "upload_rate_current");
+		max_rate = g_hash_table_lookup(iface->measure_dict, "upload_rate_max_recent");
+		sprintf(path,"%s%s%s%s",path1,iface->if_name,path2,"tx_bytes");
+	}
+	else
+	{
+		prev_bytes = g_hash_table_lookup(iface->measure_dict, "download_counter");
+		current_offset = g_hash_table_lookup(iface->measure_dict, "download_rate_offset");
+		maximum_offset = g_hash_table_lookup(iface->measure_dict, "download_rate_max_offset");
+		values = g_hash_table_lookup(iface->measure_dict, "download_values");
+		sma_values = g_hash_table_lookup(iface->measure_dict, "download_sma");
+		max_sma = g_hash_table_lookup(iface->measure_dict, "download_sma_max");
+		max_sma_mid = g_hash_table_lookup(iface->measure_dict, "download_sma_max_mid");
+		max_sma_long = g_hash_table_lookup(iface->measure_dict, "download_sma_max_long");
+		max_sma_longlong = g_hash_table_lookup(iface->measure_dict, "download_sma_max_longlong");
+		min_sma = g_hash_table_lookup(iface->measure_dict, "download_sma_min");
+		min_sma_mid = g_hash_table_lookup(iface->measure_dict, "download_sma_min_mid");
+		min_sma_long = g_hash_table_lookup(iface->measure_dict, "download_sma_min_long");
+		nonzero_10q_sma = g_hash_table_lookup(iface->measure_dict, "download_sma_nonzero_10q");
+		nonzero_10q_sma_mid = g_hash_table_lookup(iface->measure_dict, "download_sma_nonzero_10q_mid");
+		nonzero_10q_sma_long = g_hash_table_lookup(iface->measure_dict, "download_sma_nonzero_10q_long");
+		current_sma = g_hash_table_lookup(iface->measure_dict, "download_sma_current");
+		rate_current = g_hash_table_lookup(iface->measure_dict, "download_rate_current");
+		max_rate = g_hash_table_lookup(iface->measure_dict, "download_rate_max_recent");
+		sprintf(path,"%s%s%s%s",path1,iface->if_name,path2,"rx_bytes");
+	}
 
     long curr_bytes = read_stats(path);
 
@@ -2379,6 +2660,33 @@ int compute_rates (struct iface_list *iface, char *direction)
         DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Current offset: %d\n",*current_offset);
         values[*current_offset] = new_rate;
 
+        if (strncmp(direction, "download", MAX_KEY_LENGTH) == 0) {
+            sma_values[*current_offset] = moving_average(values, n_timeout, *current_offset, MOVING_AVERAGE_VALUES);
+            *max_sma = compute_maximum(sma_values, n_timeout, *current_offset, MOVING_AVERAGE_VALUES);
+            *max_sma_mid = compute_maximum(sma_values, n_timeout, *current_offset, MOVING_AVERAGE_VALUES_MIDTERM);
+            *max_sma_long = compute_maximum(sma_values, n_timeout, *current_offset, MOVING_AVERAGE_VALUES_LONGTERM);
+            *max_sma_longlong = compute_maximum(sma_values, n_timeout, *current_offset, n_timeout - 1);
+            *min_sma = compute_min(sma_values, n_timeout, *current_offset, MOVING_AVERAGE_VALUES);
+            *min_sma_mid = compute_min(sma_values, n_timeout, *current_offset, MOVING_AVERAGE_VALUES_MIDTERM);
+            *min_sma_long = compute_min(sma_values, n_timeout, *current_offset, MOVING_AVERAGE_VALUES_LONGTERM);
+            *nonzero_10q_sma = compute_nonzero_10q(sma_values, n_timeout, *current_offset, MOVING_AVERAGE_VALUES);
+            *nonzero_10q_sma_mid = compute_nonzero_10q(sma_values, n_timeout, *current_offset, MOVING_AVERAGE_VALUES_MIDTERM);
+            *nonzero_10q_sma_long = compute_nonzero_10q(sma_values, n_timeout, *current_offset, MOVING_AVERAGE_VALUES_LONGTERM);
+             *current_sma = sma_values[*current_offset];
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"New moving average %s rate: %.3fbps [of %d last samples]\n", direction, sma_values[*current_offset], MOVING_AVERAGE_VALUES);
+
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Recent moving average %s maximum rate: %.3fbps [of %d last samples]\n", direction, *max_sma, MOVING_AVERAGE_VALUES);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Mid term moving average %s maximum rate: %.3fbps [of %d last samples]\n", direction, *max_sma_mid, MOVING_AVERAGE_VALUES_MIDTERM);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Long term moving average %s maximum rate: %.3fbps [of %d last samples]\n", direction, *max_sma_long, MOVING_AVERAGE_VALUES_LONGTERM);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Long long term moving average %s maximum rate: %.3fbps [of %d last samples]\n", direction, *max_sma_longlong, n_timeout);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Recent moving average %s minimum rate: %.3fbps [of %d last samples]\n", direction, *min_sma, MOVING_AVERAGE_VALUES);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Mid term moving average %s minimum rate: %.3fbps [of %d last samples]\n", direction, *min_sma_mid, MOVING_AVERAGE_VALUES_MIDTERM);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Long term moving average %s minimum rate: %.3fbps [of %d last samples]\n", direction, *min_sma_long, n_timeout);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Recent moving average %s nonzero_10q rate: %.3fbps [of %d last samples]\n", direction, *nonzero_10q_sma, MOVING_AVERAGE_VALUES);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Mid term moving average %s nonzero_10q rate: %.3fbps [of %d last samples]\n", direction, *nonzero_10q_sma_mid, MOVING_AVERAGE_VALUES_MIDTERM);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Long term moving average %s nonzero_10q rate: %.3fbps [of %d last samples]\n", direction, *nonzero_10q_sma_long, n_timeout);
+        }
+
         DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Current Counter Value: %ld Bytes\n",curr_bytes);
         DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Previous Counter Value: %ld Bytes\n",*prev_bytes);
         DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Activity: %ld Bytes\n",(curr_bytes - *prev_bytes));
@@ -2415,6 +2723,33 @@ int compute_rates (struct iface_list *iface, char *direction)
         double *rate_current = malloc(sizeof(double));
         double *max_rate = malloc(sizeof(double));
 
+        if (strncmp(direction, "download", MAX_KEY_LENGTH) == 0) {
+            max_sma = malloc(sizeof(double));
+            max_sma_mid = malloc(sizeof(double));
+            max_sma_long = malloc(sizeof(double));
+            max_sma_longlong = malloc(sizeof(double));
+            min_sma = malloc(sizeof(double));
+            min_sma_mid = malloc(sizeof(double));
+            min_sma_long = malloc(sizeof(double));
+            nonzero_10q_sma = malloc(sizeof(double));
+            nonzero_10q_sma_mid = malloc(sizeof(double));
+            nonzero_10q_sma_long = malloc(sizeof(double));
+            current_sma = malloc(sizeof(double));
+            sma_values = malloc(n_timeout * sizeof(double));
+            *max_sma = 0.0;
+            *max_sma_mid = 0.0;
+            *max_sma_long = 0.0;
+            *max_sma_longlong = 0.0;
+            *min_sma = 0.0;
+            *min_sma_mid = 0.0;
+            *min_sma_long = 0.0;
+            *nonzero_10q_sma = 0.0;
+            *nonzero_10q_sma_mid = 0.0;
+            *nonzero_10q_sma_long = 0.0;
+            *current_sma = 0.0;
+            memset(sma_values, 0, n_timeout);
+        }
+
         *current_offset = 0;
         *maximum_offset = 0;
         *prev_bytes = curr_bytes;
@@ -2441,6 +2776,19 @@ int compute_rates (struct iface_list *iface, char *direction)
             g_hash_table_insert(iface->measure_dict, "download_rate_current", rate_current);
             g_hash_table_insert(iface->measure_dict, "download_rate_max_recent", max_rate);
             g_hash_table_insert(iface->measure_dict, "download_values", values);
+            g_hash_table_insert(iface->measure_dict, "download_sma", sma_values);
+            g_hash_table_insert(iface->measure_dict, "download_sma_max", max_sma);
+            g_hash_table_insert(iface->measure_dict, "download_sma_max_mid", max_sma_mid);
+            g_hash_table_insert(iface->measure_dict, "download_sma_max_long", max_sma_long);
+            g_hash_table_insert(iface->measure_dict, "download_sma_max_longlong", max_sma_longlong);
+            g_hash_table_insert(iface->measure_dict, "download_sma_min", min_sma);
+            g_hash_table_insert(iface->measure_dict, "download_sma_min_mid", min_sma_mid);
+            g_hash_table_insert(iface->measure_dict, "download_sma_min_long", min_sma_long);
+            g_hash_table_insert(iface->measure_dict, "download_sma_nonzero_10q", nonzero_10q_sma);
+            g_hash_table_insert(iface->measure_dict, "download_sma_nonzero_10q_mid", nonzero_10q_sma_mid);
+            g_hash_table_insert(iface->measure_dict, "download_sma_nonzero_10q_long", nonzero_10q_sma_long);
+            g_hash_table_insert(iface->measure_dict, "download_sma_current", current_sma);
+            DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Inserted sma at %p\n",sma_values);
         }
 
         DLOG(MAM_PMEASURE_THRUPUT_DEBUG,"Current Counter Value: %ld Bytes\n",*prev_bytes);

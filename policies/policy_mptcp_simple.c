@@ -316,9 +316,9 @@ int on_connect_request(request_context_t *rctx, struct event_base *base)
 	else
 	{
 		// search lower srtt prefix, and set it as bind_sa in the request context if found
-		struct src_prefix_list *bind_pfx = get_lowest_srtt_pfx(spl, "srtt_minimum_recent");
+		struct src_prefix_list *bind_pfx = get_lowest_srtt_pfx(spl, "srtt_minimum_recent", &sb);
 		if (bind_pfx != NULL) {
-			_muacc_logtofile(logfile, "%s_lowsrtt\n", bind_pfx->if_name);
+			_muacc_logtofile(logfile, "%s,lowlatency\n", bind_pfx->if_name);
 			set_bind_sa(rctx, bind_pfx, &sb);
 		}
 	}
@@ -377,10 +377,10 @@ int on_socketconnect_request(request_context_t *rctx, struct event_base *base)
 	else
 	{
 		// use lower srtt prefix
-		struct src_prefix_list *bind_pfx = get_lowest_srtt_pfx(spl, "srtt_minimum_recent");
+		struct src_prefix_list *bind_pfx = get_lowest_srtt_pfx(spl, "srtt_minimum_recent", &sb);
 		if (bind_pfx != NULL) {
 			set_bind_sa(rctx, bind_pfx, &sb);
-			_muacc_logtofile(logfile, "%s_lowsrtt\n", bind_pfx->if_name);
+			_muacc_logtofile(logfile, "%s,lowsrtt\n", bind_pfx->if_name);
 
 			// Set this prefix' evdns base for name resolution
 			rctx->evdns_base = bind_pfx->evdns_base;
@@ -425,7 +425,7 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 		spl = spl->next;
 	}
     spl = in4_enabled;
-	_muacc_logtofile(logfile, ",,,,,,,,,");
+	_muacc_logtofile(logfile, ",,,,,,,");
 
     // Add MPTCP option to sockopts_suggested, so it will be set on the new socket
     // just in case a new socket will be created
@@ -444,7 +444,12 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 		rctx->ctx = _muacc_clone_ctx(rctx->sockets->ctx);
 		__uuid_copy(rctx->ctx->ctxid, context_id);
 
-		_muacc_logtofile(logfile, "%d_reuse\n", rctx->sockets->file);
+        struct src_prefix_list *local_pfx = get_pfx_with_addr(rctx, rctx->ctx->bind_sa_suggested);
+        if (local_pfx != NULL) {
+            _muacc_logtofile(logfile, "%s,reuse\n", local_pfx->if_name);
+        } else {
+            _muacc_logtofile(logfile, "%d,reuse\n", rctx->sockets->file);
+        }
 		strbuf_printf(&sb, "\n\tSending reply\n");
 		_muacc_send_ctx_event(rctx, muacc_act_socketchoose_resp_existing);
 
@@ -472,13 +477,13 @@ int on_socketchoose_request(request_context_t *rctx, struct event_base *base)
 		else
 		{
 			// Use lower SRTT prefix
-            struct src_prefix_list *bind_pfx = get_lowest_srtt_pfx(spl, "srtt_minimum_recent");
+            struct src_prefix_list *bind_pfx = get_lowest_srtt_pfx(spl, "srtt_minimum_recent", &sb);
             if (bind_pfx == NULL) {
 				strbuf_printf(&sb, ", did not get lower srtt prefix from spl of length %d - using default... ", g_slist_length(spl));
                 bind_pfx = get_default_prefix(rctx, &sb);
-				_muacc_logtofile(logfile, "%s_default\n", bind_pfx->if_name);
+				_muacc_logtofile(logfile, "%s,default\n", bind_pfx->if_name);
             } else {
-				_muacc_logtofile(logfile, "%s_lowsrtt\n", bind_pfx->if_name);
+				_muacc_logtofile(logfile, "%s,lowsrtt\n", bind_pfx->if_name);
             }
 			if (bind_pfx != NULL) {
 				set_bind_sa(rctx, bind_pfx, &sb);

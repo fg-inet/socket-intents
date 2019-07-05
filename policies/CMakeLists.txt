@@ -21,6 +21,10 @@ TARGET_LINK_LIBRARIES(policy_mptcp_default_flow mam ${GLIB2_LIBRARIES} ${LIBNL_L
 ADD_LIBRARY(policy_mptcp_simple MODULE policy_mptcp_simple.c policy_util.c)
 SET_TARGET_PROPERTIES(policy_mptcp_simple PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_mptcp_simple mam ${GLIB2_LIBRARIES})
+
+ADD_LIBRARY(policy_mptcp_selective MODULE policy_mptcp_selective.c policy_util.c)
+SET_TARGET_PROPERTIES(policy_mptcp_selective PROPERTIES PREFIX "")
+TARGET_LINK_LIBRARIES(policy_mptcp_selective mam ${GLIB2_LIBRARIES})
 endif ()
 
 ADD_LIBRARY(policy_rr_pipelining MODULE policy_rr_pipelining.c policy_util.c)
@@ -43,6 +47,10 @@ ADD_LIBRARY(policy_earliest_arrival_free-or-busy MODULE policy_earliest_arrival_
 SET_TARGET_PROPERTIES(policy_earliest_arrival_free-or-busy PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_earliest_arrival_free-or-busy mam ${GLIB2_LIBRARIES})
 
+ADD_LIBRARY(policy_video MODULE policy_video.c policy_util.c)
+SET_TARGET_PROPERTIES(policy_video PROPERTIES PREFIX "")
+TARGET_LINK_LIBRARIES(policy_video mam ${GLIB2_LIBRARIES})
+
 ADD_LIBRARY(policy_earliest_arrival_probabilities MODULE policy_earliest_arrival_probabilities.c policy_earliest_arrival_base.c policy_util.c)
 SET_TARGET_PROPERTIES(policy_earliest_arrival_probabilities PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_earliest_arrival_probabilities mam ${GLIB2_LIBRARIES})
@@ -51,13 +59,13 @@ ADD_LIBRARY(policy_earliest_arrival_static MODULE policy_earliest_arrival_static
 SET_TARGET_PROPERTIES(policy_earliest_arrival_static PROPERTIES PREFIX "")
 TARGET_LINK_LIBRARIES(policy_earliest_arrival_static mam ${GLIB2_LIBRARIES})
 
-INSTALL(TARGETS policy_sample policy_rr_naive policy_rr_pipelining policy_earliest_arrival threshold_policy policy_earliest_arrival_free-or-busy policy_earliest_arrival_static policy_earliest_arrival_countconns policy_earliest_arrival_probabilities
+INSTALL(TARGETS policy_sample policy_rr_pipelining policy_earliest_arrival threshold_policy policy_earliest_arrival_free-or-busy policy_earliest_arrival_static policy_earliest_arrival_countconns policy_earliest_arrival_probabilities policy_video
 	DESTINATION "${CMAKE_INSTALL_PREFIX}/${POLICY_PATH}"
 )
 
 if (${HAVE_LIBNL} )
 #MPTCP policies
-INSTALL(TARGETS policy_mptcp_filesize policy_mptcp_default_flow policy_mptcp_simple
+INSTALL(TARGETS policy_mptcp_simple policy_mptcp_selective policy_mptcp_filesize policy_mptcp_default_flow
 	DESTINATION "${CMAKE_INSTALL_PREFIX}/${POLICY_PATH}"
 )
 endif ()
