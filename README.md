@@ -104,6 +104,20 @@ Notable policies
 * __Selective MPTCP Policy__: This Informed Access Network Selection Policy enables MPTCP only for transfers with category BULK and only if sufficient capacity is available. Otherwise, for BULK transfers, it uses the single network with the highest capacity, and for QUERY transfers, it uses the single network with the shortest latency.
 
 
+Creating a new policy
+---------------------
+
+Policies are implemented as modules for the Multi Access Manager (MAM), i.e., dynamically loaded libraries written in C, compiled, and loaded by MAM at runtime.
+
+Policies are located in the directory ``policies/``.
+Each policy implements callbacks, which the MAM will later call when it receives a request from an application. Each such request corresponds to, e.g., a decision which local interface to use for a new connection (``on_connect_request``), on which interface to resolve a name (``on_resolve_request``), or whether to open or reuse a socket on a particular local interface (``on_socketconnect_request`` and ``on_socketchoose_request``). If a policy is only used with applications that use socketconnect, it is not necessary to implement connect or resolve requests, but only socketconnect and socketchoose.
+Furthermore, each policy requires a init() and a cleanup() function. Policies usually use these functions to set up or tear down any required data structures, such as lists of available prefixes/local interfaces and Intents associated with them.
+
+As a starting point, consider copying the existing policy_sample.c and modifying it to your needs. This policy also contains examples of how to use any Intents that were set by the application. For examples of how to use the network characteristics collected by MAM, refer to, e.g., the ``threshold_policy.c`` or the ``policy_video.c`` (Optimist and Pessimist policy).
+
+To compile a policy, please add it to ``policies/CMakeLists.txt``.
+To enable the MAM to load this policy, please create a config file that provides the path to the compiled policy file, see ``policies/policy_sample.conf`` for an example. Note that every configured prefix can set its own DNS nameserver or even its own resolv.conf config file.
+
 Adding a new application
 ------------------------
 
